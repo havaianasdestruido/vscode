@@ -1,0 +1,228 @@
+{
+ "fetchedAt": "2026-11-01T00:53:58.014Z",
+ "pr": {
+  "number": 316756,
+  "title": "Markdown preview: refresh on file-system change even when document is open",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-16T05:48:12Z",
+  "updated_at": "2026-08-20T14:30:04Z",
+  "user": "yogeshwaran-c",
+  "author_association": "CONTRIBUTOR",
+  "additions": 10,
+  "deletions": 5,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 1,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/markdown-preview-refresh-265277",
+   "sha": "9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+   "repo": "yogeshwaran-c/vscode",
+   "label": "yogeshwaran-c:fix/markdown-preview-refresh-265277"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "c3becccee0628a8fff141e9b6f2b838697673e5d"
+  },
+  "body": "## Summary\n\nFixes #265277 — markdown preview keeps showing stale content after the file is overwritten on disk (external generator, file copy, editor agent, `git pull`, etc.).\n\n## Root cause\n\n`MarkdownPreview` installs a `FileSystemWatcher` for the previewed resource but wraps the refresh in a guard:\n\n```ts\nif (!vscode.workspace.textDocuments.some(doc => areUrisEqual(doc.uri, uri))) {\n    this.refresh();\n}\n```\n\nThe intent was to avoid a duplicate refresh when the file is also tracked as an open `TextDocument`, deferring to `onDidChangeTextDocument` in that case. In practice that assumption does not always hold for external overwrites: the text document model's reload from disk can be skipped or delayed by etag/stat caching, network/remote FS timing, or content-equality short-circuits, so `onDidChangeTextDocument` never fires for the change. The file-system event was the only remaining signal, and the guard silently dropped it — leaving the preview frozen on the pre-overwrite content until the user manually edited or invoked `Markdown: Refresh preview`.\n\nThis matches the persistent reports in the issue thread after #300629 landed (the case-insensitive URI fix only addressed the Windows-casing variant; users on Ubuntu/macOS/remote SSH continued to report it for non-casing reasons).\n\n## Fix\n\nDrop the open-document guard so the watcher always calls `refresh()` when the previewed file changes on disk. The two paths can no longer drop each other's events.\n\nAny genuine duplicate refresh that overlaps with `onDidChangeTextDocument` is already coalesced downstream:\n\n- `MarkdownPreview.refresh()` debounces via the 300 ms `#throttleTimer`, so two `refresh()` calls within the window collapse into one `#updatePreview` invocation.\n- `#updatePreview` early-returns when `PreviewDocumentVersion` matches the last rendered version, so a redundant invocation against an unchanged in-memory document is a no-op.\n\nSo unconditionally refreshing here does not introduce duplicate renders.\n\n## Test plan\n\nManual repro on Windows 11 (the original report's platform), confirmed before/after the change:\n\n- [x] Create `repro.md` with some content, open it, then open the markdown preview side-by-side.\n- [x] Externally overwrite `repro.md` with a different markdown file (copy a different file with the same name on top of it; or have an external script regenerate it).\n- [x] Before the fix: preview keeps showing the old content; `Markdown: Refresh preview` is required.\n- [x] After the fix: preview updates automatically on the file overwrite, without manual intervention.\n- [x] Sanity-checked that ordinary in-editor edits still update the preview (the `onDidChangeTextDocument` path is unchanged).\n- [x] No new lint or type errors (`tsc -p extensions/markdown-language-features/tsconfig.json --noEmit` clean).\n\nA unit test isn't really feasible here without a real file-system + watcher harness — the bug is specifically about events that the in-process text model misses.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "79eb1aa72d63bcb81340add56992bfac3c9bf835",
+   "filename": "extensions/markdown-language-features/src/preview/preview.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 5,
+   "changes": 15,
+   "blob_url": "https://github.com/microsoft/vscode/blob/9e310e0c807c05a9ef8cae0ba315e614b5d1805d/extensions%2Fmarkdown-language-features%2Fsrc%2Fpreview%2Fpreview.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/9e310e0c807c05a9ef8cae0ba315e614b5d1805d/extensions%2Fmarkdown-language-features%2Fsrc%2Fpreview%2Fpreview.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmarkdown-language-features%2Fsrc%2Fpreview%2Fpreview.ts?ref=9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+   "patch": "@@ -160,11 +160,16 @@ class MarkdownPreview extends Disposable implements WebviewResourceProvider {\n \t\t\tconst watcher = this._register(vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(resource, '*')));\n \t\t\tthis._register(watcher.onDidChange(uri => {\n \t\t\t\tif (this.isPreviewOf(uri)) {\n-\t\t\t\t\t// Only use the file system event when VS Code does not already know about the file.\n-\t\t\t\t\t// This is needed to avoid duplicate refreshes\n-\t\t\t\t\tif (!vscode.workspace.textDocuments.some(doc => areUrisEqual(doc.uri, uri))) {\n-\t\t\t\t\t\tthis.refresh();\n-\t\t\t\t\t}\n+\t\t\t\t\t// Always refresh on a file system change for the previewed resource. Previously this\n+\t\t\t\t\t// path was skipped when the resource was already open as a `TextDocument`, on the\n+\t\t\t\t\t// assumption that `onDidChangeTextDocument` would handle the refresh. That assumption\n+\t\t\t\t\t// does not always hold for external file overwrites (see #265277): the text document\n+\t\t\t\t\t// model reload can be skipped or delayed (e.g. etag/stat caching, remote/network FS\n+\t\t\t\t\t// timing, or content-equality short-circuits), leaving the preview showing stale\n+\t\t\t\t\t// content. Any genuine duplicate refresh that overlaps with `onDidChangeTextDocument`\n+\t\t\t\t\t// is already coalesced by the `#throttleTimer` debounce and version-equality check in\n+\t\t\t\t\t// `#updatePreview`, so unconditionally refreshing here is safe.\n+\t\t\t\t\tthis.refresh();\n \t\t\t\t}\n \t\t\t}));\n \t\t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4303068059,
+   "node_id": "PRR_kwDOAn8RLM8AAAABAHubmw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR aims to make Markdown previews refresh when the backing file changes on disk, even if the document is already open in VS Code.\n\n**Changes:**\n- Removes the open-document guard from the Markdown preview file-system watcher.\n- Adds explanatory comments about why file-system events should trigger refreshes unconditionally.\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/316756#pullrequestreview-4303068059",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/316756",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/316756#pullrequestreview-4303068059"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/316756"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-16T05:53:51Z",
+   "commit_id": "9e310e0c807c05a9ef8cae0ba315e614b5d1805d"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5357304300",
+   "html_url": "https://github.com/microsoft/vscode/pull/316756#issuecomment-5357304300",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/316756",
+   "id": 5357304300,
+   "node_id": "IC_kwDOAn8RLM8AAAABP1H57A",
+   "user": {
+    "login": "Atreyu-94",
+    "id": 39834909,
+    "node_id": "MDQ6VXNlcjM5ODM0OTA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/39834909?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Atreyu-94",
+    "html_url": "https://github.com/Atreyu-94",
+    "followers_url": "https://api.github.com/users/Atreyu-94/followers",
+    "following_url": "https://api.github.com/users/Atreyu-94/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Atreyu-94/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Atreyu-94/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Atreyu-94/subscriptions",
+    "organizations_url": "https://api.github.com/users/Atreyu-94/orgs",
+    "repos_url": "https://api.github.com/users/Atreyu-94/repos",
+    "events_url": "https://api.github.com/users/Atreyu-94/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Atreyu-94/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-20T14:30:04Z",
+   "updated_at": "2026-08-20T14:30:04Z",
+   "body": "Any updates? 🥹",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5357304300/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+   "node_id": "C_kwDORXVh_doAKDllMzEwZTBjODA3YzA1YTllZjhjYWUwYmEzMTVlNjE0YjVkMTgwNWQ",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-16T05:47:20Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-16T05:47:20Z"
+    },
+    "message": "Markdown preview: refresh on file-system change even when document is open\n\nWhen the previewed markdown file is overwritten on disk (e.g. a different\nfile copied over it, an external generator regenerates the file, an editor\nagent rewrites it), the preview can keep showing stale content.\n\nThe file-system watcher in `MarkdownPreview` was guarded by:\n\n  if (!vscode.workspace.textDocuments.some(doc => areUrisEqual(doc.uri, uri))) {\n      this.refresh();\n  }\n\nThe intent was to avoid a duplicate refresh when the file was also being\ntracked as an open `TextDocument` (in which case `onDidChangeTextDocument`\nwould handle the update). In practice that assumption does not always\nhold: the text document model's reload from disk can be skipped or\ndelayed by etag/stat caching, network/remote FS timing, or\ncontent-equality short-circuits, so `onDidChangeTextDocument` never\nfires for the change. The watcher event was the only remaining signal,\nand the guard silently dropped it -- leaving the preview frozen on the\npre-overwrite content until the user manually edited or refreshed it.\n\nDrop the guard so the watcher always calls `refresh()`. Any genuine\noverlap with `onDidChangeTextDocument` is already coalesced by the\n300ms `#throttleTimer` debounce and the `PreviewDocumentVersion`\nequality check inside `#updatePreview`, so unconditionally refreshing\nhere does not introduce duplicate renders.\n\nFixes #265277",
+    "tree": {
+     "sha": "8574480adb134c461f6f80e6637f15c150ee1a68",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8574480adb134c461f6f80e6637f15c150ee1a68"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+   "html_url": "https://github.com/microsoft/vscode/commit/9e310e0c807c05a9ef8cae0ba315e614b5d1805d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9e310e0c807c05a9ef8cae0ba315e614b5d1805d/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c3becccee0628a8fff141e9b6f2b838697673e5d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c3becccee0628a8fff141e9b6f2b838697673e5d",
+     "html_url": "https://github.com/microsoft/vscode/commit/c3becccee0628a8fff141e9b6f2b838697673e5d"
+    }
+   ]
+  }
+ ]
+}

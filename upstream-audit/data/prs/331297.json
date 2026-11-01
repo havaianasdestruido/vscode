@@ -1,0 +1,555 @@
+{
+ "fetchedAt": "2026-11-01T00:54:24.943Z",
+ "pr": {
+  "number": 331297,
+  "title": "Fix process memory in `code --status`",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-08-17T19:32:41Z",
+  "updated_at": "2026-10-28T22:21:33Z",
+  "user": "Abhinav0905",
+  "author_association": "NONE",
+  "additions": 2,
+  "deletions": 2,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 5,
+  "review_comments": 4,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "agent/fix-code-status-memory",
+   "sha": "6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "repo": "Abhinav0905/vscode",
+   "label": "Abhinav0905:agent/fix-code-status-memory"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "de09766493ba9c4062277e14390329950fb4ab94"
+  },
+  "body": "Fixes #331296\n\nRelated to #194322 and #331139.\n\n## What changed\n\n- Treat `ProcessItem.mem` consistently as bytes when formatting the `code --status` process table.\n- Document the byte-valued `ProcessItem.mem` contract.\n\n## Root cause\n\n`listProcesses` already converts non-Windows `%mem` values to bytes, but `DiagnosticsService.formatProcessItem` applied the old percentage-to-bytes calculation a second time on macOS and Linux. This produced impossible values such as 25,332,747,904 MB for a process with about 94 MiB RSS.\n\nThe Process Explorer already formats `item.mem` as bytes. This change makes the diagnostics text path consistent with that behavior.\n\nPR #331139 changes the macOS source metric from RSS to physical footprint but continues to store the result in bytes, so the two fixes are compatible and address separate output paths.\n\n## Validation\n\n- Reproduced on VS Code 1.133.0, macOS 26.5.1 arm64.\n- TypeScript syntax transpile passed for both changed files.\n- `git diff --check` passed.\n- Confirmed the patch applies cleanly to current `main` at `4ccdb71a3e5`.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "4fa6848c2f8b5ffba9184e9501e8a3a7842a6285",
+   "filename": "src/vs/base/common/processes.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "changes": 1,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6c9d619eb681f08630e2230a6c5067883e8ffc51/src%2Fvs%2Fbase%2Fcommon%2Fprocesses.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6c9d619eb681f08630e2230a6c5067883e8ffc51/src%2Fvs%2Fbase%2Fcommon%2Fprocesses.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fcommon%2Fprocesses.ts?ref=6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "patch": "@@ -93,6 +93,7 @@ export interface ProcessItem {\n \tpid: number;\n \tppid: number;\n \tload: number;\n+\t/** Memory usage in bytes. */\n \tmem: number;\n \n \tchildren?: ProcessItem[];"
+  },
+  {
+   "sha": "23212005e0644085f2364801d71504095404c570",
+   "filename": "src/vs/platform/diagnostics/node/diagnosticsService.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 2,
+   "changes": 3,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6c9d619eb681f08630e2230a6c5067883e8ffc51/src%2Fvs%2Fplatform%2Fdiagnostics%2Fnode%2FdiagnosticsService.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6c9d619eb681f08630e2230a6c5067883e8ffc51/src%2Fvs%2Fplatform%2Fdiagnostics%2Fnode%2FdiagnosticsService.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fdiagnostics%2Fnode%2FdiagnosticsService.ts?ref=6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "patch": "@@ -551,8 +551,7 @@ export class DiagnosticsService implements IDiagnosticsService {\n \t\t\t}\n \t\t}\n \n-\t\tconst memory = process.platform === 'win32' ? item.mem : (osLib.totalmem() * (item.mem / 100));\n-\t\toutput.push(`${item.load.toFixed(0).padStart(5, ' ')}\\t${(memory / ByteSize.MB).toFixed(0).padStart(6, ' ')}\\t${item.pid.toFixed(0).padStart(6, ' ')}\\t${name}`);\n+\t\toutput.push(`${item.load.toFixed(0).padStart(5, ' ')}\\t${(item.mem / ByteSize.MB).toFixed(0).padStart(6, ' ')}\\t${item.pid.toFixed(0).padStart(6, ' ')}\\t${name}`);\n \n \t\t// Recurse into children if any\n \t\tif (Array.isArray(item.children)) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4953922473,
+   "node_id": "PRR_kwDOAn8RLM8AAAABJ0bbqQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\n> [!NOTE]\n> Copilot was unable to run its full agentic suite in this review.\n\nUpdates process memory reporting to treat `ProcessItem.mem` consistently as bytes and simplifies diagnostics output formatting accordingly.\n\n**Changes:**\n- Remove platform-specific memory conversion logic in diagnostics output and always render `mem` as MB from bytes.\n- Document `ProcessItem.mem` as “Memory usage in bytes.”\n\n### Reviewed changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/platform/diagnostics/node/diagnosticsService.ts | Simplifies diagnostics table output by assuming `ProcessItem.mem` is already in bytes. |\n| src/vs/base/common/processes.ts | Documents the `mem` field’s unit as bytes to clarify the API contract. |\n\n\n\n\n\n\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-4953922473",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331297",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-4953922473"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331297"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "lite",
+   "submitted_at": "2026-08-17T19:33:33Z",
+   "commit_id": "31a52b1d044f88de580456187f9aef828dbc156b"
+  },
+  {
+   "id": 5524805394,
+   "node_id": "PRR_kwDOAn8RLM8AAAABSU3XEg",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?u=0f313da62156e67892e8bc20f52c024dd2de31f3&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-5524805394",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331297",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-5524805394"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331297"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-14T21:19:54Z",
+   "commit_id": "31a52b1d044f88de580456187f9aef828dbc156b"
+  },
+  {
+   "id": 5524805952,
+   "node_id": "PRR_kwDOAn8RLM8AAAABSU3ZQA",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?u=0f313da62156e67892e8bc20f52c024dd2de31f3&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-5524805952",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331297",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331297#pullrequestreview-5524805952"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331297"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-14T21:19:57Z",
+   "commit_id": "31a52b1d044f88de580456187f9aef828dbc156b"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5319588572",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#issuecomment-5319588572",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331297",
+   "id": 5319588572,
+   "node_id": "IC_kwDOAn8RLM8AAAABPRJ63A",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-17T19:59:45Z",
+   "updated_at": "2026-08-17T19:59:45Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5319588572/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5456110649",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#issuecomment-5456110649",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331297",
+   "id": 5456110649,
+   "node_id": "IC_kwDOAn8RLM8AAAABRTWkOQ",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-28T18:13:47Z",
+   "updated_at": "2026-08-28T18:13:47Z",
+   "body": "Hi @deepak1556, this is ready for human review. The change makes the `code --status` memory calculation use the `ProcessItem.mem` byte contract consistently, then converts bytes to MB once in diagnostics output. The dependency and CLA checks pass. Could you confirm whether this matches the current process-tree producers? I can add or adjust focused coverage if you prefer.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5456110649/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6178713951",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#issuecomment-6178713951",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331297",
+   "id": 6178713951,
+   "node_id": "IC_kwDOAn8RLM8AAAABcEexXw",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-14T21:18:06Z",
+   "updated_at": "2026-10-14T21:18:06Z",
+   "body": "Hi @deepak1556, following up on the August 28 note. The change is still limited to treating ProcessItem.mem as bytes and converting it to MB once in diagnostics output. The CLA and dependency checks pass, while the required PR check is still awaiting maintainer approvals. Could you confirm the byte contract or point me to the right owner for review?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6178713951/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6283536792",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#issuecomment-6283536792",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331297",
+   "id": 6283536792,
+   "node_id": "IC_kwDOAn8RLM8AAAABdocpmA",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-20T04:41:04Z",
+   "updated_at": "2026-10-20T04:41:04Z",
+   "body": "Hi @deepak1556, could this focused two-file fix get a review soon, or could you point me to the right owner? The branch is current with main, the CLA and dependency checks pass, and the earlier Copilot questions have been answered. I am available to make any requested changes quickly.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6283536792/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6482160469",
+   "html_url": "https://github.com/microsoft/vscode/pull/331297#issuecomment-6482160469",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331297",
+   "id": 6482160469,
+   "node_id": "IC_kwDOAn8RLM8AAAABgl3rVQ",
+   "user": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-28T22:21:33Z",
+   "updated_at": "2026-10-28T22:21:33Z",
+   "body": "Hi @deepak1556, I've updated the branch with the latest `main`. This remains a focused two-file fix for the double memory conversion in `code --status`, and the earlier review questions have been answered. Could you please take a look when you have a chance and help unblock the required checks? If everything looks good once the checks pass, I'd appreciate a merge. I'm happy to address any further feedback. Thank you!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6482160469/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "31a52b1d044f88de580456187f9aef828dbc156b",
+   "node_id": "C_kwDOT7nEhtoAKDMxYTUyYjFkMDQ0Zjg4ZGU1ODA0NTYxODdmOWFlZjgyOGRiYzE1NmI",
+   "commit": {
+    "author": {
+     "name": "abhinav",
+     "email": "abhinav@aidash.com",
+     "date": "2026-08-17T19:31:57Z"
+    },
+    "committer": {
+     "name": "abhinav",
+     "email": "abhinav@aidash.com",
+     "date": "2026-08-17T19:31:57Z"
+    },
+    "message": "Fix process memory in code status",
+    "tree": {
+     "sha": "776a787da3824d1c39a56d188f6a1b46b1757517",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/776a787da3824d1c39a56d188f6a1b46b1757517"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/31a52b1d044f88de580456187f9aef828dbc156b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/31a52b1d044f88de580456187f9aef828dbc156b",
+   "html_url": "https://github.com/microsoft/vscode/commit/31a52b1d044f88de580456187f9aef828dbc156b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/31a52b1d044f88de580456187f9aef828dbc156b/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "4ccdb71a3e51e6098d5bb7096cedf00415a3e3e2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4ccdb71a3e51e6098d5bb7096cedf00415a3e3e2",
+     "html_url": "https://github.com/microsoft/vscode/commit/4ccdb71a3e51e6098d5bb7096cedf00415a3e3e2"
+    }
+   ]
+  },
+  {
+   "sha": "6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "node_id": "C_kwDOT7nEhtoAKDZjOWQ2MTllYjY4MWYwODYzMGUyMjMwYTZjNTA2Nzg4M2U4ZmZjNTE",
+   "commit": {
+    "author": {
+     "name": "Kumar Abhinav",
+     "email": "133813093+Abhinav0905@users.noreply.github.com",
+     "date": "2026-10-28T22:21:04Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-28T22:21:04Z"
+    },
+    "message": "Merge branch 'main' into agent/fix-code-status-memory",
+    "tree": {
+     "sha": "ca404c364b19956f16cf24b9af08447479ad2e93",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ca404c364b19956f16cf24b9af08447479ad2e93"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6c9d619eb681f08630e2230a6c5067883e8ffc51",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq4nVQCRC1aQ7uu5UhlAAA5zIQAI0jexbxZ/JPAX1eoTgqGp5b\ntbKVs6Xin6aNoB3yMmdmA1NL3t8HSxxdfsbjQO9eEF2i6Y+hjUKNDknOBphD0v0t\nz5Ga28tnkKlijlp5NZHR2Idu8HrQbIaKFuy5QRrrZczF5Pdyj5HOFi0zuVix/Cfg\nLEDtyhEAk9p6XQ+y6ff6G20D3uZAoAWlSteV0UNQs81aEBQghGbdhhF1EedBOurm\nUwpiV+2I2GOTkhcFzIxsEjTsY9aal/dK6Sm54lK7k1aJNUvo329Hqzx5vzEj/Q70\nLQemwfkp6fx3j//dU1zYEV+Hm3X9XsyZZxm+uxbJnCzmIfdQ9jhw7rVDyC+jwftK\n7UUAYYMOPyohenY/oD4uJLnUt57AQQ1Yf4klmE78qEejSBpvEKpt6j7KCEvXTFeu\nDUxxJjzU7PI5/b92nAZHDe38ofVvtyudODGllDu5ck/0FSGRnAx64Tug5UL/g7Us\nZ4vo0wak9b3Zw3Rv0bqPpQDu9lqwmlQMAt5yByX4rPSBrlsSJTYEEi3qGe3mKdpp\nVIkm9Ph2fwjaSWkkjbHf3srHJAVzIZfmtNqQJMet+zwcSAP/ZseNKkzPpNo5YR44\nT6pYObowfkn8R9gj2jz4pGT0HxZdbbzoVS2nWzrD6OqTdpoU9pOaAmm073wP4ZBp\nbwjO7uPZTqhtbO4qrSYv\n=jhaE\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ca404c364b19956f16cf24b9af08447479ad2e93\nparent 31a52b1d044f88de580456187f9aef828dbc156b\nparent de09766493ba9c4062277e14390329950fb4ab94\nauthor Kumar Abhinav <133813093+Abhinav0905@users.noreply.github.com> 1793226064 -0700\ncommitter GitHub <noreply@github.com> 1793226064 -0700\n\nMerge branch 'main' into agent/fix-code-status-memory",
+     "verified_at": "2026-10-28T22:21:05Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "html_url": "https://github.com/microsoft/vscode/commit/6c9d619eb681f08630e2230a6c5067883e8ffc51",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6c9d619eb681f08630e2230a6c5067883e8ffc51/comments",
+   "author": {
+    "login": "Abhinav0905",
+    "id": 133813093,
+    "node_id": "U_kgDOB_nTZQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/133813093?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Abhinav0905",
+    "html_url": "https://github.com/Abhinav0905",
+    "followers_url": "https://api.github.com/users/Abhinav0905/followers",
+    "following_url": "https://api.github.com/users/Abhinav0905/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Abhinav0905/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Abhinav0905/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Abhinav0905/subscriptions",
+    "organizations_url": "https://api.github.com/users/Abhinav0905/orgs",
+    "repos_url": "https://api.github.com/users/Abhinav0905/repos",
+    "events_url": "https://api.github.com/users/Abhinav0905/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Abhinav0905/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "31a52b1d044f88de580456187f9aef828dbc156b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/31a52b1d044f88de580456187f9aef828dbc156b",
+     "html_url": "https://github.com/microsoft/vscode/commit/31a52b1d044f88de580456187f9aef828dbc156b"
+    },
+    {
+     "sha": "de09766493ba9c4062277e14390329950fb4ab94",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/de09766493ba9c4062277e14390329950fb4ab94",
+     "html_url": "https://github.com/microsoft/vscode/commit/de09766493ba9c4062277e14390329950fb4ab94"
+    }
+   ]
+  }
+ ]
+}

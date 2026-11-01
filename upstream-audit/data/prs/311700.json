@@ -1,0 +1,356 @@
+{
+ "fetchedAt": "2026-11-01T00:53:14.953Z",
+ "pr": {
+  "number": 311700,
+  "title": "Color `*_test.go` files the same way `*.test.ts` are colored",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-21T15:36:12Z",
+  "updated_at": "2026-04-29T18:27:13Z",
+  "user": "jakebailey",
+  "author_association": "MEMBER",
+  "additions": 107,
+  "deletions": 1,
+  "changed_files": 4,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 3,
+  "commits_count": 1,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [
+   "aeschli"
+  ],
+  "head": {
+   "ref": "underscore-test-colors",
+   "sha": "c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "repo": "jakebailey/vscode",
+   "label": "jakebailey:underscore-test-colors"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "498c4699433d4b9892aaf943bd1b562ee173d1b9"
+  },
+  "body": "For JS/TS, test files are shown in another color:\r\n\r\n<img width=\"292\" height=\"227\" alt=\"image\" src=\"https://github.com/user-attachments/assets/73bd9d1e-cea8-43d5-937f-a56adceb46b3\" />\r\n\r\nI'd love to have this for Go, where it's hard to visually find test files:\r\n\r\n<img width=\"317\" height=\"303\" alt=\"image\" src=\"https://github.com/user-attachments/assets/d37c7feb-e794-4069-aaef-971807f2477b\" />\r\n\r\nBut, this didn't end up working out of the box as the highlighting system only looks for dot separated strings.\r\n\r\nAdding `_` separation enables this:\r\n\r\n<img width=\"286\" height=\"328\" alt=\"image\" src=\"https://github.com/user-attachments/assets/fba60f29-abba-47aa-b4b8-b84bdfc4483a\" />\r\n\r\nThere are other languages that use a `*_test.<ext>` convention or similar, including:\r\n\r\n- Elixir: https://hexdocs.pm/ex_unit/ExUnit.html, https://github.com/elixir-lang/elixir/tree/main/lib/elixir/test/elixir\r\n- Ruby: https://rspec.info/features/3-12/rspec-core/command-line/pattern-option/\r\n- Python: https://docs.pytest.org/en/stable/explanation/goodpractices.html#conventions-for-python-test-discovery (though `test_*.py` is also listed, which I have not handled)\r\n\r\nWhich could benefit from a change like this, though I don't know what color to give those (TS vs Go is easy because they're both blue, so orange seems fine!)",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "bc459fb5f88d9cc494247528392f05e58b14fbd5",
+   "filename": "extensions/theme-seti/icons/vs-seti-icon-theme.json",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/extensions%2Ftheme-seti%2Ficons%2Fvs-seti-icon-theme.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/extensions%2Ftheme-seti%2Ficons%2Fvs-seti-icon-theme.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Ftheme-seti%2Ficons%2Fvs-seti-icon-theme.json?ref=c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "patch": "@@ -502,6 +502,14 @@\n \t\t\t\"fontCharacter\": \"\\\\E03A\",\n \t\t\t\"fontColor\": \"#519aba\"\n \t\t},\n+\t\t\"_go2_1_light\": {\n+\t\t\t\"fontCharacter\": \"\\\\E03A\",\n+\t\t\t\"fontColor\": \"#cc6d2e\"\n+\t\t},\n+\t\t\"_go2_1\": {\n+\t\t\t\"fontCharacter\": \"\\\\E03A\",\n+\t\t\t\"fontColor\": \"#e37933\"\n+\t\t},\n \t\t\"_godot_light\": {\n \t\t\t\"fontCharacter\": \"\\\\E03B\",\n \t\t\t\"fontColor\": \"#498ba7\"\n@@ -1610,6 +1618,7 @@\n \t\t\"gitmodules\": \"_git\",\n \t\t\"slide\": \"_go\",\n \t\t\"article\": \"_go\",\n+\t\t\"_test.go\": \"_go2_1\",\n \t\t\"gd\": \"_godot\",\n \t\t\"godot\": \"_godot_1\",\n \t\t\"tres\": \"_godot_2\",\n@@ -2040,6 +2049,7 @@\n \t\t\t\"gitmodules\": \"_git_light\",\n \t\t\t\"slide\": \"_go_light\",\n \t\t\t\"article\": \"_go_light\",\n+\t\t\t\"_test.go\": \"_go2_1_light\",\n \t\t\t\"gd\": \"_godot_light\",\n \t\t\t\"godot\": \"_godot_1_light\",\n \t\t\t\"tres\": \"_godot_2_light\","
+  },
+  {
+   "sha": "eb27178af217578e471b90175c2a9e528e7be48d",
+   "filename": "src/vs/editor/common/services/getIconClasses.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 0,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Feditor%2Fcommon%2Fservices%2FgetIconClasses.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Feditor%2Fcommon%2Fservices%2FgetIconClasses.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcommon%2Fservices%2FgetIconClasses.ts?ref=c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "patch": "@@ -69,6 +69,14 @@ export function getIconClasses(modelService: IModelService, languageService: ILa\n \t\t\t\t\tconst dotSegments = name.split('.');\n \t\t\t\t\tfor (let i = 1; i < dotSegments.length; i++) {\n \t\t\t\t\t\tclasses.push(`${dotSegments.slice(i).join('.')}-ext-file-icon`); // add each combination of all found extensions if more than one\n+\n+\t\t\t\t\t\t// Handle underscore-suffixed base names (e.g., foo_test.go → _test.go)\n+\t\t\t\t\t\t// to enable icon themes to target naming conventions like Go's _test.go files\n+\t\t\t\t\t\tconst precedingSegment = dotSegments[i - 1];\n+\t\t\t\t\t\tconst lastUnderscore = precedingSegment.lastIndexOf('_');\n+\t\t\t\t\t\tif (lastUnderscore > 0 && lastUnderscore < precedingSegment.length - 1) {\n+\t\t\t\t\t\t\tclasses.push(`${precedingSegment.substring(lastUnderscore)}.${dotSegments.slice(i).join('.')}-ext-file-icon`);\n+\t\t\t\t\t\t}\n \t\t\t\t\t}\n \t\t\t\t}\n \t\t\t\tclasses.push(`ext-file-icon`); // extra segment to increase file-ext score"
+  },
+  {
+   "sha": "3547a90e4de9acc9c65cf77a5f143d6375def6d3",
+   "filename": "src/vs/editor/test/common/services/getIconClasses.test.ts",
+   "status": "added",
+   "additions": 88,
+   "deletions": 0,
+   "changes": 88,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Feditor%2Ftest%2Fcommon%2Fservices%2FgetIconClasses.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Feditor%2Ftest%2Fcommon%2Fservices%2FgetIconClasses.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Ftest%2Fcommon%2Fservices%2FgetIconClasses.test.ts?ref=c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "patch": "@@ -0,0 +1,88 @@\n+/*---------------------------------------------------------------------------------------------\n+ *  Copyright (c) Microsoft Corporation. All rights reserved.\n+ *  Licensed under the MIT License. See License.txt in the project root for license information.\n+ *--------------------------------------------------------------------------------------------*/\n+\n+import assert from 'assert';\n+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';\n+import { URI } from '../../../../base/common/uri.js';\n+import { ILanguageService } from '../../../common/languages/language.js';\n+import { IModelService } from '../../../common/services/model.js';\n+import { getIconClasses } from '../../../common/services/getIconClasses.js';\n+\n+/**\n+ * Minimal stubs — language detection is irrelevant for the class-generation\n+ * tests below, so returning null/undefined everywhere is fine.\n+ */\n+const nullModelService = { getModel: () => null } as unknown as IModelService;\n+const nullLanguageService = {\n+\tgetLanguageIdByMimeType: () => null,\n+\tguessLanguageIdByFilepathOrFirstLine: () => null,\n+} as unknown as ILanguageService;\n+\n+function classesFor(filename: string): string[] {\n+\treturn getIconClasses(nullModelService, nullLanguageService, URI.file(`/test/${filename}`));\n+}\n+\n+suite('getIconClasses', () => {\n+\n+\tensureNoDisposablesAreLeakedInTestSuite();\n+\n+\ttest('produces dot-based compound extension classes', () => {\n+\t\tconst classes = classesFor('foo.test.ts');\n+\t\tassert.ok(classes.includes('test.ts-ext-file-icon'));\n+\t\tassert.ok(classes.includes('ts-ext-file-icon'));\n+\t});\n+\n+\ttest('produces underscore-suffix extension class for Go test files', () => {\n+\t\tconst classes = classesFor('foo_test.go');\n+\t\tassert.ok(classes.includes('_test.go-ext-file-icon'), 'should produce _test.go compound extension');\n+\t\tassert.ok(classes.includes('go-ext-file-icon'), 'should still produce base .go extension');\n+\t});\n+\n+\ttest('produces underscore-suffix for deeply underscored names', () => {\n+\t\tconst classes = classesFor('my_app_test.go');\n+\t\tassert.ok(classes.includes('_test.go-ext-file-icon'), 'uses last underscore segment');\n+\t\tassert.ok(classes.includes('go-ext-file-icon'));\n+\t});\n+\n+\ttest('handles underscore suffix with compound dot extension', () => {\n+\t\tconst classes = classesFor('foo_test.d.ts');\n+\t\tassert.ok(classes.includes('_test.d.ts-ext-file-icon'), 'combines underscore suffix with full dot extension');\n+\t\tassert.ok(classes.includes('d.ts-ext-file-icon'));\n+\t\tassert.ok(classes.includes('ts-ext-file-icon'));\n+\t});\n+\n+\ttest('handles underscore suffix in middle dot segment', () => {\n+\t\tconst classes = classesFor('foo.bar_test.go');\n+\t\tassert.ok(classes.includes('_test.go-ext-file-icon'), 'detects underscore in non-first dot segment');\n+\t\tassert.ok(classes.includes('bar_test.go-ext-file-icon'));\n+\t\tassert.ok(classes.includes('go-ext-file-icon'));\n+\t});\n+\n+\ttest('skips leading underscore filenames', () => {\n+\t\tconst classes = classesFor('_hidden.go');\n+\t\tassert.ok(!classes.includes('_hidden.go-ext-file-icon'), 'leading underscore should not produce a suffix class');\n+\t\tassert.ok(classes.includes('go-ext-file-icon'));\n+\t});\n+\n+\ttest('skips trailing underscore in base name', () => {\n+\t\tconst classes = classesFor('__init__.py');\n+\t\tassert.ok(classes.includes('py-ext-file-icon'));\n+\t\t// Should not produce a junk class from the trailing underscore\n+\t\tconst underscoreClasses = classes.filter(c => c.startsWith('_.') && c.endsWith('-ext-file-icon'));\n+\t\tassert.strictEqual(underscoreClasses.length, 0, 'trailing underscore should not produce a suffix class');\n+\t});\n+\n+\ttest('does not produce underscore class for hyphenated names', () => {\n+\t\tconst classes = classesFor('foo-test.go');\n+\t\tassert.ok(!classes.includes('_test.go-ext-file-icon'), 'hyphens should not be treated as underscore suffix separators');\n+\t\tassert.ok(classes.includes('go-ext-file-icon'));\n+\t});\n+\n+\ttest('no extra classes for files without underscores', () => {\n+\t\tconst classes = classesFor('main.go');\n+\t\tconst extClasses = classes.filter(c => c.endsWith('-ext-file-icon') && c !== 'ext-file-icon');\n+\t\tassert.deepStrictEqual(extClasses, ['go-ext-file-icon']);\n+\t});\n+});"
+  },
+  {
+   "sha": "1455446dddbf62fe244f59bb2a5fb740180b6e21",
+   "filename": "src/vs/workbench/services/themes/common/fileIconThemeSchema.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Fworkbench%2Fservices%2Fthemes%2Fcommon%2FfileIconThemeSchema.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/src%2Fvs%2Fworkbench%2Fservices%2Fthemes%2Fcommon%2FfileIconThemeSchema.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fservices%2Fthemes%2Fcommon%2FfileIconThemeSchema.ts?ref=c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "patch": "@@ -71,7 +71,7 @@ const schema: IJSONSchema = {\n \t\t},\n \t\tfileExtensions: {\n \t\t\ttype: 'object',\n-\t\t\tdescription: nls.localize('schema.fileExtensions', 'Associates file extensions to icons. The object key is the file extension name. The extension name is the last segment of a file name after the last dot (not including the dot). Extensions are compared case insensitive.'),\n+\t\t\tdescription: nls.localize('schema.fileExtensions', 'Associates file extensions to icons. The object key is the file extension name. The extension name is the last segment of a file name after the last dot (not including the dot). Extensions are compared case insensitive. Compound extensions with dots are supported (e.g. \"test.ts\" matches \"foo.test.ts\"). Underscore-suffixed extensions are also supported (e.g. \"_test.go\" matches \"foo_test.go\").'),\n \n \t\t\tadditionalProperties: {\n \t\t\t\ttype: 'string',"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4148996868,
+   "node_id": "PRR_kwDOAn8RLM73TKsE",
+   "user": {
+    "login": "jakebailey",
+    "id": 5341706,
+    "node_id": "MDQ6VXNlcjUzNDE3MDY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5341706?u=018aa90f39cd6fe8d19fe75010e22f105ef65696&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jakebailey",
+    "html_url": "https://github.com/jakebailey",
+    "followers_url": "https://api.github.com/users/jakebailey/followers",
+    "following_url": "https://api.github.com/users/jakebailey/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jakebailey/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jakebailey/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jakebailey/subscriptions",
+    "organizations_url": "https://api.github.com/users/jakebailey/orgs",
+    "repos_url": "https://api.github.com/users/jakebailey/repos",
+    "events_url": "https://api.github.com/users/jakebailey/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jakebailey/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/311700#pullrequestreview-4148996868",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/311700",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/311700#pullrequestreview-4148996868"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/311700"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-21T15:37:58Z",
+   "commit_id": "dde683ebe11b9c5b20a96e32e70d889c29097ce6"
+  },
+  {
+   "id": 4149017288,
+   "node_id": "PRR_kwDOAn8RLM73TPrI",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR extends the file-icon class generation so icon themes can target underscore-suffixed filename conventions (e.g. Go’s `*_test.go`) similarly to existing dot-based compound extensions (e.g. `*.test.ts`).\n\n**Changes:**\n- Extend `getIconClasses` to emit an additional “underscore-suffix + extension” class (e.g. `_test.go-ext-file-icon`) when applicable.\n- Add a focused unit test suite validating dot-based and underscore-suffix class generation behavior.\n- Update the Seti icon theme to color Go `_test.go` files distinctly, and clarify the JSON schema description.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/services/themes/common/fileIconThemeSchema.ts | Updates schema description to document dot-compound and underscore-suffix extension support. |\n| src/vs/editor/common/services/getIconClasses.ts | Adds underscore-suffix compound extension class generation alongside existing dot-compound extension classes. |\n| src/vs/editor/test/common/services/getIconClasses.test.ts | Adds new unit tests covering the new underscore-suffix behavior and related edge cases. |\n| extensions/theme-seti/icons/vs-seti-icon-theme.json | Introduces Seti mappings/definitions to apply a distinct color to `_test.go` files in dark/light themes. |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/311700#pullrequestreview-4149017288",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/311700",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/311700#pullrequestreview-4149017288"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/311700"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-21T15:41:12Z",
+   "commit_id": "dde683ebe11b9c5b20a96e32e70d889c29097ce6"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4315287683",
+   "html_url": "https://github.com/microsoft/vscode/pull/311700#issuecomment-4315287683",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/311700",
+   "id": 4315287683,
+   "node_id": "IC_kwDOAn8RLM8AAAABATYQgw",
+   "user": {
+    "login": "benvillalobos",
+    "id": 4691428,
+    "node_id": "MDQ6VXNlcjQ2OTE0Mjg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4691428?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/benvillalobos",
+    "html_url": "https://github.com/benvillalobos",
+    "followers_url": "https://api.github.com/users/benvillalobos/followers",
+    "following_url": "https://api.github.com/users/benvillalobos/following{/other_user}",
+    "gists_url": "https://api.github.com/users/benvillalobos/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/benvillalobos/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/benvillalobos/subscriptions",
+    "organizations_url": "https://api.github.com/users/benvillalobos/orgs",
+    "repos_url": "https://api.github.com/users/benvillalobos/repos",
+    "events_url": "https://api.github.com/users/benvillalobos/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/benvillalobos/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-04-24T18:05:15Z",
+   "updated_at": "2026-04-24T18:05:41Z",
+   "body": "LGTM but I think this has implications for other languages as well. Assigning @aeschli (area owner) to review \r\n\r\nWhat an agent brought up for me:\r\n\r\n> Every file with underscores gets additional CSS classes on its DOM element. In a large repo with thousands of snake_case files, that's non-trivial class list bloat. It's probably negligible in practice, but worth the team being aware of.\r\n\r\n> It's a new public contract for icon theme authors. Any third-party theme could start defining _spec.rb, _test.py, etc. This is presumably the intent, but it's a feature surface area expansion that should be a deliberate decision.",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4315287683/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4315302295",
+   "html_url": "https://github.com/microsoft/vscode/pull/311700#issuecomment-4315302295",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/311700",
+   "id": 4315302295,
+   "node_id": "IC_kwDOAn8RLM8AAAABATZJlw",
+   "user": {
+    "login": "jakebailey",
+    "id": 5341706,
+    "node_id": "MDQ6VXNlcjUzNDE3MDY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5341706?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jakebailey",
+    "html_url": "https://github.com/jakebailey",
+    "followers_url": "https://api.github.com/users/jakebailey/followers",
+    "following_url": "https://api.github.com/users/jakebailey/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jakebailey/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jakebailey/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jakebailey/subscriptions",
+    "organizations_url": "https://api.github.com/users/jakebailey/orgs",
+    "repos_url": "https://api.github.com/users/jakebailey/repos",
+    "events_url": "https://api.github.com/users/jakebailey/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jakebailey/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-04-24T18:07:50Z",
+   "updated_at": "2026-04-24T18:07:50Z",
+   "body": "Yeah, probably worth asking some designers or Go people; I can understand why some might be surprised by this. It turned out that only TS/JS do this in VS Code today.",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4315302295/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "node_id": "C_kwDOFw1HntoAKGMzMzMxNDYxMTZkMzBmZDBmYTRiYjViOGRjODNlNTNjYzRkMDc3NmI",
+   "commit": {
+    "author": {
+     "name": "Jake Bailey",
+     "email": "5341706+jakebailey@users.noreply.github.com",
+     "date": "2026-04-20T23:59:21Z"
+    },
+    "committer": {
+     "name": "Jake Bailey",
+     "email": "5341706+jakebailey@users.noreply.github.com",
+     "date": "2026-04-21T23:12:07Z"
+    },
+    "message": "Color _test.go files in the same *.test.ts etc are colored",
+    "tree": {
+     "sha": "5e1ab6c4e6b9097c6febb8fa453e772fc0a9cdee",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5e1ab6c4e6b9097c6febb8fa453e772fc0a9cdee"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "html_url": "https://github.com/microsoft/vscode/commit/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c333146116d30fd0fa4bb5b8dc83e53cc4d0776b/comments",
+   "author": {
+    "login": "jakebailey",
+    "id": 5341706,
+    "node_id": "MDQ6VXNlcjUzNDE3MDY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5341706?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jakebailey",
+    "html_url": "https://github.com/jakebailey",
+    "followers_url": "https://api.github.com/users/jakebailey/followers",
+    "following_url": "https://api.github.com/users/jakebailey/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jakebailey/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jakebailey/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jakebailey/subscriptions",
+    "organizations_url": "https://api.github.com/users/jakebailey/orgs",
+    "repos_url": "https://api.github.com/users/jakebailey/repos",
+    "events_url": "https://api.github.com/users/jakebailey/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jakebailey/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "jakebailey",
+    "id": 5341706,
+    "node_id": "MDQ6VXNlcjUzNDE3MDY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5341706?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jakebailey",
+    "html_url": "https://github.com/jakebailey",
+    "followers_url": "https://api.github.com/users/jakebailey/followers",
+    "following_url": "https://api.github.com/users/jakebailey/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jakebailey/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jakebailey/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jakebailey/subscriptions",
+    "organizations_url": "https://api.github.com/users/jakebailey/orgs",
+    "repos_url": "https://api.github.com/users/jakebailey/repos",
+    "events_url": "https://api.github.com/users/jakebailey/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jakebailey/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "498c4699433d4b9892aaf943bd1b562ee173d1b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/498c4699433d4b9892aaf943bd1b562ee173d1b9",
+     "html_url": "https://github.com/microsoft/vscode/commit/498c4699433d4b9892aaf943bd1b562ee173d1b9"
+    }
+   ]
+  }
+ ]
+}

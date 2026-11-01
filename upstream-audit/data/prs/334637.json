@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:54:57.896Z",
+ "pr": {
+  "number": 334637,
+  "title": "Refactor extension lifecycle to use Feature Registry pattern",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-04T21:59:35Z",
+  "updated_at": "2026-09-04T23:17:40Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 45,
+  "deletions": 12,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-32",
+   "sha": "62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-32"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "9db4cf85bcf637555c0933f07d6acd2f876f4d49"
+  },
+  "body": "Closes #334636 \r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "5213b03d0655fcd71a22516a8e859d7649ddb4f5",
+   "filename": ".vscode/extensions/vscode-extras/src/extension.ts",
+   "status": "modified",
+   "additions": 45,
+   "deletions": 12,
+   "changes": 57,
+   "blob_url": "https://github.com/microsoft/vscode/blob/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87/.vscode%2Fextensions%2Fvscode-extras%2Fsrc%2Fextension.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87/.vscode%2Fextensions%2Fvscode-extras%2Fsrc%2Fextension.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.vscode%2Fextensions%2Fvscode-extras%2Fsrc%2Fextension.ts?ref=62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+   "patch": "@@ -6,36 +6,69 @@\n import * as vscode from 'vscode';\n import { NpmUpToDateFeature } from './npmUpToDateFeature';\n \n+interface FeatureDefinition {\n+\tconfigKey: string;\n+\tfactory: (output: vscode.LogOutputChannel) => vscode.Disposable;\n+}\n+\n export class Extension extends vscode.Disposable {\n \tprivate readonly _output: vscode.LogOutputChannel;\n-\tprivate _npmFeature: NpmUpToDateFeature | undefined;\n+\tprivate readonly _featureInstances = new Map<string, vscode.Disposable>();\n+\t\n+\tprivate readonly _features: FeatureDefinition[] = [\n+\t\t{\n+\t\t\tconfigKey: 'vscode-extras.npmUpToDateFeature.enabled',\n+\t\t\tfactory: output => new NpmUpToDateFeature(output)\n+\t\t}\n+\t];\n \n \tconstructor(_context: vscode.ExtensionContext) {\n \t\tconst disposables: vscode.Disposable[] = [];\n-\t\tsuper(() => disposables.forEach(d => d.dispose()));\n+\t\tsuper(() => {\n+\t\t\tdisposables.forEach(d => d.dispose());\n+\t\t\tthis._disposeAllFeatures();\n+\t\t});\n \n \t\tthis._output = vscode.window.createOutputChannel('VS Code Extras', { log: true });\n \t\tdisposables.push(this._output);\n \n-\t\tthis._updateNpmFeature();\n+\t\tthis._syncAllFeatures();\n \n \t\tdisposables.push(\n \t\t\tvscode.workspace.onDidChangeConfiguration(e => {\n-\t\t\t\tif (e.affectsConfiguration('vscode-extras.npmUpToDateFeature.enabled')) {\n-\t\t\t\t\tthis._updateNpmFeature();\n+\t\t\t\tfor (const feature of this._features) {\n+\t\t\t\t\tif (e.affectsConfiguration(feature.configKey)) {\n+\t\t\t\t\t\tthis._updateFeature(feature);\n+\t\t\t\t\t}\n \t\t\t\t}\n \t\t\t})\n \t\t);\n \t}\n \n-\tprivate _updateNpmFeature(): void {\n-\t\tconst enabled = vscode.workspace.getConfiguration('vscode-extras').get<boolean>('npmUpToDateFeature.enabled', true);\n-\t\tif (enabled && !this._npmFeature) {\n-\t\t\tthis._npmFeature = new NpmUpToDateFeature(this._output);\n-\t\t} else if (!enabled && this._npmFeature) {\n-\t\t\tthis._npmFeature.dispose();\n-\t\t\tthis._npmFeature = undefined;\n+\tprivate _syncAllFeatures(): void {\n+\t\tfor (const feature of this._features) {\n+\t\t\tthis._updateFeature(feature);\n+\t\t}\n+\t}\n+\n+\tprivate _updateFeature(feature: FeatureDefinition): void {\n+\t\tconst enabled = vscode.workspace.getConfiguration().get<boolean>(feature.configKey, true);\n+\t\tconst existingInstance = this._featureInstances.get(feature.configKey);\n+\n+\t\tif (enabled && !existingInstance) {\n+\t\t\tconst instance = feature.factory(this._output);\n+\t\t\tthis._featureInstances.set(feature.configKey, instance);\n+\t\t} else if (!enabled && existingInstance) {\n+\t\t\texistingInstance.dispose();\n+\t\t\tthis._featureInstances.delete(feature.configKey);\n+\t\t}\n+\t}\n+\n+\tprivate _disposeAllFeatures(): void {\n+\t\tfor (const instance of this._featureInstances.values()) {\n+\t\t\tinstance.dispose();\n \t\t}\n+\t\tthis._featureInstances.clear();\n \t}\n }\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5118192442,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMRFrOg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟡 Changes recommended\n\nThe new maintainer comment is incomplete and unprofessional, and the factory violates repository style.\n\n*Once you've addressed the issues Copilot identified, you can request another Copilot review.*\n\n<details>\n<summary>Pull request overview</summary>\n\nRefactors extension feature lifecycle management into a centralized registry.\n\n**Changes:**\n- Adds declarative feature definitions and instance tracking.\n- Centralizes configuration synchronization and disposal.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `.vscode/extensions/vscode-extras/src/extension.ts` | Implements the feature registry lifecycle. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 1\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/334637#pullrequestreview-5118192442",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/334637",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/334637#pullrequestreview-5118192442"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/334637"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-04T22:05:16Z",
+   "commit_id": "cad987f43cc9c8e8b0777272c854704aff726877"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "cad987f43cc9c8e8b0777272c854704aff726877",
+   "node_id": "C_kwDOTk4kkdoAKGNhZDk4N2Y0M2NjOWM4ZThiMDc3NzI3MmM4NTQ3MDRhZmY3MjY4Nzc",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-04T21:58:31Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-04T21:58:31Z"
+    },
+    "message": "Refactor extension lifecycle to use Feature Registry pattern\n\nReplaced hardcoded feature checks with a centralized Feature Registry pattern using a dynamic Map and FeatureDefinition array to improve scalability and maintainability.",
+    "tree": {
+     "sha": "47810fac42525ff446fb689ad163b8e24c3f9aeb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/47810fac42525ff446fb689ad163b8e24c3f9aeb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/cad987f43cc9c8e8b0777272c854704aff726877",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqmz8HCRC1aQ7uu5UhlAAAzV0QAD+5Pw5xUEjV5GmvQQU0a5bO\nn26ihOL5AWOPyoZ6Foj0sczrhjdW2Ha8zFxW2Zdv/+5jWqG1gV7JYCPCY+vNFS6m\nT+BsGAi/DLgt3Z6vEF4I04a8itTBiCrqIuyzvhPIUZRRm1poLHm7v5VE6ZyUjJbY\nA7DSF2gU0zaQEQDcVHZCs64rbOWNZuHGMr0rS3XLSHFpiadmyE9FUkPF1OwVSiAx\nok0doIXhUnHzhh08z107UXr0xiJKyvQiYCHtDDiV/oZPVtf7D2om/EqwWgVGwyfv\nyi8X/sedYUTfsGlY73vSBgzebSmoJiNtsBuHTAe4oKVzlOu0I2q6jDSZRKvnMzXZ\nmg6vpdod5wDu29r2qxJ/yW2RJkA+am/0JxBxS2uNexhaRMky9Wt/f/I5MoaY/zlD\nx5kyL8zzDBGzxgB44O0pdfw8dQOJZaMIjZdB8Yk2Mp3EhQ6kYKWapHg/UJWyqHN0\ne9xaFmR8b2ruDvXTzP7qDPoih76zr3+7wQncCrmRWnSv/F7abncDkezI7CdluClU\nRilQUJC0nJx5mj5l9lJbtEQO+/qw5uuKEB8tPdMtyg14e1huAvU4bbqvchx+ZcGe\nQErCpOR9TTisjQyJH0f/vGa8syWlcr8+iGMtO0cgUOnXrRUE3oEgwsFMVCXrCIPh\n7OTcAjB7HVmBnX+X4oHa\n=FF1M\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 47810fac42525ff446fb689ad163b8e24c3f9aeb\nparent 9db4cf85bcf637555c0933f07d6acd2f876f4d49\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788559111 +0300\ncommitter GitHub <noreply@github.com> 1788559111 +0300\n\nRefactor extension lifecycle to use Feature Registry pattern\n\nReplaced hardcoded feature checks with a centralized Feature Registry pattern using a dynamic Map and FeatureDefinition array to improve scalability and maintainability.",
+     "verified_at": "2026-09-04T21:58:32Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/cad987f43cc9c8e8b0777272c854704aff726877",
+   "html_url": "https://github.com/microsoft/vscode/commit/cad987f43cc9c8e8b0777272c854704aff726877",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/cad987f43cc9c8e8b0777272c854704aff726877/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "html_url": "https://github.com/microsoft/vscode/commit/9db4cf85bcf637555c0933f07d6acd2f876f4d49"
+    }
+   ]
+  },
+  {
+   "sha": "62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+   "node_id": "C_kwDOTk4kkdoAKDYyYzc0MmRmZTc4MmViOGQyZDc0YTZmNjc4ZWViNGU3N2IxYWJkODc",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-04T22:09:09Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-04T22:09:09Z"
+    },
+    "message": "Fix arrow function syntax and clean up code for linter compliance\n\n Removed unnecessary parentheses around the single arrow-function parameter to comply with repository style guidelines and cleaned up comments.",
+    "tree": {
+     "sha": "4e9fd04481669b9dddd8898a48340cfad2711570",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4e9fd04481669b9dddd8898a48340cfad2711570"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm0GGCRC1aQ7uu5UhlAAAGKkQAGwqz/WuY34+J2RCBQPfIGhT\nZiwjiufqcUHcu2JDh6R7RNLbHwr5tfVN57llTRMLWClB3gICDbjjFEsak/7APOnF\nio0HecdtWOuZZEJAfK7Wo6YFNW/sPi6M9WKki+WpIgFZxlGzsiIX2VgxDbHyRZL/\n/3oIOOaXt/ecIIX7lVEUg9g3yhyRQxNCxjEM7226lepG2eniyl5ayXbPhtD2RKrO\nDDftiXqSfqYl5wtIvByo7n5uBu4zYceUvJ1GWcbaVvZy+T3+0qGBGLQ2TubbNuS+\nyTy27y9woymcMM4pA+4GKC28RPWl7+RLLuXQWzgI2qkZDzHP+pHKrvxVBGGezlBi\nZNG7NL6Fz0Z2oCuluyzEoiZhaEMpY0LZVg4FN+C//1WiC1jU5SEgvj2qO/uO48k8\n7nrz0uaVcJ4HnEvwp5a01m1q+wJshn6GA/NXnUbK+YXLl2n0cwA+HHJ4rnGDSjvA\n2JCuulT1Ya/4oUIEgd1f9PvVvWBRHOCWn3cJ0OSBxEsh/H6+DwZMouNBWQd/SGP8\nY4FAFw10SGsBY5PXtiI7XhmwosI15OI3/OTh5Bmgth/eLVW1JmKZYIhpfqpFkQVz\nqaGUmwtgNdgGNasCNFPVs+0gsiAsUyftlv1p/hYJ2uZjjjGnP571lsB4S2dbxT12\ngRxn/lv54F4KExNb6GlA\n=Zvj0\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4e9fd04481669b9dddd8898a48340cfad2711570\nparent cad987f43cc9c8e8b0777272c854704aff726877\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788559749 +0300\ncommitter GitHub <noreply@github.com> 1788559749 +0300\n\nFix arrow function syntax and clean up code for linter compliance\n\n Removed unnecessary parentheses around the single arrow-function parameter to comply with repository style guidelines and cleaned up comments.",
+     "verified_at": "2026-09-04T22:09:10Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+   "html_url": "https://github.com/microsoft/vscode/commit/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/62c742dfe782eb8d2d74a6f678eeb4e77b1abd87/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "cad987f43cc9c8e8b0777272c854704aff726877",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cad987f43cc9c8e8b0777272c854704aff726877",
+     "html_url": "https://github.com/microsoft/vscode/commit/cad987f43cc9c8e8b0777272c854704aff726877"
+    }
+   ]
+  }
+ ]
+}

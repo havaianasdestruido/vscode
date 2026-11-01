@@ -1,0 +1,270 @@
+{
+ "fetchedAt": "2026-11-01T00:51:53.002Z",
+ "pr": {
+  "number": 236441,
+  "title": "Support more tokens in standalone themes",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-12-18T08:23:35Z",
+  "updated_at": "2026-01-20T10:13:49Z",
+  "user": "Pistonight",
+  "author_association": "NONE",
+  "additions": 16,
+  "deletions": 4,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "themes",
+   "sha": "6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+   "repo": "Pistonight/vscode",
+   "label": "Pistonight:themes"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "## Issue\r\nCloses #236440\r\n\r\n## Fix\r\nAdded the following tokens to standalone themes, taking colors from VS Code Modern Themes\r\n- `variable.readonly`\r\n- `variable.language`\r\n- `function`\r\n\r\nAlso updated `variable` to match the modern themes\r\n\r\n## Validation\r\nI copied the changes to my local version of monaco-editor and tested them with a modified version of TypeScript tokenizer that recognize functions\r\n<details>\r\n<summary> Screenshot </summary>\r\n\r\n![image](https://github.com/user-attachments/assets/3644ba09-bdfc-4468-9fb6-30ee3c13d31a)\r\n</details>",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "1a61712bcb2d414a439928f2b26791f59eb81742",
+   "filename": "src/vs/editor/standalone/common/themes.ts",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 4,
+   "changes": 20,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fthemes.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fthemes.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fthemes.ts?ref=6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+   "patch": "@@ -17,8 +17,11 @@ export const vs: IStandaloneThemeData = {\n \t\t{ token: 'emphasis', fontStyle: 'italic' },\n \t\t{ token: 'strong', fontStyle: 'bold' },\n \n-\t\t{ token: 'variable', foreground: '001188' },\n+\t\t{ token: 'variable', foreground: '001080' },\n \t\t{ token: 'variable.predefined', foreground: '4864AA' },\n+\t\t{ token: 'variable.readonly', foreground: '0070C1' },\n+\t\t{ token: 'variable.language', foreground: '0000FF' },\n+\t\t{ token: 'function', foreground: '795E26' },\n \t\t{ token: 'constant', foreground: 'dd0000' },\n \t\t{ token: 'comment', foreground: '008000' },\n \t\t{ token: 'number', foreground: '098658' },\n@@ -89,9 +92,12 @@ export const vs_dark: IStandaloneThemeData = {\n \t\t{ token: 'emphasis', fontStyle: 'italic' },\n \t\t{ token: 'strong', fontStyle: 'bold' },\n \n-\t\t{ token: 'variable', foreground: '74B0DF' },\n+\t\t{ token: 'variable', foreground: '9CDCFE' },\n \t\t{ token: 'variable.predefined', foreground: '4864AA' },\n \t\t{ token: 'variable.parameter', foreground: '9CDCFE' },\n+\t\t{ token: 'variable.readonly', foreground: '4FC1FF' },\n+\t\t{ token: 'variable.language', foreground: '569CD6' },\n+\t\t{ token: 'function', foreground: 'DCDCAA' },\n \t\t{ token: 'constant', foreground: '569CD6' },\n \t\t{ token: 'comment', foreground: '608B4E' },\n \t\t{ token: 'number', foreground: 'B5CEA8' },\n@@ -161,8 +167,11 @@ export const hc_black: IStandaloneThemeData = {\n \t\t{ token: 'emphasis', fontStyle: 'italic' },\n \t\t{ token: 'strong', fontStyle: 'bold' },\n \n-\t\t{ token: 'variable', foreground: '1AEBFF' },\n+\t\t{ token: 'variable', foreground: '9CDCFE' },\n \t\t{ token: 'variable.parameter', foreground: '9CDCFE' },\n+\t\t{ token: 'variable.readonly', foreground: '9CDCFE' },\n+\t\t{ token: 'variable.language', foreground: '569CD6' },\n+\t\t{ token: 'function', foreground: 'DCDCAA' },\n \t\t{ token: 'constant', foreground: '569CD6' },\n \t\t{ token: 'comment', foreground: '608B4E' },\n \t\t{ token: 'number', foreground: 'FFFFFF' },\n@@ -220,8 +229,11 @@ export const hc_light: IStandaloneThemeData = {\n \t\t{ token: 'emphasis', fontStyle: 'italic' },\n \t\t{ token: 'strong', fontStyle: 'bold' },\n \n-\t\t{ token: 'variable', foreground: '264F70' },\n+\t\t{ token: 'variable', foreground: '001080' },\n \t\t{ token: 'variable.predefined', foreground: '4864AA' },\n+\t\t{ token: 'variable.readonly', foreground: '001080' },\n+\t\t{ token: 'variable.language', foreground: '0F4A85' },\n+\t\t{ token: 'function', foreground: '5E2CBC' },\n \t\t{ token: 'constant', foreground: 'dd0000' },\n \t\t{ token: 'comment', foreground: '008000' },\n \t\t{ token: 'number', foreground: '098658' },"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2522334117,
+   "node_id": "PRR_kwDOAn8RLM6WV8Ol",
+   "user": {
+    "login": "mScott224",
+    "id": 137014244,
+    "node_id": "U_kgDOCCqr5A",
+    "avatar_url": "https://avatars.githubusercontent.com/u/137014244?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mScott224",
+    "html_url": "https://github.com/mScott224",
+    "followers_url": "https://api.github.com/users/mScott224/followers",
+    "following_url": "https://api.github.com/users/mScott224/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mScott224/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mScott224/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mScott224/subscriptions",
+    "organizations_url": "https://api.github.com/users/mScott224/orgs",
+    "repos_url": "https://api.github.com/users/mScott224/repos",
+    "events_url": "https://api.github.com/users/mScott224/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mScott224/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/236441#pullrequestreview-2522334117",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/236441",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/236441#pullrequestreview-2522334117"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/236441"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-12-25T05:17:52Z",
+   "commit_id": "6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0"
+  },
+  {
+   "id": 2522654765,
+   "node_id": "PRR_kwDOAn8RLM6WXKgt",
+   "user": {
+    "login": "wthrajat",
+    "id": 38693805,
+    "node_id": "MDQ6VXNlcjM4NjkzODA1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/38693805?u=eeefede6aa2f1462b2292cdab57ad3536f18299d&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wthrajat",
+    "html_url": "https://github.com/wthrajat",
+    "followers_url": "https://api.github.com/users/wthrajat/followers",
+    "following_url": "https://api.github.com/users/wthrajat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wthrajat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wthrajat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wthrajat/subscriptions",
+    "organizations_url": "https://api.github.com/users/wthrajat/orgs",
+    "repos_url": "https://api.github.com/users/wthrajat/repos",
+    "events_url": "https://api.github.com/users/wthrajat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wthrajat/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/236441#pullrequestreview-2522654765",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/236441",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/236441#pullrequestreview-2522654765"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/236441"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-12-25T19:48:38Z",
+   "commit_id": "6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2619727856",
+   "html_url": "https://github.com/microsoft/vscode/pull/236441#issuecomment-2619727856",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/236441",
+   "id": 2619727856,
+   "node_id": "IC_kwDOAn8RLM6cJd_w",
+   "user": {
+    "login": "Pistonight",
+    "id": 44533763,
+    "node_id": "MDQ6VXNlcjQ0NTMzNzYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44533763?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Pistonight",
+    "html_url": "https://github.com/Pistonight",
+    "followers_url": "https://api.github.com/users/Pistonight/followers",
+    "following_url": "https://api.github.com/users/Pistonight/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Pistonight/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Pistonight/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Pistonight/subscriptions",
+    "organizations_url": "https://api.github.com/users/Pistonight/orgs",
+    "repos_url": "https://api.github.com/users/Pistonight/repos",
+    "events_url": "https://api.github.com/users/Pistonight/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Pistonight/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-01-28T18:10:43Z",
+   "updated_at": "2025-01-28T18:10:43Z",
+   "body": "Hi @hediet, any chance this can be reviewed? It's been one month",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2619727856/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+   "node_id": "C_kwDONfMPzNoAKDZlN2RiY2U3ZTdiZmNiZWUwYTMzZjMxOTc2NGFlYWE4ODk0YTBlZjA",
+   "commit": {
+    "author": {
+     "name": "Pistonight",
+     "email": "pistonknight@outlook.com",
+     "date": "2024-12-18T08:15:10Z"
+    },
+    "committer": {
+     "name": "Pistonight",
+     "email": "pistonknight@outlook.com",
+     "date": "2024-12-18T20:14:56Z"
+    },
+    "message": "update tokens in theme",
+    "tree": {
+     "sha": "c999221cd1f48b905d34062996327b72f4671277",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c999221cd1f48b905d34062996327b72f4671277"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+   "html_url": "https://github.com/microsoft/vscode/commit/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6e7dbce7e7bfcbee0a33f319764aeaa8894a0ef0/comments",
+   "author": {
+    "login": "Pistonight",
+    "id": 44533763,
+    "node_id": "MDQ6VXNlcjQ0NTMzNzYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44533763?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Pistonight",
+    "html_url": "https://github.com/Pistonight",
+    "followers_url": "https://api.github.com/users/Pistonight/followers",
+    "following_url": "https://api.github.com/users/Pistonight/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Pistonight/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Pistonight/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Pistonight/subscriptions",
+    "organizations_url": "https://api.github.com/users/Pistonight/orgs",
+    "repos_url": "https://api.github.com/users/Pistonight/repos",
+    "events_url": "https://api.github.com/users/Pistonight/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Pistonight/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Pistonight",
+    "id": 44533763,
+    "node_id": "MDQ6VXNlcjQ0NTMzNzYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44533763?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Pistonight",
+    "html_url": "https://github.com/Pistonight",
+    "followers_url": "https://api.github.com/users/Pistonight/followers",
+    "following_url": "https://api.github.com/users/Pistonight/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Pistonight/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Pistonight/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Pistonight/subscriptions",
+    "organizations_url": "https://api.github.com/users/Pistonight/orgs",
+    "repos_url": "https://api.github.com/users/Pistonight/repos",
+    "events_url": "https://api.github.com/users/Pistonight/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Pistonight/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ebe010b7aa17bf16eb993f9c0a2ba0d41a5a7a4d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ebe010b7aa17bf16eb993f9c0a2ba0d41a5a7a4d",
+     "html_url": "https://github.com/microsoft/vscode/commit/ebe010b7aa17bf16eb993f9c0a2ba0d41a5a7a4d"
+    }
+   ]
+  }
+ ]
+}

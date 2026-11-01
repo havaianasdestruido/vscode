@@ -1,0 +1,364 @@
+{
+ "fetchedAt": "2026-11-01T00:53:27.019Z",
+ "pr": {
+  "number": 313612,
+  "title": "Stop reopening closed repos (#313526)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-30T23:38:15Z",
+  "updated_at": "2026-05-01T00:16:51Z",
+  "user": "eamodio",
+  "author_association": "CONTRIBUTOR",
+  "additions": 6,
+  "deletions": 2,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "bug/stop-reopening-closed-repos",
+   "sha": "ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "repo": "eamodio/vscode",
+   "label": "eamodio:bug/stop-reopening-closed-repos"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "aff84ba120057359f7434532aab1b58903ad5121"
+  },
+  "body": "Fixes #313526\r\n\r\n## Summary\r\n\r\n- \"Close Other Repositories\" briefly removed worktree entries but the parent repository's next `git status` immediately re-queued them via `checkForWorktrees()`, so the action looked silently broken.\r\n- Filter the closed set out of `checkForWorktrees()` before queuing scans —  closes the debounce-window flicker and dodges raw-vs-canonical path mismatches that could defeat the existing closed-set guard further down  in `openRepository()`.\r\n- Drive-by: fix the trailing-`.git` regex in `getWorktreesFS()` (unescaped `.` would let a path segment like `/agit/...` false-match and strip too much), and a misleading trace string (\"is not skipped\" → \"is skipped\").\r\n\r\n## Test plan\r\n\r\n- [ ] With `\"git.detectWorktrees\": true`, open a repo that has 2+ `git worktree`s checked out elsewhere on disk\r\n- [ ] Source Control view shows the main repo + every worktree as siblings\r\n- [ ] Right-click the main repo → **Close Other Repositories** — worktree entries disappear and stay gone\r\n- [ ] Trigger several `git status` refreshes (touch a tracked file, run `git status` in the integrated terminal) — closed worktrees do **not** reappear\r\n- [ ] Reload the window — closed worktrees remain closed (persisted via `workspaceState`)\r\n- [ ] Open one of the closed worktree folders directly via File → Open Folder — it re-opens normally (the `openIfClosed=true` path)",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "ed02ec5873e66a63262ad21f33626489789e7238",
+   "filename": "extensions/git/src/git.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ba7881aba6e52f7ccfdc9eb47965855e40502a4b/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ba7881aba6e52f7ccfdc9eb47965855e40502a4b/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fgit.ts?ref=ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "patch": "@@ -3063,7 +3063,7 @@ export class Repository {\n \t\t\t\t\tresult.push({\n \t\t\t\t\t\tname: dirent.name,\n \t\t\t\t\t\t// Remove '/.git' suffix\n-\t\t\t\t\t\tpath: gitdirContent.replace(/\\/.git.*$/, ''),\n+\t\t\t\t\t\tpath: gitdirContent.replace(/\\/\\.git$/, ''),\n \t\t\t\t\t\t// Remove 'ref: ' prefix\n \t\t\t\t\t\tref: headContent.replace(/^ref: /, ''),\n \t\t\t\t\t\t// Detached if HEAD does not start with 'ref: '"
+  },
+  {
+   "sha": "4de8e5dd57c0c266c2e1943b4c59d7a08e012fae",
+   "filename": "extensions/git/src/model.ts",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ba7881aba6e52f7ccfdc9eb47965855e40502a4b/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ba7881aba6e52f7ccfdc9eb47965855e40502a4b/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fmodel.ts?ref=ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "patch": "@@ -808,7 +808,7 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi\n \t\t\t}\n \n \t\t\tif (repository.kind === 'worktree') {\n-\t\t\t\tthis.logger.trace('[Model][open] Automatic detection of git worktrees is not skipped.');\n+\t\t\t\tthis.logger.trace('[Model][open] Automatic detection of git worktrees is skipped.');\n \t\t\t\treturn;\n \t\t\t}\n \n@@ -817,7 +817,11 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi\n \t\t\t\tstatusListener.dispose();\n \t\t\t}\n \n+\t\t\t// Skip user-closed worktrees: avoids brief re-appearance during the scan debounce, and dodges path-normalization mismatches with the canonical root stored in the closed set.\n+\t\t\tconst closedRepositoryPaths = this._closedRepositoriesManager.repositories;\n+\n \t\t\trepository.worktrees\n+\t\t\t\t.filter(w => !closedRepositoryPaths.some(closed => pathEquals(closed, w.path)))\n \t\t\t\t.slice(0, worktreesLimit)\n \t\t\t\t.forEach(w => {\n \t\t\t\t\tthis.logger.trace(`[Model][open] Opening worktree: '${w.path}'`);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4209167806,
+   "node_id": "PRR_kwDOAn8RLM764s2-",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes a Git extension behavior where worktrees that users closed via **Close Other Repositories** were immediately re-discovered and re-opened during subsequent `git status`-driven worktree detection.\n\n**Changes:**\n- Filter user-closed worktrees out of `checkForWorktrees()` before queuing scans to prevent immediate re-open/flicker.\n- Fix `.git` suffix stripping in `getWorktreesFS()` to avoid over-matching (unescaped `.`) and stripping incorrect path segments.\n- Correct a misleading trace message about worktree auto-detection being skipped.\n\n### Reviewed changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| extensions/git/src/model.ts | Prevents re-queuing scans for user-closed worktrees during automatic worktree detection; adjusts trace text. |\n| extensions/git/src/git.ts | Corrects worktree root derivation by fixing the `.git` suffix regex used when parsing worktree metadata. |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313612#pullrequestreview-4209167806",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313612",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313612#pullrequestreview-4209167806"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313612"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-30T23:42:22Z",
+   "commit_id": "ba7881aba6e52f7ccfdc9eb47965855e40502a4b"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4356893166",
+   "html_url": "https://github.com/microsoft/vscode/pull/313612#issuecomment-4356893166",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313612",
+   "id": 4356893166,
+   "node_id": "IC_kwDOAn8RLM8AAAABA7Dp7g",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-04-30T23:38:58Z",
+   "updated_at": "2026-04-30T23:38:58Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `extensions/git/src/git.ts`\n- `extensions/git/src/model.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4356893166/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+   "node_id": "C_kwDOA61EONoAKGM2ZWE3ZmZkYzQ3Zjg0YjkwMDZlMWRlNzVjMjJmZDljNTFmNTdmYmQ",
+   "commit": {
+    "author": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T23:30:18Z"
+    },
+    "committer": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T23:30:18Z"
+    },
+    "message": "Fixes path resolution for nested git directories",
+    "tree": {
+     "sha": "9e621ab6efbe8668ad9184341c4979489f2ce39e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9e621ab6efbe8668ad9184341c4979489f2ce39e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+   "html_url": "https://github.com/microsoft/vscode/commit/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd/comments",
+   "author": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "43d0ed45492da1b1ca1738893956de429d46b5e8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/43d0ed45492da1b1ca1738893956de429d46b5e8",
+     "html_url": "https://github.com/microsoft/vscode/commit/43d0ed45492da1b1ca1738893956de429d46b5e8"
+    }
+   ]
+  },
+  {
+   "sha": "ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "node_id": "C_kwDOA61EONoAKGJhNzg4MWFiYTZlNTJmN2NjZmRjOWViNDc5NjU4NTVlNDA1MDJhNGI",
+   "commit": {
+    "author": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T23:31:21Z"
+    },
+    "committer": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T23:31:21Z"
+    },
+    "message": "Prevent reopening of closed git worktrees\n - Filters out worktrees that the user has explicitly closed when scanning for new repositories\n - Avoids a race condition where closed worktrees briefly reappeared during the scan debounce period\n - Resolves issues caused by path-normalization mismatches between scanned paths and the stored closed repository set\n - Fixes an incorrect log message regarding worktree detection logic\nCloses #313526",
+    "tree": {
+     "sha": "45c8ca2472930dcedbb84b641c80e3e62db61dde",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/45c8ca2472930dcedbb84b641c80e3e62db61dde"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "html_url": "https://github.com/microsoft/vscode/commit/ba7881aba6e52f7ccfdc9eb47965855e40502a4b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ba7881aba6e52f7ccfdc9eb47965855e40502a4b/comments",
+   "author": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd",
+     "html_url": "https://github.com/microsoft/vscode/commit/c6ea7ffdc47f84b9006e1de75c22fd9c51f57fbd"
+    }
+   ]
+  }
+ ]
+}

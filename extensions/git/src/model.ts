@@ -701,6 +701,17 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 		} catch (err) {
 			// noop
 			this.logger.trace(`[Model][openRepository] Opening repository for path='${repoPath}' failed. Error:${err}`);
+
+			// Prune stale closed-repository entries:
+			// if the user explicitly asked to reopen a closed repo and the path no longer exists on disk, drop the entry so it does not stick around forever
+			if (openIfClosed && this._closedRepositoriesManager.isRepositoryClosed(repoPath)) {
+				try {
+					await fs.promises.access(repoPath);
+				} catch {
+					this._closedRepositoriesManager.deleteRepository(repoPath);
+					this.logger.info(`[Model][openRepository] Removed stale closed repository entry: ${repoPath}`);
+				}
+			}
 		}
 	}
 
@@ -810,7 +821,7 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 			}
 
 			if (repository.kind === 'worktree') {
-				this.logger.trace('[Model][open] Automatic detection of git worktrees is not skipped.');
+				this.logger.trace('[Model][open] Automatic detection of git worktrees is skipped.');
 				return;
 			}
 
@@ -819,7 +830,11 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi
 				statusListener.dispose();
 			}
 
+			// Skip user-closed worktrees: avoids brief re-appearance during the scan debounce, and dodges path-normalization mismatches with the canonical root stored in the closed set.
+			const closedRepositoryPaths = this._closedRepositoriesManager.repositories;
+
 			repository.worktrees
+				.filter(w => !closedRepositoryPaths.some(closed => pathEquals(closed, w.path)))
 				.slice(0, worktreesLimit)
 				.forEach(w => {
 					this.logger.trace(`[Model][open] Opening worktree: '${w.path}'`);

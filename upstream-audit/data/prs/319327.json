@@ -1,0 +1,205 @@
+{
+ "fetchedAt": "2026-11-01T00:54:10.256Z",
+ "pr": {
+  "number": 319327,
+  "title": "Strip codicon glyphs from hover accessible view content",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-06-01T13:24:26Z",
+  "updated_at": "2026-06-01T15:20:58Z",
+  "user": "yogeshwaran-c",
+  "author_association": "CONTRIBUTOR",
+  "additions": 30,
+  "deletions": 2,
+  "changed_files": 3,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 2,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/hover-accessible-view-codicon-glyphs",
+   "sha": "dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "repo": "yogeshwaran-c/vscode",
+   "label": "yogeshwaran-c:fix/hover-accessible-view-codicon-glyphs"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "44e8e851d6979a6eb50e3977d13cc13541298680"
+  },
+  "body": "Fixes #217974\n\n### What is the current behavior?\n\nWhen keying through the hover accessible view, codicons are announced as \"space\" by screen readers, giving no indication of what the icon is.\n\n### Root cause\n\n`MarkdownRenderedHoverParts.getAccessibleContent` builds the accessible text from the rendered hover element's `innerText`. Codicons are rendered as empty `<span class=\"codicon ...\">` elements whose glyphs come from the Private Use Area (U+E000–U+F8FF) of the codicon font. Those glyph characters leak into `innerText`, and screen readers read them as \"space\".\n\n### What is the new behavior?\n\nA small `stripCodiconGlyphs` helper (in `base/common/iconLabels.ts`, alongside the existing icon helpers) removes Private Use Area characters from a string. The hover accessible view now strips codicon glyphs before normalizing whitespace, so screen readers no longer announce decorative icons as \"space\". Characters outside the Private Use Area (regular text, accented characters, CJK, emoji) are left untouched.\n\n### Testing\n\nAdded unit tests for `stripCodiconGlyphs` in `iconLabels.test.ts` covering codicon glyph removal and that non-PUA content is preserved.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "14b951297419fa40d5040d2824a0725602ec3d0f",
+   "filename": "src/vs/base/common/iconLabels.ts",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Fbase%2Fcommon%2FiconLabels.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Fbase%2Fcommon%2FiconLabels.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fcommon%2FiconLabels.ts?ref=dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "patch": "@@ -47,6 +47,17 @@ export function getCodiconAriaLabel(text: string | undefined) {\n \treturn text.replace(/\\$\\((.*?)\\)/g, (_match, codiconName) => ` ${codiconName} `).trim();\n }\n \n+/**\n+ * Codicon glyphs live in the Unicode Private Use Area of the codicon font. When such a glyph is\n+ * rendered into the DOM (e.g. via an empty `<span class=\"codicon ...\">`) and later read back with\n+ * `innerText`/`textContent`, the bare glyph character leaks into the text and is announced as\n+ * \"space\" by screen readers. Use this to strip those glyphs from text destined for assistive\n+ * technologies.\n+ */\n+const codiconGlyphsRegex = /[\\uE000-\\uF8FF]/g;\n+export function stripCodiconGlyphs(text: string): string {\n+\treturn text.replace(codiconGlyphsRegex, '');\n+}\n \n export interface IParsedLabelWithIcons {\n \treadonly text: string;"
+  },
+  {
+   "sha": "c2795c43233dafced2924404d6ba8f9fe2c0ad84",
+   "filename": "src/vs/base/test/common/iconLabels.test.ts",
+   "status": "modified",
+   "additions": 14,
+   "deletions": 1,
+   "changes": 15,
+   "blob_url": "https://github.com/microsoft/vscode/blob/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Fbase%2Ftest%2Fcommon%2FiconLabels.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Fbase%2Ftest%2Fcommon%2FiconLabels.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Ftest%2Fcommon%2FiconLabels.test.ts?ref=dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "patch": "@@ -5,7 +5,7 @@\n \n import assert from 'assert';\n import { IMatch } from '../../common/filters.js';\n-import { escapeIcons, getCodiconAriaLabel, IParsedLabelWithIcons, markdownEscapeEscapedIcons, matchesFuzzyIconAware, parseLabelWithIcons, stripIcons } from '../../common/iconLabels.js';\n+import { escapeIcons, getCodiconAriaLabel, IParsedLabelWithIcons, markdownEscapeEscapedIcons, matchesFuzzyIconAware, parseLabelWithIcons, stripCodiconGlyphs, stripIcons } from '../../common/iconLabels.js';\n import { ensureNoDisposablesAreLeakedInTestSuite } from './utils.js';\n \n interface IIconFilter {\n@@ -98,6 +98,19 @@ suite('Icon Labels', () => {\n \t});\n \n \n+\ttest('stripCodiconGlyphs', () => {\n+\t\t// Codicon glyphs are stored in the Unicode Private Use Area of the codicon font.\n+\t\tconst glyph = String.fromCharCode(0xeab4); // drop-down-button\n+\t\tconst otherGlyph = String.fromCharCode(0xec1f); // a high codicon glyph\n+\t\tassert.strictEqual(stripCodiconGlyphs('Hello World'), 'Hello World');\n+\t\tassert.strictEqual(stripCodiconGlyphs(`${glyph}Hello`), 'Hello');\n+\t\tassert.strictEqual(stripCodiconGlyphs(`Hello ${glyph} World`), 'Hello  World');\n+\t\tassert.strictEqual(stripCodiconGlyphs(`${glyph}${otherGlyph}`), '');\n+\t\tassert.strictEqual(stripCodiconGlyphs(`a${glyph}b${otherGlyph}c`), 'abc');\n+\t\t// Characters outside the Private Use Area are left untouched.\n+\t\tassert.strictEqual(stripCodiconGlyphs('café 日本語 😀'), 'café 日本語 😀');\n+\t});\n+\n \ttest('escapeIcons', () => {\n \t\tassert.strictEqual(escapeIcons('Hello World'), 'Hello World');\n \t\tassert.strictEqual(escapeIcons('$(Hello World'), '$(Hello World');"
+  },
+  {
+   "sha": "7b7ab00799278d2fe27bb4757aadc3f7263f2b58",
+   "filename": "src/vs/editor/contrib/hover/browser/markdownHoverParticipant.ts",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Feditor%2Fcontrib%2Fhover%2Fbrowser%2FmarkdownHoverParticipant.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/dd834c0ceea8e40c428efe822a6ac01fbf26216a/src%2Fvs%2Feditor%2Fcontrib%2Fhover%2Fbrowser%2FmarkdownHoverParticipant.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Fhover%2Fbrowser%2FmarkdownHoverParticipant.ts?ref=dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "patch": "@@ -22,6 +22,7 @@ import { EditorOption } from '../../../common/config/editorOptions.js';\n import { Hover, HoverContext, HoverProvider, HoverVerbosityAction } from '../../../common/languages.js';\n import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';\n import { Codicon } from '../../../../base/common/codicons.js';\n+import { stripCodiconGlyphs } from '../../../../base/common/iconLabels.js';\n import { ThemeIcon } from '../../../../base/common/themables.js';\n import { onUnexpectedExternalError } from '../../../../base/common/errors.js';\n import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';\n@@ -415,7 +416,10 @@ class MarkdownRenderedHoverParts implements IRenderedHoverParts<MarkdownHover> {\n \t\tif (!renderedHoverPart) {\n \t\t\treturn undefined;\n \t\t}\n-\t\tconst hoverElementInnerText = renderedHoverPart.hoverElement.innerText;\n+\t\t// Codicon glyphs rendered in the hover (e.g. via markdown `$(icon)` syntax) leak into\n+\t\t// `innerText` and are announced as \"space\" by screen readers, so strip them out before\n+\t\t// normalizing whitespace (see #217974).\n+\t\tconst hoverElementInnerText = stripCodiconGlyphs(renderedHoverPart.hoverElement.innerText);\n \t\tconst accessibleContent = hoverElementInnerText.replace(/[^\\S\\n\\r]+/gu, ' ');\n \t\treturn accessibleContent;\n \t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4401545967,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBlpC7w",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\n> [!NOTE]\n> Copilot was unable to run its full agentic suite in this review.\n\nThis PR improves hover accessibility by removing Codicon glyph characters that leak into hover text and are read incorrectly by screen readers.\n\n**Changes:**\n- Added `stripCodiconGlyphs` utility to remove Codicon Private Use Area glyph characters from text.\n- Updated markdown hover accessible text generation to strip Codicon glyphs before whitespace normalization.\n- Added unit tests covering the new `stripCodiconGlyphs` behavior.\n\n### Reviewed changes\n\nCopilot reviewed 3 out of 3 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/editor/contrib/hover/browser/markdownHoverParticipant.ts | Strips Codicon glyphs from hover `innerText` before producing accessible content. |\n| src/vs/base/common/iconLabels.ts | Introduces `stripCodiconGlyphs` helper and supporting regex. |\n| src/vs/base/test/common/iconLabels.test.ts | Adds test coverage for the new glyph-stripping helper. |\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319327#pullrequestreview-4401545967",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319327",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319327#pullrequestreview-4401545967"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319327"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-06-01T13:25:15Z",
+   "commit_id": "dd834c0ceea8e40c428efe822a6ac01fbf26216a"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "node_id": "C_kwDORXVh_doAKGRkODM0YzBjZWVhOGU0MGM0MjhlZmU4MjJhNmFjMDFmYmYyNjIxNmE",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-06-01T13:23:41Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-06-01T13:23:41Z"
+    },
+    "message": "Strip codicon glyphs from hover accessible view content\n\nThe hover accessible view derives its content from the rendered hover\nelement's innerText. Codicons are rendered as empty spans whose glyphs\ncome from the Private Use Area of the codicon font, and those glyph\ncharacters leak into innerText. Screen readers announce them as \"space\",\nwhich is confusing when keying through the accessible view.\n\nAdd a stripCodiconGlyphs helper that removes Private Use Area characters\nand use it when building the accessible content, with unit tests.\n\nFixes #217974",
+    "tree": {
+     "sha": "2ed20f6bc3f9e4379ceb5e7c085e1ddc20b4b860",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2ed20f6bc3f9e4379ceb5e7c085e1ddc20b4b860"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "html_url": "https://github.com/microsoft/vscode/commit/dd834c0ceea8e40c428efe822a6ac01fbf26216a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/dd834c0ceea8e40c428efe822a6ac01fbf26216a/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "44e8e851d6979a6eb50e3977d13cc13541298680",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/44e8e851d6979a6eb50e3977d13cc13541298680",
+     "html_url": "https://github.com/microsoft/vscode/commit/44e8e851d6979a6eb50e3977d13cc13541298680"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,265 @@
+{
+ "fetchedAt": "2026-11-01T00:55:45.657Z",
+ "pr": {
+  "number": 342397,
+  "title": "perf: reduce memory usage by 24 kB",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-18T15:40:49Z",
+  "updated_at": "2026-10-29T11:41:55Z",
+  "user": "SimonSiefke",
+  "author_association": "CONTRIBUTOR",
+  "additions": 3,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 2,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/memory-leak-colorRegistry",
+   "sha": "b9112cfad0aac26f869d84795e8e52669ac01536",
+   "repo": "SimonSiefke/vscode",
+   "label": "SimonSiefke:fix/memory-leak-colorRegistry"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "bd48654d9acb491371090b13841cff4dd1888fc8"
+  },
+  "body": "Share the default-color schema object across registered theme colors so each color no longer keeps its own identical copy. In a test that opened and closed an editor once, this removed 993 duplicate objects, saving 23.3 KiB of renderer memory.\n\n<br>\n\n<sub>AI disclosure: Model: gpt-6.1-sol. Worktime: 1 min</sub>\n\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "89131677f23be006134e9f9ca28c4adfde1dc7ca",
+   "filename": "src/vs/platform/theme/common/colorUtils.ts",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 1,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b9112cfad0aac26f869d84795e8e52669ac01536/src%2Fvs%2Fplatform%2Ftheme%2Fcommon%2FcolorUtils.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b9112cfad0aac26f869d84795e8e52669ac01536/src%2Fvs%2Fplatform%2Ftheme%2Fcommon%2FcolorUtils.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Ftheme%2Fcommon%2FcolorUtils.ts?ref=b9112cfad0aac26f869d84795e8e52669ac01536",
+   "patch": "@@ -147,12 +147,14 @@ class ColorRegistry extends Disposable implements IColorRegistry {\n \treadonly onDidChangeSchema: Event<void> = this._onDidChangeSchema.event;\n \n \tprivate colorsById: { [key: string]: ColorContribution };\n+\tprivate readonly defaultColorSchema: IJSONSchema;\n \tprivate colorSchema: IJSONSchemaForColors = { type: 'object', properties: {} };\n \tprivate colorReferenceSchema: IJSONSchema & { enum: string[]; enumDescriptions: string[] } = { type: 'string', enum: [], enumDescriptions: [] };\n \n \tconstructor() {\n \t\tsuper();\n \t\tthis.colorsById = {};\n+\t\tthis.defaultColorSchema = { type: 'string', const: DEFAULT_COLOR_CONFIG_VALUE, description: nls.localize('useDefault', 'Use the default color.') };\n \t}\n \n \tpublic notifyThemeUpdate(colorThemeData: IColorTheme) {\n@@ -180,7 +182,7 @@ class ColorRegistry extends Disposable implements IColorRegistry {\n \t\t\tdescription,\n \t\t\toneOf: [\n \t\t\t\tpropertySchema,\n-\t\t\t\t{ type: 'string', const: DEFAULT_COLOR_CONFIG_VALUE, description: nls.localize('useDefault', 'Use the default color.') }\n+\t\t\t\tthis.defaultColorSchema\n \t\t\t]\n \t\t};\n \t\tthis.colorReferenceSchema.enum.push(id);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5563728588,
+   "node_id": "PRR_kwDOAn8RLM8AAAABS5_CzA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n### 🟢 Approval recommended\n\nThe narrow change preserves schema content, and no actionable findings remain.\n\n**No open issues** 🎉\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nReduces theme-color registry memory usage by sharing the identical default-color schema across registered colors.\n\n**Changes:**\n- Creates one default-color schema per registry.\n- Reuses it during color registration without changing schema content.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| src/​vs/​platform/​theme/​common/​colorUtils.ts | Shares the default-color schema instead of allocating it per color. |\n</details>\n\n<sub>Review effort: Balanced</sub>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/342397#pullrequestreview-5563728588",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/342397",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/342397#pullrequestreview-5563728588"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/342397"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-18T15:44:15Z",
+   "commit_id": "b9112cfad0aac26f869d84795e8e52669ac01536"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "28dfa3595af788a1f87407d342319d35355af4d0",
+   "node_id": "C_kwDODaDU69oAKDI4ZGZhMzU5NWFmNzg4YTFmODc0MDdkMzQyMzE5ZDM1MzU1YWY0ZDA",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-18T14:36:08Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-18T14:36:08Z"
+    },
+    "message": "fix: memory leak in color registry",
+    "tree": {
+     "sha": "9a467bb05db6fa19513b49cb0c9a769e4e2f4e22",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9a467bb05db6fa19513b49cb0c9a769e4e2f4e22"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/28dfa3595af788a1f87407d342319d35355af4d0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/28dfa3595af788a1f87407d342319d35355af4d0",
+   "html_url": "https://github.com/microsoft/vscode/commit/28dfa3595af788a1f87407d342319d35355af4d0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/28dfa3595af788a1f87407d342319d35355af4d0/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "00ab0906bad641d5be1d009da16baa5cec66a161",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/00ab0906bad641d5be1d009da16baa5cec66a161",
+     "html_url": "https://github.com/microsoft/vscode/commit/00ab0906bad641d5be1d009da16baa5cec66a161"
+    }
+   ]
+  },
+  {
+   "sha": "b9112cfad0aac26f869d84795e8e52669ac01536",
+   "node_id": "C_kwDODaDU69oAKGI5MTEyY2ZhZDBhYWMyNmY4NjlkODQ3OTVlOGU1MjY2OWFjMDE1MzY",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-18T15:37:32Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-18T15:37:32Z"
+    },
+    "message": "Remove color registry test file",
+    "tree": {
+     "sha": "48b1f86a3487b4fb4168bd13ea68dc28dc562155",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/48b1f86a3487b4fb4168bd13ea68dc28dc562155"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b9112cfad0aac26f869d84795e8e52669ac01536",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b9112cfad0aac26f869d84795e8e52669ac01536",
+   "html_url": "https://github.com/microsoft/vscode/commit/b9112cfad0aac26f869d84795e8e52669ac01536",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b9112cfad0aac26f869d84795e8e52669ac01536/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "28dfa3595af788a1f87407d342319d35355af4d0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/28dfa3595af788a1f87407d342319d35355af4d0",
+     "html_url": "https://github.com/microsoft/vscode/commit/28dfa3595af788a1f87407d342319d35355af4d0"
+    }
+   ]
+  }
+ ]
+}

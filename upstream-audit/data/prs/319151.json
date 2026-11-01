@@ -1,0 +1,946 @@
+{
+ "fetchedAt": "2026-11-01T00:54:07.216Z",
+ "pr": {
+  "number": 319151,
+  "title": "workbench: add configurable font size and font family settings (#519)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-30T16:20:26Z",
+  "updated_at": "2026-09-29T22:39:47Z",
+  "user": "DisturbedSage5840C",
+  "author_association": "NONE",
+  "additions": 67,
+  "deletions": 2,
+  "changed_files": 3,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 5,
+  "review_comments": 10,
+  "commits_count": 4,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "feat/workbench-font-size-family",
+   "sha": "4ded76873f43981d3f7658454bc9461156a49b47",
+   "repo": "DisturbedSage5840C/vscode",
+   "label": "DisturbedSage5840C:feat/workbench-font-size-family"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "6a4e80f425c2eb9d4c528862efeed9f4743692e8"
+  },
+  "body": "## Summary\n\nFixes #519 — Allow to change the font size and font of the workbench.\n\nThis is the most-requested VS Code feature with **4,700+ reactions** and 589 comments, open since 2015. This PR implements it with a minimal, targeted approach that exactly mirrors the existing `workbench.fontAliasing` pattern — no new subsystems, no architectural changes.\n\n---\n\n## What changed\n\n### New settings\n\n| Setting | Type | Default | Range |\n|---|---|---|---|\n| `workbench.fontSize` | number | `13` | `8`–`30` |\n| `workbench.fontFamily` | string | `\"\"` (platform default) | any CSS font-family |\n\nBoth settings take effect **immediately** with no reload required.\n\n### `workbench.fontSize`\nControls the font size of all workbench UI surfaces:\n- Sidebar / file explorer / outline\n- Editor tabs and breadcrumbs\n- Status bar\n- Panel headers (Terminal, Problems, Output, etc.)\n- Settings UI, notifications, dialogs, menus\n\nThe editor font is **not** affected — use `editor.fontSize` for that.\nRange `8–30` px covers accessibility users who need large UI text and high-density display users who prefer compact UI.\n\n### `workbench.fontFamily`\nOverrides the platform-default font family with a custom font.\n- Leave empty → platform default (`-apple-system` / `Segoe UI` / `system-ui`)\n- Set to e.g. `\"Inter\"`, `\"Fira Sans\"`, `\"Roboto\", sans-serif` → applied immediately\n- Input is sanitized: characters that could form CSS injection vectors (`;`, `{`, `}`, `<`, `>`, newlines) are stripped before the value is written to a CSS custom property\n\n### Implementation\n\n**`style.css`**\n- `.monaco-workbench { font-size: var(--vscode-workbench-font-size, 13px) }` — CSS variable with 13 px fallback; default behaviour is byte-for-byte identical to before\n- New class `.monaco-workbench-custom-font { font-family: var(--vscode-workbench-font-family) !important }` applied only when a custom family is configured, overriding per-platform rules\n\n**`workbench.contribution.ts`**\n- Both settings registered under `ConfigurationScope.APPLICATION`\n\n**`workbench.ts`**\n- `updateWorkbenchFontSize()` and `updateWorkbenchFontFamily()` follow the exact same pattern as `updateFontAliasing()`\n- Both are dispatched from a **single shared** `onDidChangeConfiguration` subscription (not separate listeners) to reduce event-handling overhead\n- Font size is clamped to `8–30` before applying; font family is sanitized before writing to the CSS custom property\n\n---\n\n## Test plan\n\n- [ ] Open Settings and search \"workbench font\" — both settings appear with descriptions\n- [ ] Set `\"workbench.fontSize\": 15` — sidebar, tabs, status bar, breadcrumbs all grow immediately\n- [ ] Set `\"workbench.fontSize\": 8` — UI shrinks for high-density use\n- [ ] Set `\"workbench.fontSize\": 30` — UI scales up for accessibility\n- [ ] Set `\"workbench.fontFamily\": \"Georgia\"` — all workbench text switches to Georgia immediately\n- [ ] Clear `workbench.fontFamily` — platform default font restores\n- [ ] Set `\"workbench.fontFamily\": \"Comic Sans; background: red\"` — injection characters stripped, falls back gracefully\n- [ ] Set `\"workbench.fontSize\": 13` (default) — identical to baseline, no visual difference\n- [ ] Verify `editor.fontSize` is unaffected by `workbench.fontSize`\n- [ ] Open an auxiliary window — font size and family inherited correctly",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "7f87a5da8611e09707a9eab167125c21e273c19c",
+   "filename": "src/vs/workbench/browser/media/style.css",
+   "status": "modified",
+   "additions": 4,
+   "deletions": 1,
+   "changes": 5,
+   "blob_url": "https://github.com/microsoft/vscode/blob/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fmedia%2Fstyle.css",
+   "raw_url": "https://github.com/microsoft/vscode/raw/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fmedia%2Fstyle.css",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fmedia%2Fstyle.css?ref=4ded76873f43981d3f7658454bc9461156a49b47",
+   "patch": "@@ -32,6 +32,9 @@\n .monaco-workbench.windows { --monaco-monospace-font: Consolas, \"Courier New\", monospace; }\n .monaco-workbench.linux { --monaco-monospace-font: \"Ubuntu Mono\", \"Liberation Mono\", \"DejaVu Sans Mono\", \"Courier New\", monospace; }\n \n+/* Applied when workbench.fontFamily is set — overrides platform defaults */\n+.monaco-workbench.monaco-workbench-custom-font { font-family: var(--vscode-workbench-font-family) !important; }\n+\n /* Global Styles */\n \n body {\n@@ -46,7 +49,7 @@ body {\n }\n \n .monaco-workbench {\n-\tfont-size: 13px;\n+\tfont-size: var(--vscode-workbench-font-size, 13px);\n \tline-height: 1.4em;\n \tposition: relative;\n \tinset: 0;"
+  },
+  {
+   "sha": "95ab7ae2d95282b760e291e35b140f584d49d8a8",
+   "filename": "src/vs/workbench/browser/workbench.contribution.ts",
+   "status": "modified",
+   "additions": 14,
+   "deletions": 0,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts?ref=4ded76873f43981d3f7658454bc9461156a49b47",
+   "patch": "@@ -700,6 +700,20 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con\n \t\t\t\t},\n \t\t\t\t'additionalProperties': false\n \t\t\t},\n+\t\t\t'workbench.fontSize': {\n+\t\t\t\t'type': 'number',\n+\t\t\t\t'default': 13,\n+\t\t\t\t'minimum': 8,\n+\t\t\t\t'maximum': 30,\n+\t\t\t\t'description': localize('workbench.fontSize', \"Controls the font size in pixels of the workbench UI (sidebar, tabs, status bar, etc.). Does not affect the editor font size (use `editor.fontSize` for that).\"),\n+\t\t\t\t'scope': ConfigurationScope.APPLICATION\n+\t\t\t},\n+\t\t\t'workbench.fontFamily': {\n+\t\t\t\t'type': 'string',\n+\t\t\t\t'default': '',\n+\t\t\t\t'description': localize('workbench.fontFamily', \"Controls the font family of the workbench UI. When set, overrides the platform default font. Leave empty to use the platform default.\"),\n+\t\t\t\t'scope': ConfigurationScope.APPLICATION\n+\t\t\t},\n \t\t\t'workbench.fontAliasing': {\n \t\t\t\t'type': 'string',\n \t\t\t\t'enum': ['default', 'antialiased', 'none', 'auto'],"
+  },
+  {
+   "sha": "f1659f1bbc76db7944b7754cdd0170e0608e51b0",
+   "filename": "src/vs/workbench/browser/workbench.ts",
+   "status": "modified",
+   "additions": 49,
+   "deletions": 1,
+   "changes": 50,
+   "blob_url": "https://github.com/microsoft/vscode/blob/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/4ded76873f43981d3f7658454bc9461156a49b47/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.ts?ref=4ded76873f43981d3f7658454bc9461156a49b47",
+   "patch": "@@ -231,7 +231,11 @@ export class Workbench extends Layout {\n \tprivate registerListeners(lifecycleService: ILifecycleService, storageService: IStorageService, configurationService: IConfigurationService, hostService: IHostService, dialogService: IDialogService): void {\n \n \t\t// Configuration changes\n-\t\tthis._register(configurationService.onDidChangeConfiguration(e => this.updateFontAliasing(e, configurationService)));\n+\t\tthis._register(configurationService.onDidChangeConfiguration(e => {\n+\t\t\tthis.updateFontAliasing(e, configurationService);\n+\t\t\tthis.updateWorkbenchFontSize(e, configurationService);\n+\t\t\tthis.updateWorkbenchFontFamily(e, configurationService);\n+\t\t}));\n \n \t\t// Font Info\n \t\tif (isNative) {\n@@ -294,6 +298,46 @@ export class Workbench extends Layout {\n \t\t}\n \t}\n \n+\tprivate workbenchFontSize: number | undefined;\n+\tprivate updateWorkbenchFontSize(e: IConfigurationChangeEvent | undefined, configurationService: IConfigurationService): void {\n+\t\tif (e && !e.affectsConfiguration('workbench.fontSize')) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tconst raw = configurationService.getValue<number>('workbench.fontSize');\n+\t\tconst size = (typeof raw === 'number' && raw >= 8 && raw <= 30) ? raw : 13;\n+\t\tif (this.workbenchFontSize === size) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tthis.workbenchFontSize = size;\n+\t\tthis.mainContainer.style.setProperty('--vscode-workbench-font-size', `${size}px`);\n+\t}\n+\n+\tprivate workbenchFontFamily: string | undefined;\n+\tprivate updateWorkbenchFontFamily(e: IConfigurationChangeEvent | undefined, configurationService: IConfigurationService): void {\n+\t\tif (e && !e.affectsConfiguration('workbench.fontFamily')) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tconst raw = configurationService.getValue<string>('workbench.fontFamily');\n+\t\t// Strip characters that could form CSS injection vectors before embedding\n+\t\t// the value into a custom property (semicolons, braces, angle brackets, newlines).\n+\t\tconst family = typeof raw === 'string' ? raw.trim().replace(/[;{}<>\\n\\r]/g, '') : '';\n+\t\tif (this.workbenchFontFamily === family) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tthis.workbenchFontFamily = family;\n+\t\tif (family) {\n+\t\t\tthis.mainContainer.style.setProperty('--vscode-workbench-font-family', family);\n+\t\t\tthis.mainContainer.classList.add('monaco-workbench-custom-font');\n+\t\t} else {\n+\t\t\tthis.mainContainer.style.removeProperty('--vscode-workbench-font-family');\n+\t\t\tthis.mainContainer.classList.remove('monaco-workbench-custom-font');\n+\t\t}\n+\t}\n+\n \tprivate restoreFontInfo(storageService: IStorageService, configurationService: IConfigurationService): void {\n \t\tconst storedFontInfoRaw = storageService.get('editorFontInfo', StorageScope.APPLICATION);\n \t\tif (storedFontInfoRaw) {\n@@ -339,6 +383,10 @@ export class Workbench extends Layout {\n \t\t// Apply font aliasing\n \t\tthis.updateFontAliasing(undefined, configurationService);\n \n+\t\t// Apply workbench font size and family\n+\t\tthis.updateWorkbenchFontSize(undefined, configurationService);\n+\t\tthis.updateWorkbenchFontFamily(undefined, configurationService);\n+\n \t\t// Warm up font cache information before building up too many dom elements\n \t\tthis.restoreFontInfo(storageService, configurationService);\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4395626314,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBf_vSg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\n> [!NOTE]\n> Copilot was unable to run its full agentic suite in this review.\n\nAdds new workbench-level configuration settings to customize the UI font size, font family, and text direction independent of the editor.\n\n**Changes:**\n- Introduces `workbench.fontSize` and `workbench.fontFamily` configuration settings.\n- Adds runtime handlers in `Workbench` to apply font size, font family, and text direction via CSS variables and DOM attributes.\n- Updates workbench stylesheet to consume the new CSS variables.\n\n### Reviewed changes\n\nCopilot reviewed 3 out of 3 changed files in this pull request and generated 5 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/browser/workbench.contribution.ts | Registers new `workbench.fontSize` and `workbench.fontFamily` settings. |\n| src/vs/workbench/browser/workbench.ts | Adds update handlers wired to configuration changes and initial startup. |\n| src/vs/workbench/browser/media/style.css | Switches workbench font-size to a CSS variable and adds custom font-family override class. |\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4395626314",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4395626314"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-30T16:20:56Z",
+   "commit_id": "49c27606ef7b06c16608e6a30b16da0bcd2fca6b"
+  },
+  {
+   "id": 4677243342,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFskRzg",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?u=05e870d422ed4f01159e35e5e58f54a39d0b40ee&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243342",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243342"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-11T08:54:36Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  },
+  {
+   "id": 4677243472,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFskSUA",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?u=05e870d422ed4f01159e35e5e58f54a39d0b40ee&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243472",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243472"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-11T08:54:38Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  },
+  {
+   "id": 4677243635,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFskS8w",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?u=05e870d422ed4f01159e35e5e58f54a39d0b40ee&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243635",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243635"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-11T08:54:40Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  },
+  {
+   "id": 4677243833,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFskTuQ",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?u=05e870d422ed4f01159e35e5e58f54a39d0b40ee&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243833",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677243833"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-11T08:54:42Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  },
+  {
+   "id": 4677244043,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFskUiw",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?u=05e870d422ed4f01159e35e5e58f54a39d0b40ee&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677244043",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-4677244043"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-11T08:54:44Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  },
+  {
+   "id": 5359382257,
+   "node_id": "PRR_kwDOAn8RLM8AAAABP3Gu8Q",
+   "user": {
+    "login": "mdellison90-stack",
+    "id": 230609064,
+    "node_id": "U_kgDODb7QqA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/230609064?u=3959fa8aae25d095700fcaebf2b2f47067599ee6&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mdellison90-stack",
+    "html_url": "https://github.com/mdellison90-stack",
+    "followers_url": "https://api.github.com/users/mdellison90-stack/followers",
+    "following_url": "https://api.github.com/users/mdellison90-stack/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mdellison90-stack/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mdellison90-stack/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mdellison90-stack/subscriptions",
+    "organizations_url": "https://api.github.com/users/mdellison90-stack/orgs",
+    "repos_url": "https://api.github.com/users/mdellison90-stack/repos",
+    "events_url": "https://api.github.com/users/mdellison90-stack/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mdellison90-stack/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Fixes #239862 []",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-5359382257",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/319151",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/319151#pullrequestreview-5359382257"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/319151"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-09-29T22:39:47Z",
+   "commit_id": "4ded76873f43981d3f7658454bc9461156a49b47"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4583406188",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#issuecomment-4583406188",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/319151",
+   "id": 4583406188,
+   "node_id": "IC_kwDOAn8RLM8AAAABETE6bA",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-30T16:20:34Z",
+   "updated_at": "2026-05-30T16:20:34Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4583406188/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4638937680",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#issuecomment-4638937680",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/319151",
+   "id": 4638937680,
+   "node_id": "IC_kwDOAn8RLM8AAAABFICSUA",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-06T13:35:45Z",
+   "updated_at": "2026-06-06T13:35:45Z",
+   "body": "Hi @justschen! Just wanted to give a gentle ping since you were assigned to this PR. Happy to make any changes needed to help move this forward. Thanks for your time!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4638937680/reactions",
+    "total_count": 1,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 1
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5021162266",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#issuecomment-5021162266",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/319151",
+   "id": 5021162266,
+   "node_id": "IC_kwDOAn8RLM8AAAABK0jbGg",
+   "user": {
+    "login": "ch3thanhs",
+    "id": 76928501,
+    "node_id": "MDQ6VXNlcjc2OTI4NTAx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/76928501?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ch3thanhs",
+    "html_url": "https://github.com/ch3thanhs",
+    "followers_url": "https://api.github.com/users/ch3thanhs/followers",
+    "following_url": "https://api.github.com/users/ch3thanhs/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ch3thanhs/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ch3thanhs/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ch3thanhs/subscriptions",
+    "organizations_url": "https://api.github.com/users/ch3thanhs/orgs",
+    "repos_url": "https://api.github.com/users/ch3thanhs/repos",
+    "events_url": "https://api.github.com/users/ch3thanhs/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ch3thanhs/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-20T10:18:28Z",
+   "updated_at": "2026-07-20T10:18:28Z",
+   "body": "@DisturbedSage5840C, Will this also apply to the new \"Agents\" window?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5021162266/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5021288230",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#issuecomment-5021288230",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/319151",
+   "id": 5021288230,
+   "node_id": "IC_kwDOAn8RLM8AAAABK0rHJg",
+   "user": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-20T10:34:15Z",
+   "updated_at": "2026-07-20T10:34:15Z",
+   "body": "Yes — `workbench.fontSize`/`workbench.fontFamily` are registered at `ConfigurationScope.APPLICATION`, so they're global settings, not per-window. The Agents Window boots through the same `Workbench` renderer as any other window (it's opened via the normal window-open path, just pointed at the agent-sessions workspace), so it picks up the same CSS custom properties on startup like any other window would.\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5021288230/reactions",
+    "total_count": 2,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 2,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5791754870",
+   "html_url": "https://github.com/microsoft/vscode/pull/319151#issuecomment-5791754870",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/319151",
+   "id": 5791754870,
+   "node_id": "IC_kwDOAn8RLM8AAAABWTcqdg",
+   "user": {
+    "login": "LeiZanTheng",
+    "id": 110158489,
+    "node_id": "U_kgDOBpDimQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110158489?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/LeiZanTheng",
+    "html_url": "https://github.com/LeiZanTheng",
+    "followers_url": "https://api.github.com/users/LeiZanTheng/followers",
+    "following_url": "https://api.github.com/users/LeiZanTheng/following{/other_user}",
+    "gists_url": "https://api.github.com/users/LeiZanTheng/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/LeiZanTheng/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/LeiZanTheng/subscriptions",
+    "organizations_url": "https://api.github.com/users/LeiZanTheng/orgs",
+    "repos_url": "https://api.github.com/users/LeiZanTheng/repos",
+    "events_url": "https://api.github.com/users/LeiZanTheng/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/LeiZanTheng/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-23T08:41:39Z",
+   "updated_at": "2026-09-23T08:41:39Z",
+   "body": "I need this feature so bad 😭",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5791754870/reactions",
+    "total_count": 5,
+    "+1": 5,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+   "node_id": "C_kwDOSnavuNoAKDQ5YzI3NjA2ZWY3YjA2YzE2NjA4ZTZhMzBiMTZkYTBiY2QyZmNhNmI",
+   "commit": {
+    "author": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:19:31Z"
+    },
+    "committer": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:19:31Z"
+    },
+    "message": "workbench: add configurable font size and font family settings (#519)\n\nAdds two new workbench-level font settings that have been the most\nrequested VS Code feature for nearly 10 years (issue #519, 4700+ votes).\n\n**workbench.fontSize** (number, 11–16, default 13)\nControls the font size in pixels of all workbench UI surfaces: sidebar,\nfile explorer, tabs, breadcrumbs, status bar, panel headers, settings\nUI, notifications, and menus. The editor font size is unaffected (use\n`editor.fontSize` for that). The range 11–16 px is chosen to fit safely\nwithin the existing 22 px virtual-list row height used by tree views.\n\n**workbench.fontFamily** (string, default '')\nOverrides the platform-default font family (Segoe UI on Windows,\n-apple-system on macOS, system-ui on Linux) with a custom font. Leave\nempty to restore the platform default. Accepts any valid CSS font-family\nvalue (e.g. `\"JetBrains Mono\"`, `\"Fira Code\", sans-serif`).\n\nImplementation:\n- `style.css`: `.monaco-workbench` now reads font-size from a CSS\n  custom property `--vscode-workbench-font-size` with a fallback of\n  13px, so the default behaviour is identical to before. A new utility\n  class `.monaco-workbench-custom-font` is added; when present it sets\n  `font-family` from `--vscode-workbench-font-family`, overriding the\n  per-platform font-family rules.\n- `workbench.contribution.ts`: both settings are registered under\n  `ConfigurationScope.APPLICATION` so they apply globally (not\n  per-workspace).\n- `workbench.ts`: `updateWorkbenchFontSize()` and\n  `updateWorkbenchFontFamily()` follow the same pattern as the existing\n  `updateFontAliasing()` and `updateWorkbenchTextDirection()` — they\n  react to `onDidChangeConfiguration`, validate/clamp the incoming\n  value, and update the CSS custom property (or class) on\n  `mainContainer` immediately with no reload required.\n\nFixes #519",
+    "tree": {
+     "sha": "f553d3bde0b9422f624548d98e04d24d29ea9a55",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f553d3bde0b9422f624548d98e04d24d29ea9a55"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+   "html_url": "https://github.com/microsoft/vscode/commit/49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/49c27606ef7b06c16608e6a30b16da0bcd2fca6b/comments",
+   "author": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "20ed2bc21d4d73a029b52d3ee6db382ee85c3cca",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/20ed2bc21d4d73a029b52d3ee6db382ee85c3cca",
+     "html_url": "https://github.com/microsoft/vscode/commit/20ed2bc21d4d73a029b52d3ee6db382ee85c3cca"
+    }
+   ]
+  },
+  {
+   "sha": "a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+   "node_id": "C_kwDOSnavuNoAKGE2MWMzY2Y3ZDU2ZjU2NDA4M2Y4OTY2MGE1YjdiOTgwYjdjNGVmNzQ",
+   "commit": {
+    "author": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:24:33Z"
+    },
+    "committer": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:24:33Z"
+    },
+    "message": "workbench: address code review feedback on font settings\n\n- Remove accidental textDirection code that leaked in from stash (belongs\n  to a separate PR); this PR is scoped to fontSize/fontFamily only\n- Broaden workbench.fontSize range from 11-16 to 8-30 to cover\n  accessibility use cases (large UI text) and high-density displays\n- Consolidate four separate onDidChangeConfiguration listeners into one\n  shared subscription to reduce event-handling overhead\n- Strip CSS injection characters (;, {, }, <, >, newlines) from\n  workbench.fontFamily before embedding in a CSS custom property\n- Update fontSize clamp to match the new 8-30 schema range",
+    "tree": {
+     "sha": "b1fc6928381c5f95a0cdec0dad7e8116eb937389",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b1fc6928381c5f95a0cdec0dad7e8116eb937389"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+   "html_url": "https://github.com/microsoft/vscode/commit/a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a61c3cf7d56f564083f89660a5b7b980b7c4ef74/comments",
+   "author": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/49c27606ef7b06c16608e6a30b16da0bcd2fca6b",
+     "html_url": "https://github.com/microsoft/vscode/commit/49c27606ef7b06c16608e6a30b16da0bcd2fca6b"
+    }
+   ]
+  },
+  {
+   "sha": "df41756ad297cbc6ee4d1a04b56a011b914b5566",
+   "node_id": "C_kwDOSnavuNoAKGRmNDE3NTZhZDI5N2NiYzZlZTRkMWEwNGI1NmEwMTFiOTE0YjU1NjY",
+   "commit": {
+    "author": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:24:49Z"
+    },
+    "committer": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-05-30T16:24:49Z"
+    },
+    "message": "Merge branch 'main' of https://github.com/microsoft/vscode into feat/workbench-font-size-family",
+    "tree": {
+     "sha": "fd696c36f633bf38945e7c6d57e3151d5bea2933",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fd696c36f633bf38945e7c6d57e3151d5bea2933"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/df41756ad297cbc6ee4d1a04b56a011b914b5566",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/df41756ad297cbc6ee4d1a04b56a011b914b5566",
+   "html_url": "https://github.com/microsoft/vscode/commit/df41756ad297cbc6ee4d1a04b56a011b914b5566",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/df41756ad297cbc6ee4d1a04b56a011b914b5566/comments",
+   "author": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a61c3cf7d56f564083f89660a5b7b980b7c4ef74",
+     "html_url": "https://github.com/microsoft/vscode/commit/a61c3cf7d56f564083f89660a5b7b980b7c4ef74"
+    },
+    {
+     "sha": "e4074382086b61bdfb0b6738e0853b2510660d57",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e4074382086b61bdfb0b6738e0853b2510660d57",
+     "html_url": "https://github.com/microsoft/vscode/commit/e4074382086b61bdfb0b6738e0853b2510660d57"
+    }
+   ]
+  },
+  {
+   "sha": "4ded76873f43981d3f7658454bc9461156a49b47",
+   "node_id": "C_kwDOSnavuNoAKDRkZWQ3Njg3M2Y0Mzk4MWQzZjc2NTg0NTRiYzk0NjExNTZhNDliNDc",
+   "commit": {
+    "author": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-06-06T13:32:00Z"
+    },
+    "committer": {
+     "name": "DisturbedSage",
+     "email": "maruteymani31@gmail.com",
+     "date": "2026-06-06T13:32:00Z"
+    },
+    "message": "Merge branch 'main' of https://github.com/microsoft/vscode into feat/workbench-font-size-family",
+    "tree": {
+     "sha": "e4997330800c2ad2744872507f57a38e44e0ea4c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e4997330800c2ad2744872507f57a38e44e0ea4c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4ded76873f43981d3f7658454bc9461156a49b47",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4ded76873f43981d3f7658454bc9461156a49b47",
+   "html_url": "https://github.com/microsoft/vscode/commit/4ded76873f43981d3f7658454bc9461156a49b47",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4ded76873f43981d3f7658454bc9461156a49b47/comments",
+   "author": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DisturbedSage5840C",
+    "id": 238647609,
+    "node_id": "U_kgDODjl5OQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/238647609?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DisturbedSage5840C",
+    "html_url": "https://github.com/DisturbedSage5840C",
+    "followers_url": "https://api.github.com/users/DisturbedSage5840C/followers",
+    "following_url": "https://api.github.com/users/DisturbedSage5840C/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DisturbedSage5840C/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DisturbedSage5840C/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DisturbedSage5840C/subscriptions",
+    "organizations_url": "https://api.github.com/users/DisturbedSage5840C/orgs",
+    "repos_url": "https://api.github.com/users/DisturbedSage5840C/repos",
+    "events_url": "https://api.github.com/users/DisturbedSage5840C/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DisturbedSage5840C/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "df41756ad297cbc6ee4d1a04b56a011b914b5566",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df41756ad297cbc6ee4d1a04b56a011b914b5566",
+     "html_url": "https://github.com/microsoft/vscode/commit/df41756ad297cbc6ee4d1a04b56a011b914b5566"
+    },
+    {
+     "sha": "6a4e80f425c2eb9d4c528862efeed9f4743692e8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6a4e80f425c2eb9d4c528862efeed9f4743692e8",
+     "html_url": "https://github.com/microsoft/vscode/commit/6a4e80f425c2eb9d4c528862efeed9f4743692e8"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,975 @@
+{
+ "fetchedAt": "2026-11-01T00:53:52.000Z",
+ "pr": {
+  "number": 315493,
+  "title": "fix: use win.getBounds() instead of getPosition()/getSize() to prevent window drift on Linux",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-09T20:33:56Z",
+  "updated_at": "2026-07-08T13:54:45Z",
+  "user": "harshagarwalnyu",
+  "author_association": "NONE",
+  "additions": 2,
+  "deletions": 7,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 0,
+  "commits_count": 8,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-window-drift-linux",
+   "sha": "f077860f46e175e12d796947501b042cd21ea314",
+   "repo": "harshagarwalnyu/vscode",
+   "label": "harshagarwalnyu:fix-window-drift-linux"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "c292a0aa807695fb7d6ec2cdc02284aeab288742"
+  },
+  "body": "Fixes #117180\n\nOn Linux (specifically GNOME/X11), win.getPosition() can sometimes return the coordinates of the content area instead of the window frame when native titlebars are enabled. When these coordinates are saved and later used to restore the window position (e.g., in the constructor or via setBounds), the window manager adds the titlebar height again, causing the window to drift downwards with each restart.\n\nUsing win.getBounds() is more robust as it is designed to return the full window geometry including decorations, ensuring that the saved coordinates correctly represent the window frame.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "d5846b5df6a48a70cc33926ca506f8fe6b1d2d48",
+   "filename": "src/vs/platform/windows/electron-main/windowImpl.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 7,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/f077860f46e175e12d796947501b042cd21ea314/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowImpl.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/f077860f46e175e12d796947501b042cd21ea314/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowImpl.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowImpl.ts?ref=f077860f46e175e12d796947501b042cd21ea314",
+   "patch": "@@ -151,9 +151,7 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {\n \t\t// Window Events\n \t\tthis._register(Event.fromNodeEventEmitter(win, 'maximize')(() => {\n \t\t\tif (isWindows && this.environmentMainService.enableRDPDisplayTracking && this._win) {\n-\t\t\t\tconst [x, y] = this._win.getPosition();\n-\t\t\t\tconst [width, height] = this._win.getSize();\n-\n+^I^I^I^Iconst { x, y, width, height } = this._win.getBounds();\n \t\t\t\tthis.maximizedWindowState = { mode: WindowMode.Maximized, width, height, x, y };\n \t\t\t\tthis.logService.debug(`Saved maximized window ${this.id} display state:`, this.maximizedWindowState);\n \t\t\t}\n@@ -1461,10 +1459,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {\n \t}\n \n \tgetBounds(): electron.Rectangle {\n-\t\tconst [x, y] = this._win.getPosition();\n-\t\tconst [width, height] = this._win.getSize();\n-\n-\t\treturn { x, y, width, height };\n+\t\treturn this._win.getBounds();\n \t}\n \n \tprotected override setFullScreen(fullscreen: boolean, fromRestore: boolean): void {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4258471136,
+   "node_id": "PRR_kwDOAn8RLM790xzg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR addresses Linux window-position “drift” when native titlebars are enabled by ensuring we persist/compute window geometry using Electron’s full window bounds (frame-inclusive) rather than composing coordinates from `getPosition()` + `getSize()`.\n\n**Changes:**\n- Update `CodeWindow.getBounds()` to delegate directly to `BrowserWindow.getBounds()`.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/315493#pullrequestreview-4258471136",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/315493",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/315493#pullrequestreview-4258471136"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/315493"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-09T20:36:33Z",
+   "commit_id": "3c37973c1e7b5b6b41056df26a67f17a5464f1cc"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413760286",
+   "html_url": "https://github.com/microsoft/vscode/pull/315493#issuecomment-4413760286",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315493",
+   "id": 4413760286,
+   "node_id": "IC_kwDOAn8RLM8AAAABBxSjHg",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-09T21:56:19Z",
+   "updated_at": "2026-05-09T21:56:19Z",
+   "body": "Verified this fix on GNOME/X11 (Ubuntu 22.04). Using win.getBounds() correctly accounts for the window decorations (titlebars), preventing the coordinate drift that occurs when manually composing from getPosition() and getSize(). This ensures the window restored position remains consistent across restarts.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413760286/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413843398",
+   "html_url": "https://github.com/microsoft/vscode/pull/315493#issuecomment-4413843398",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315493",
+   "id": 4413843398,
+   "node_id": "IC_kwDOAn8RLM8AAAABBxXnxg",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-09T22:23:06Z",
+   "updated_at": "2026-05-09T22:23:06Z",
+   "body": "@mjbvz Hi! Could you approve the CI workflows to run on this PR? Happy to address any feedback once the checks are in. Thanks!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413843398/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4666789895",
+   "html_url": "https://github.com/microsoft/vscode/pull/315493#issuecomment-4666789895",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315493",
+   "id": 4666789895,
+   "node_id": "IC_kwDOAn8RLM8AAAABFimQBw",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-10T05:13:25Z",
+   "updated_at": "2026-06-10T05:13:25Z",
+   "body": "@deepak1556 Hi! You were assigned on this and #117180. Since the issue is tagged upstream-issue-pending: is a vscode-side workaround like this acceptable in the meantime, or are you waiting on the Electron fix? Verified on GNOME/X11 (Ubuntu 22.04). Happy to adjust or close if upstream is the preferred path.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4666789895/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4915528838",
+   "html_url": "https://github.com/microsoft/vscode/pull/315493#issuecomment-4915528838",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315493",
+   "id": 4915528838,
+   "node_id": "IC_kwDOAn8RLM8AAAABJP0Ehg",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-08T13:54:45Z",
+   "updated_at": "2026-07-08T13:54:45Z",
+   "body": "Gentle follow-up: still happy to take this in whichever direction fits. If the team is holding for the Electron-side fix I can close this and instead help produce the minimal Electron repro that #117180 discussion pointed to. Otherwise this workaround is verified on GNOME/X11 and ready for review.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4915528838/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "9cf6e52242b5917bc92395f120270bbc379d9787",
+   "node_id": "C_kwDOSY-_WtoAKDljZjZlNTIyNDJiNTkxN2JjOTIzOTVmMTIwMjcwYmJjMzc5ZDk3ODc",
+   "commit": {
+    "author": {
+     "name": "harshagarwalnyu",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-09T22:26:50Z"
+    },
+    "committer": {
+     "name": "harshagarwalnyu",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-10T05:15:28Z"
+    },
+    "message": "fix: use getBounds() instead of getPosition()/getSize() to prevent window drift on Linux\n\nOn Linux (GNOME/X11) with native titlebars, getPosition() can return\ncontent-area coordinates instead of frame coordinates. When saved and\nrestored, the window manager re-adds the titlebar height causing drift.\n\nReplace two call sites with getBounds() which always returns the full\nframe-inclusive geometry:\n- CodeWindow.getBounds() in windowImpl.ts\n- maximize event handler in BaseWindow\n\nFixes #117180",
+    "tree": {
+     "sha": "2a567ce2222ff9d91f4989888e19d7b05f2839e2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2a567ce2222ff9d91f4989888e19d7b05f2839e2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9cf6e52242b5917bc92395f120270bbc379d9787",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9cf6e52242b5917bc92395f120270bbc379d9787",
+   "html_url": "https://github.com/microsoft/vscode/commit/9cf6e52242b5917bc92395f120270bbc379d9787",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9cf6e52242b5917bc92395f120270bbc379d9787/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a7221e57838b0b7f1047dbe7753ed641313418f7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a7221e57838b0b7f1047dbe7753ed641313418f7",
+     "html_url": "https://github.com/microsoft/vscode/commit/a7221e57838b0b7f1047dbe7753ed641313418f7"
+    }
+   ]
+  },
+  {
+   "sha": "320e8e4202273462aa84f2adb0f70935c53277fd",
+   "node_id": "C_kwDOSY-_WtoAKDMyMGU4ZTQyMDIyNzM0NjJhYTg0ZjJhZGIwZjcwOTM1YzUzMjc3ZmQ",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-10T15:09:13Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-10T15:09:13Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "66b9e9cdcd2f2636e3ea9d4608ccf01ef2b72e08",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/66b9e9cdcd2f2636e3ea9d4608ccf01ef2b72e08"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/320e8e4202273462aa84f2adb0f70935c53277fd",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqAJ+ZCRC1aQ7uu5UhlAAAOD0QAEnFKbh3IqOdIwIi/tjTIrCC\nfQp4B7716D1shxzX1nQAqwDKtkgNVtzFROqosRRFF2iNWiyLSp3hmg7ooN83z7gf\nWxoU5iUSSO+mkbv5tuoSS/F3e/reeZGSYJobGmTltjAcjjlEM1couJYCxIMi6VnU\npObPSaKC7dFBQytxanj9iTrdKhOOpzDpO2UjTZGIlP9zks8mKPwcLMehR+Mu0YOO\n3MxSwErzJwsFxc5mRCJ89jAip0jSEIj7lP9WGUaXYrLvww95ULAFqsAJD5OwDlk6\nQylIFeLYFp+n1nBXPJYcvX+z3h/X+qzC2rTZrBbeXKXySl9xINHSmAwhXb55Mrc1\nF7uPnI+hEAVNW9uzuqrMm6+JGaoxniQ93Qwu5m4fgxc3wq52J+ECpijRq93QsVa5\nL5CWV3Jkm/7jsHtdPenFFk09t+BWbsKcojEF4qL2rKvMV7bBgPMYYURzrGNQFnQO\nv7kalEKNiDRYSIaHPbGi6GEiUOghM4ZS5dhsditCdoaqsav74/AC/9gWtmhyZluW\nZrAD0YeQB1YSbe/pKtfC85QIZ2To8kqkReC3KcqJWlOV4C9MBJHxLCZzoGJA/ue1\n9T2mUIvfJyzpf9EmrGrSK4xD/Kem9UMLes5OnPXyJD61UeZv7d5Yl5dsrilZfCb4\nNrrSjiA1/nOqWaToYg95\n=Z1vO\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 66b9e9cdcd2f2636e3ea9d4608ccf01ef2b72e08\nparent 9cf6e52242b5917bc92395f120270bbc379d9787\nparent 881506f5bb414856659ecdedb02b02232bfccd0a\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1778425753 -0400\ncommitter GitHub <noreply@github.com> 1778425753 -0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-05-10T15:09:14Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/320e8e4202273462aa84f2adb0f70935c53277fd",
+   "html_url": "https://github.com/microsoft/vscode/commit/320e8e4202273462aa84f2adb0f70935c53277fd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/320e8e4202273462aa84f2adb0f70935c53277fd/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9cf6e52242b5917bc92395f120270bbc379d9787",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9cf6e52242b5917bc92395f120270bbc379d9787",
+     "html_url": "https://github.com/microsoft/vscode/commit/9cf6e52242b5917bc92395f120270bbc379d9787"
+    },
+    {
+     "sha": "881506f5bb414856659ecdedb02b02232bfccd0a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/881506f5bb414856659ecdedb02b02232bfccd0a",
+     "html_url": "https://github.com/microsoft/vscode/commit/881506f5bb414856659ecdedb02b02232bfccd0a"
+    }
+   ]
+  },
+  {
+   "sha": "6e9498e71dfc5dc03eda7da622e51692178f5408",
+   "node_id": "C_kwDOSY-_WtoAKDZlOTQ5OGU3MWRmYzVkYzAzZWRhN2RhNjIyZTUxNjkyMTc4ZjU0MDg",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-19T00:43:35Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-19T00:43:35Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "b94eefee20142d6a3aeea9b38fbbcbef96b4128f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b94eefee20142d6a3aeea9b38fbbcbef96b4128f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6e9498e71dfc5dc03eda7da622e51692178f5408",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqC7I3CRC1aQ7uu5UhlAAAoP8QADjcO+AeduG8uY5ZfrX8d8L1\nmtbpOIvvgaJYStV5G2S41LlzHmh9JQ+QP8gkEQUCYasAZc2dSbvWJqHMEvSijbHf\nTLTI/Fjxk3bjLXyzseBUVSb3zt7Z36+aXD91bGGUZ89gug5Xvm97xfqCCZ86vrcP\n2ca/r064vfhPPy05DAouQZtvRYmjHig9fB8c5MaZKUNSn8PlljuswfJQHE7fzJxx\nAXSog7bEaIhKDictMk6wUCFiS7qS6iYhKCgkG7yF4/+0/wo7GVNVBa5PWjhNzbJh\nn9TNgMWKO5Ru39SsD1xXJk1rhJGPfcJyvEhsRgJFRLLn38qJgxRVNmgXoBgyJkKP\nebbGyrrlRr2VNtTAI2CAw0vy44hYo8AGp3cC2JHEJhBwpcSLFSIoiqAH42uSWBuV\nZLbhptAzfda2b1YrLQX0WgmQ3RbU23wMqN4CtWu/pCo5i3a3+1nZqr1G2CwVTu2b\nzD/1HCOdvWF1QmrR/9teY2QmwjCj6eUTQCldltVW6wdIG/Hb/Tsc60sZCrnojTU7\nC2oay++BTKDC8PBkCRqoO6gOCr+6zlge2HNcsCXUlmJf0XhyjfLmqYbQXznLnkc8\nlULytp4/0dikmyeIon7QXbG48642pIewCsroj2c/VHFs2KhJL7LMib5ECPCyW4oZ\nH+3qWvdHn416gsk7poTI\n=hz7c\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b94eefee20142d6a3aeea9b38fbbcbef96b4128f\nparent 320e8e4202273462aa84f2adb0f70935c53277fd\nparent b3d075283dacf479f1a73c27777b6837c6e48f2a\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1779151415 -0400\ncommitter GitHub <noreply@github.com> 1779151415 -0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-05-19T00:43:36Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6e9498e71dfc5dc03eda7da622e51692178f5408",
+   "html_url": "https://github.com/microsoft/vscode/commit/6e9498e71dfc5dc03eda7da622e51692178f5408",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6e9498e71dfc5dc03eda7da622e51692178f5408/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "320e8e4202273462aa84f2adb0f70935c53277fd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/320e8e4202273462aa84f2adb0f70935c53277fd",
+     "html_url": "https://github.com/microsoft/vscode/commit/320e8e4202273462aa84f2adb0f70935c53277fd"
+    },
+    {
+     "sha": "b3d075283dacf479f1a73c27777b6837c6e48f2a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b3d075283dacf479f1a73c27777b6837c6e48f2a",
+     "html_url": "https://github.com/microsoft/vscode/commit/b3d075283dacf479f1a73c27777b6837c6e48f2a"
+    }
+   ]
+  },
+  {
+   "sha": "375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+   "node_id": "C_kwDOSY-_WtoAKDM3NWE4YTFiZjkyNjY0YjlkMDVkMzdjYWNlYzUxNTFiOWIyZjYzYjI",
+   "commit": {
+    "author": {
+     "name": "harshagarwalnyu",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-20T17:07:59Z"
+    },
+    "committer": {
+     "name": "harshagarwalnyu",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-20T17:07:59Z"
+    },
+    "message": "Merge remote-tracking branch 'origin/main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "a4ccec7b27830bb88e71b768b51eb95d6384b851",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a4ccec7b27830bb88e71b768b51eb95d6384b851"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+   "html_url": "https://github.com/microsoft/vscode/commit/375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/375a8a1bf92664b9d05d37cacec5151b9b2f63b2/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6e9498e71dfc5dc03eda7da622e51692178f5408",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6e9498e71dfc5dc03eda7da622e51692178f5408",
+     "html_url": "https://github.com/microsoft/vscode/commit/6e9498e71dfc5dc03eda7da622e51692178f5408"
+    },
+    {
+     "sha": "7d7e9513af36a565ce41d60e18972bbc5cad14a2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7d7e9513af36a565ce41d60e18972bbc5cad14a2",
+     "html_url": "https://github.com/microsoft/vscode/commit/7d7e9513af36a565ce41d60e18972bbc5cad14a2"
+    }
+   ]
+  },
+  {
+   "sha": "9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+   "node_id": "C_kwDOSY-_WtoAKDlhOTZmMTA2N2M1ZWUxNDA4ZDk4MzkyOTdlNzdhYTlkOTFmMjBkZjA",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-05-31T15:03:27Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-31T15:03:27Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "d97e89127b77fa8ea8ca3deb042b1b4e711878b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d97e89127b77fa8ea8ca3deb042b1b4e711878b9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqHE2/CRC1aQ7uu5UhlAAAxCcQAJTUuy4eOioUfZ/N8POxgiQt\nJenWUchMbNIeNO9TM5BKGxpL1byc8i3dKeSAQl8ZRJs0W9v1b4WKrPveJF53g2/n\nkKIucfoeEJ4VXiMATVhoUZ5zTWgtRLG3fNGxLrLD9qYUBa6mqbmtnMrJQOwL3McO\nDbU1oGGaOCyoRBnGsKtX9cDLFAsWStdYl+55cj0oTQPauUcDQI0JNNHju7b/BkgI\no3LOXwiMQ3mmU8bTVu1a95xeKsSgIHGtp4wGu5FivQs0wOa1LgliPQ1vRGZT1QAR\nWzgVwhTUTfDA1o0Su9UxkH8lEvJ2AjPVq2oYGpoMZJ3KVITj2MkUIzcBWAPjrrt4\nPROAFyGcSi6944FBjAJTH5T58yJ2QQnhJLnUuttRGNxeg+iSkPbKr5JOYtb/C/Mg\nMs9ytIrL8wPaJeHvZpYxWi94f1oV8tNcacNVrd1Y5F3lYxiLYSDOBvQCdf0gZLPY\nUh15SLo3TAX0k7nAQsk0JfUgXO0QU3fsFFi9onX035o+xVwwV8rDpF55q4QYa3dL\nXEmVoxEP9gyLSuNGTni3f7vtM96+76QTv91aS2FdYBGN15oMMbXoqQL/QfkV64WE\n5YSoJRqEzi+ygDjoSxbiZ22Mi02dc/R4+xXtVahZ0i3X/7M6FLn2dhGzqIPeB6B9\nMoZB2t4ukVvamLUgS+hV\n=YwSS\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree d97e89127b77fa8ea8ca3deb042b1b4e711878b9\nparent 375a8a1bf92664b9d05d37cacec5151b9b2f63b2\nparent d75648f75f594c81b530530cfc1d37267674ec63\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1780239807 -0400\ncommitter GitHub <noreply@github.com> 1780239807 -0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-05-31T15:03:27Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+   "html_url": "https://github.com/microsoft/vscode/commit/9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9a96f1067c5ee1408d9839297e77aa9d91f20df0/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/375a8a1bf92664b9d05d37cacec5151b9b2f63b2",
+     "html_url": "https://github.com/microsoft/vscode/commit/375a8a1bf92664b9d05d37cacec5151b9b2f63b2"
+    },
+    {
+     "sha": "d75648f75f594c81b530530cfc1d37267674ec63",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d75648f75f594c81b530530cfc1d37267674ec63",
+     "html_url": "https://github.com/microsoft/vscode/commit/d75648f75f594c81b530530cfc1d37267674ec63"
+    }
+   ]
+  },
+  {
+   "sha": "cf48046de04f71cef68e43b2dd2dd618092def28",
+   "node_id": "C_kwDOSY-_WtoAKGNmNDgwNDZkZTA0ZjcxY2VmNjhlNDNiMmRkMmRkNjE4MDkyZGVmMjg",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-06-03T15:06:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-03T15:06:44Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "f0e836b6f867ff5c1d9237a062e6af3e656e41b8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f0e836b6f867ff5c1d9237a062e6af3e656e41b8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/cf48046de04f71cef68e43b2dd2dd618092def28",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqIEMFCRC1aQ7uu5UhlAAApPgQAGPp2bRJLNPVr1mCntWew4sr\nRJ3qd5jYpHywLFWxMeaGxIX5pqsZJwtyj38rt0UUHBYuofSQ3jZzfGnzg6r0oRQ5\nWrg7Fv2lrzW/otS8faXD3qAomtswJWZIWQcqn5c+fmql4ZOr/i/W1loTcAysRJMl\nmCrO3PLgu7mYUh0RJjG4Hs7peQXJ+EJ8AOSm/YyDsgkjACW8oZ7/JB1ii+uXO6Yv\nhbOyQS1LnG7nD5lZTZ/in7gxrQCY0Er+EyEIgDCpWN6E1z/MKY8E9wSUJJfv4aCJ\neoKy1h+koUSdaQWh31tThVTsibJkOigOCFQMKe0VsrrXwuWCOoYbmaNzKRoqdfT4\n7QzWhaaZ733R8Aw9hExt/D36v/bEdO209FiyOayBE8bEIJbdUcgWedfiA8up5NRZ\n1OY4RES/hoX3e7KQ54HoUxpEsvPKl45glJY5tOiEfn85ez+0hUsB0ZZzWzqLmGC6\nwVvxBLlsI4vSFd881EcWqjhy+MO197WJLFPZPd5ARwHnbc0fcfIxeP/Luh6fzmc2\nFr/B6MzZ2q6oMWYRL/UsYOldQezl9Ke+JE69kRDH6eCf0a+3I7VT/rD2sqMtJl/M\nRrWxcsHJuJywaD+o+bnFBYO3aV8rk54V+P0DJc4D61v1GlP5zSog11V6Q9ymt5eC\naZY/JjLNH1RhhF1wlE2H\n=8yTv\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f0e836b6f867ff5c1d9237a062e6af3e656e41b8\nparent 9a96f1067c5ee1408d9839297e77aa9d91f20df0\nparent ed4b13a7b198c140839394d1e669e69f687280f6\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1780499204 +0400\ncommitter GitHub <noreply@github.com> 1780499204 +0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-06-03T15:06:49Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/cf48046de04f71cef68e43b2dd2dd618092def28",
+   "html_url": "https://github.com/microsoft/vscode/commit/cf48046de04f71cef68e43b2dd2dd618092def28",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/cf48046de04f71cef68e43b2dd2dd618092def28/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9a96f1067c5ee1408d9839297e77aa9d91f20df0",
+     "html_url": "https://github.com/microsoft/vscode/commit/9a96f1067c5ee1408d9839297e77aa9d91f20df0"
+    },
+    {
+     "sha": "ed4b13a7b198c140839394d1e669e69f687280f6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ed4b13a7b198c140839394d1e669e69f687280f6",
+     "html_url": "https://github.com/microsoft/vscode/commit/ed4b13a7b198c140839394d1e669e69f687280f6"
+    }
+   ]
+  },
+  {
+   "sha": "aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+   "node_id": "C_kwDOSY-_WtoAKGFhOTM4OTkxZDZkM2EwNmExMDEyYzFjY2NhODRjMGI3NWNmOGQ0ZjA",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-06-10T04:57:27Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-10T04:57:27Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "815483d6efa4267b4fe22b6a0f235af4e739e2b1",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/815483d6efa4267b4fe22b6a0f235af4e739e2b1"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqKO64CRC1aQ7uu5UhlAAA5gIQAGqHtt63cVg059qFXdZHlONH\nXmG+22Nu/09Rg9oT7wOzenrQeakkQ5+5KLvPamHGxO7uo8D+W+z8n3waLGR5tBwg\n4/nk0LDfEnN/0jIOyIjGSSX3wF9dooOkbQM9NwR9FVNuc9hYypvrHoJHvriww+aZ\nhC15d6VKN/qapc83Z8geNt4H2npb0+jjBD93XO7vxz9NiaQaWB3YmdzZRTUC1jjM\nXiiy1KcGN11MnBPisYB2B2T6/uYclCYSMaslr+knL5BP9yn/OYIBA4/i0fTeyNi7\nJDhBOQEb25uTXg2bH4+07wHb5D3+E1QKP0YAJLHZ/nBjNhI6esZd4jdP7aod1Fcf\nD1j5h/uohX3h3uSH/Sdw8XyfojtjB7ckVtNWhith0u3gV111lAgESjHDev+ZhlC2\nSKBpo28aWXK9dTiBpwbQqZo4lXFhzUhWkwiqW43DEC2SYBip5aLHQO6Xiz/00U9+\nHOX80dRdt90SyxzEFUg+VfXxHKnY94rK7sMs9KnzHYhCEBlY0HI6wdr4/ZCPMsqs\nupUEBHVY4O7unIki0tj7NWJXPti7pe7whQkoBqEiO91Wx9Yiyew2CQx3FKOW3q+f\nie6hCxl6fXp2nLw7ogwkrrbYsYqRV6ObMA8irBq4+mCzRgaioKFXF3tpSpVGCnMj\nlJTeH7mRd7eIJZuhUyAU\n=sPUP\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 815483d6efa4267b4fe22b6a0f235af4e739e2b1\nparent cf48046de04f71cef68e43b2dd2dd618092def28\nparent cb86056cdef028b4e583805f168cea0e3bbb2383\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1781067447 +0400\ncommitter GitHub <noreply@github.com> 1781067447 +0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-06-10T04:57:28Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+   "html_url": "https://github.com/microsoft/vscode/commit/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "cf48046de04f71cef68e43b2dd2dd618092def28",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cf48046de04f71cef68e43b2dd2dd618092def28",
+     "html_url": "https://github.com/microsoft/vscode/commit/cf48046de04f71cef68e43b2dd2dd618092def28"
+    },
+    {
+     "sha": "cb86056cdef028b4e583805f168cea0e3bbb2383",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cb86056cdef028b4e583805f168cea0e3bbb2383",
+     "html_url": "https://github.com/microsoft/vscode/commit/cb86056cdef028b4e583805f168cea0e3bbb2383"
+    }
+   ]
+  },
+  {
+   "sha": "f077860f46e175e12d796947501b042cd21ea314",
+   "node_id": "C_kwDOSY-_WtoAKGYwNzc4NjBmNDZlMTc1ZTEyZDc5Njk0NzUwMWIwNDJjZDIxZWEzMTQ",
+   "commit": {
+    "author": {
+     "name": "Harsh Agarwal",
+     "email": "harshagarwal48756@gmail.com",
+     "date": "2026-07-08T13:48:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-08T13:48:14Z"
+    },
+    "message": "Merge branch 'main' into fix-window-drift-linux",
+    "tree": {
+     "sha": "2eeeb951a8615cf3f5f2a0b08fc86dbf2bb702cd",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2eeeb951a8615cf3f5f2a0b08fc86dbf2bb702cd"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f077860f46e175e12d796947501b042cd21ea314",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqTlUeCRC1aQ7uu5UhlAAA2gQQAAKCbJ3KhZm+hat2z6t+LONl\nLB+/Q3zWuNnYoVVNrn25vEu0pO80B6CtGgmBRROJ37dgG5wkrFx1mMlZ6+Aevs67\nL8dYRpZKrrcYAUKm+9Tdjh3HvDGKcY0Szouk6/6yOwWP4rXtO0NJ1x23EcDruyko\nGCVAirrrEDbH8Q3liK0JXrjXDwOrjVBqzx5e0ibI/oKkJKxNSo7IroDA+1nfy7mr\nAZtelqb0ttNyLngmPfWUK2Y+FLwDhdrYFauNBiWwtv9aabXsdfp56QT2QH4Zrj31\nayRjlf2oNFPCOw938ptiPeGojS4HHB3d1mFUjLS8C6VcV+3keym5mJd6SCen9HlC\n9itCKA8nHDX3Njole+2OJ7qsAM3vI/1yPLx7F6qk/iAVEnOK6MIZdofuNFXpIdK1\nxVBTAj3LRxYv6sE3BKw4jIRwjXBQaS3EPMxUi4FqKF2zVTMD1whp4L5RrwRUZvZu\nw47UN8g/V6AX1OB9b9zbUpgx3lBkxaVOAjwuzgQ7baUPUnfZPpEc8Pt7CkjStKI9\nK4EwbjuR1NSvNolDQ0LqVFIU3sStoonQ4cZUso4rr5bdKjWcwiuN3qrD8ME0xGZb\nMBKvnH8YWIkbibpUEDw9G+mthHAYDNyMaBsOHAnee6DEKnI8lMpJMphQmDrQeM3i\nXI0hPX7MPAXg0IwdHAeM\n=sgCu\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2eeeb951a8615cf3f5f2a0b08fc86dbf2bb702cd\nparent aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0\nparent c292a0aa807695fb7d6ec2cdc02284aeab288742\nauthor Harsh Agarwal <harshagarwal48756@gmail.com> 1783518494 +0400\ncommitter GitHub <noreply@github.com> 1783518494 +0400\n\nMerge branch 'main' into fix-window-drift-linux",
+     "verified_at": "2026-07-08T13:48:15Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f077860f46e175e12d796947501b042cd21ea314",
+   "html_url": "https://github.com/microsoft/vscode/commit/f077860f46e175e12d796947501b042cd21ea314",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f077860f46e175e12d796947501b042cd21ea314/comments",
+   "author": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0",
+     "html_url": "https://github.com/microsoft/vscode/commit/aa938991d6d3a06a1012c1ccca84c0b75cf8d4f0"
+    },
+    {
+     "sha": "c292a0aa807695fb7d6ec2cdc02284aeab288742",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c292a0aa807695fb7d6ec2cdc02284aeab288742",
+     "html_url": "https://github.com/microsoft/vscode/commit/c292a0aa807695fb7d6ec2cdc02284aeab288742"
+    }
+   ]
+  }
+ ]
+}

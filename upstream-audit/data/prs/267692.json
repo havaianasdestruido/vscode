@@ -1,0 +1,1419 @@
+{
+ "fetchedAt": "2026-11-01T00:52:33.105Z",
+ "pr": {
+  "number": 267692,
+  "title": "feat(scm): detect worktree hierarchy from inside and outside primary worktree closes #259083 #267612 #259083",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-09-21T18:04:04Z",
+  "updated_at": "2026-02-18T03:32:27Z",
+  "user": "eddienubes",
+  "author_association": "NONE",
+  "additions": 36,
+  "deletions": 1,
+  "changed_files": 3,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 6,
+  "review_comments": 2,
+  "commits_count": 12,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "main",
+   "sha": "78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "repo": "eddienubes/vscode",
+   "label": "eddienubes:main"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n## Prerequisites\r\nThis PR improves recently introduced git worktree support.\r\n1. Worktree detection improvements.\r\nWorktree hierarchy in the `repository` tab of the SCM view is shown only when the **primary worktree** is open  as described in #259083 and upstream issues.\r\n2. `${activeRepositoryName}` `window.title` variable\r\nCurrently, it simply shows the folder name of the _open worktree_.\r\nBy showing the `primary` worktree folder name instead, we'll support other variations to customize window.title.\r\nIf someone wants to stick to open worktree folder name, they can simply use `${folderName}` variable.\r\nThe detailed use-case is described in #251596.\r\n\r\nThe reason I combined these changes in a single PR is that primary repository name derivation is tightly coupled with the way SCM detects worktrees.\r\n\r\n## Setup\r\n```bash\r\nmkdir test-folder && cd test-folder\r\ngit init repo && cd repo\r\ntouch test.txt && git add . && git commit -m \"init\" # introduce first commit\r\ngit worktree add test-worktree-inside\r\ngit worktree add ../test-worktree-outside\r\n```\r\n### Scenario 1: Opening the primary worktree \r\nIt shouldn't be any different. Hierarchy is shown within the SCM view + worktrees are detected.\r\n### Scenario 2: Opening the `test-worktree-inside` worktree\r\nShould have the same output as Scenario 1.\r\n### Scenario 3: Opening the `test-worktree-outside`\r\nShould have the same output as Scenario 1.\r\n\r\n## Notes\r\nI could decouple the changes and submit another PR if required.\r\nAlso, I don't see any unit tests for the SCM `model.ts`. Let me know if I should add test coverage.\r\nAlthough this PR improves worktree detection, it still doesn't support hierarchy using worktrees with bare repositories as reported in #267606",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "08ef8a13559240b9ed64705f5ea7932901e94b5d",
+   "filename": "extensions/git/src/git.ts",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 1,
+   "changes": 17,
+   "blob_url": "https://github.com/microsoft/vscode/blob/78f7d0182da3b69cc44de4f25fb660da7da26791/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/78f7d0182da3b69cc44de4f25fb660da7da26791/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fgit.ts?ref=78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "patch": "@@ -28,7 +28,17 @@ export interface IGit {\n export interface IDotGit {\n \treadonly path: string;\n \treadonly commonPath?: string;\n+\t/**\n+\t * Defined when a given repository is a submodule.\n+\t * Points to the superproject (parent) path.\n+\t * https://git-scm.com/docs/gitsubmodules/2.19.2#_description\n+\t */\n \treadonly superProjectPath?: string;\n+\t/**\n+\t * Defined when a given repository is a worktree.\n+\t * Points to the primary worktree path.\n+\t */\n+\treadonly primaryWorktreePath?: string;\n }\n \n export interface IFileStatus {\n@@ -576,7 +586,8 @@ export class Git {\n \t\treturn {\n \t\t\tpath: dotGitPath,\n \t\t\tcommonPath: commonDotGitPath !== dotGitPath ? commonDotGitPath : undefined,\n-\t\t\tsuperProjectPath: superProjectPath ? path.normalize(superProjectPath) : undefined\n+\t\t\tsuperProjectPath: superProjectPath ? path.normalize(superProjectPath) : undefined,\n+\t\t\tprimaryWorktreePath: commonDotGitPath ? path.dirname(commonDotGitPath) : undefined\n \t\t};\n \t}\n \n@@ -1247,6 +1258,10 @@ export class Repository {\n \t\t\t: this.dotGit.superProjectPath\n \t\t\t\t? 'submodule'\n \t\t\t\t: 'repository';\n+\t\t// Shouldn't happen, but just in case\n+\t\tif (this._kind === 'worktree' && !this.dotGit.commonPath) {\n+\t\t\tthis.logger.warn(`[Repository] Repository at ${this.repositoryRoot} is a worktree but has no common git path.`);\n+\t\t}\n \t}\n \n \tprivate readonly _kind: 'repository' | 'submodule' | 'worktree';"
+  },
+  {
+   "sha": "766fb47e6ae547e9d02d982f7d9bdf93e2839fbc",
+   "filename": "extensions/git/src/model.ts",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 0,
+   "changes": 12,
+   "blob_url": "https://github.com/microsoft/vscode/blob/78f7d0182da3b69cc44de4f25fb660da7da26791/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/78f7d0182da3b69cc44de4f25fb660da7da26791/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fmodel.ts?ref=78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "patch": "@@ -653,6 +653,18 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi\n \t\t\t// Open repository\n \t\t\tconst [dotGit, repositoryRootRealPath] = await Promise.all([this.git.getRepositoryDotGit(repositoryRoot), this.getRepositoryRootRealPath(repositoryRoot)]);\n \t\t\tconst gitRepository = this.git.open(repositoryRoot, repositoryRootRealPath, dotGit, this.logger);\n+\n+\t\t\tconst isPrimaryWorktreeOpen = dotGit.primaryWorktreePath && !!this.getOpenRepository(dotGit.primaryWorktreePath);\n+\t\t\t// Handle opening worktrees directly.\n+\t\t\t// If current repo is a worktree, find its primary worktree (the one with .git) and open it instead.\n+\t\t\t// Opening the primary first ensures worktree discovery and hierarchy visibility no matter what workspace we approach first.\n+\t\t\tif (gitRepository.kind === 'worktree' && !isPrimaryWorktreeOpen) {\n+\t\t\t\t// This function is @sequentialized, let's not await to avoid deadlocks\n+\t\t\t\tvoid this.openRepository(dotGit.primaryWorktreePath!, true, true)\n+\t\t\t\t\t.catch(err => this.logger.error('[Model][openRepository] unable to open primary worktree', err));\n+\t\t\t\treturn;\n+\t\t\t}\n+\n \t\t\tconst repository = new Repository(gitRepository, this, this, this, this, this, this, this.globalState, this.logger, this.telemetryReporter);\n \n \t\t\tthis.open(repository);"
+  },
+  {
+   "sha": "18607cfdd178dc8d8c3fe6e6478dcaee0ec42574",
+   "filename": "src/vs/workbench/contrib/scm/browser/activity.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 0,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/78f7d0182da3b69cc44de4f25fb660da7da26791/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Factivity.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/78f7d0182da3b69cc44de4f25fb660da7da26791/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Factivity.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Factivity.ts?ref=78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "patch": "@@ -119,6 +119,14 @@ export class SCMActiveRepositoryController extends Disposable implements IWorkbe\n \t\t\tconst repository = this.scmViewService.activeRepository.read(reader);\n \t\t\tconst historyItemRefName = this._activeRepositoryHistoryItemRefName.read(reader);\n \n+\t\t\tconst parentId = repository?.provider.parentId;\n+\t\t\tconst parentRepository = parentId ? this.scmViewService.repositories.find(r => r.provider.id === parentId) : null;\n+\n+\t\t\tif (parentRepository) {\n+\t\t\t\tthis._updateActiveRepositoryContextKeys(parentRepository.provider.name, historyItemRefName);\n+\t\t\t\treturn;\n+\t\t\t}\n+\n \t\t\tthis._updateActiveRepositoryContextKeys(repository?.provider.name, historyItemRefName);\n \t\t}));\n \t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3250108273,
+   "node_id": "PRR_kwDOAn8RLM7BuLdx",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull Request Overview\n\nThis PR enhances Git worktree handling in SCM by (1) ensuring the primary worktree is opened first to enable consistent worktree hierarchy discovery and (2) updating active repository context (e.g. for window title variable) to prefer the primary worktree name. It also introduces metadata (primaryWorktreePath) to link secondary worktrees back to their primary repository.\n- Automatically redirects opening a standalone worktree to first open its primary.\n- Adjusts active repository context resolution to use parent (primary) repository when applicable.\n- Extends IDotGit with primaryWorktreePath to support hierarchy awareness.\n\n### Reviewed Changes\n\nCopilot reviewed 3 out of 3 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/contrib/scm/browser/activity.ts | Uses parent repository name for active repository context when in a worktree. |\n| extensions/git/src/model.ts | Adds early-return logic to open primary worktree before a secondary and skips opening the secondary directly. |\n| extensions/git/src/git.ts | Extends git metadata with primaryWorktreePath for worktree relationship resolution. |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#pullrequestreview-3250108273",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/267692",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/267692#pullrequestreview-3250108273"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/267692"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-09-21T18:05:14Z",
+   "commit_id": "54c6698b85ae65686119d32c76587f416f47af2e"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3316164152",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3316164152",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3316164152,
+   "node_id": "IC_kwDOAn8RLM7FqKY4",
+   "user": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-09-21T18:09:57Z",
+   "updated_at": "2025-09-21T18:09:57Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3316164152/reactions",
+    "total_count": 1,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 1,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3410913535",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3410913535",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3410913535,
+   "node_id": "IC_kwDOAn8RLM7LTmj_",
+   "user": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-10-16T13:32:21Z",
+   "updated_at": "2025-10-16T13:32:21Z",
+   "body": "@lszomoru sorry for pinging you, looks like this PR and related issues fell through the cracks, could you take a look?\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3410913535/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3849585424",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3849585424",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3849585424,
+   "node_id": "IC_kwDOAn8RLM7ldAMQ",
+   "user": {
+    "login": "csvn",
+    "id": 8770194,
+    "node_id": "MDQ6VXNlcjg3NzAxOTQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8770194?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/csvn",
+    "html_url": "https://github.com/csvn",
+    "followers_url": "https://api.github.com/users/csvn/followers",
+    "following_url": "https://api.github.com/users/csvn/following{/other_user}",
+    "gists_url": "https://api.github.com/users/csvn/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/csvn/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/csvn/subscriptions",
+    "organizations_url": "https://api.github.com/users/csvn/orgs",
+    "repos_url": "https://api.github.com/users/csvn/repos",
+    "events_url": "https://api.github.com/users/csvn/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/csvn/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-02-04T20:27:42Z",
+   "updated_at": "2026-02-04T20:27:42Z",
+   "body": "This PR seems awesome! It covers all my current issues that I feel made worktrees not feel well supported in VSCode.\r\n\r\n- Opening a worktree does not show the \"parent\" Git project any longer in Repositories view\r\n- The VSCode title changes from displaying the project name to the branch name\r\n\r\nSo I'm all in favor of this update to `${activeRepositoryName}`! @lszomoru any change to get this PR rolling again?",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3849585424/reactions",
+    "total_count": 2,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 2,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3855730925",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3855730925",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3855730925,
+   "node_id": "IC_kwDOAn8RLM7l0cjt",
+   "user": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-02-05T19:20:47Z",
+   "updated_at": "2026-02-05T19:20:47Z",
+   "body": "@csvn Happy to push this forward if @lszomoru agrees on the approach",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3855730925/reactions",
+    "total_count": 3,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 1,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 2,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3897097771",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3897097771",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3897097771,
+   "node_id": "IC_kwDOAn8RLM7oSP4r",
+   "user": {
+    "login": "kiview",
+    "id": 5088104,
+    "node_id": "MDQ6VXNlcjUwODgxMDQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5088104?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kiview",
+    "html_url": "https://github.com/kiview",
+    "followers_url": "https://api.github.com/users/kiview/followers",
+    "following_url": "https://api.github.com/users/kiview/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kiview/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kiview/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kiview/subscriptions",
+    "organizations_url": "https://api.github.com/users/kiview/orgs",
+    "repos_url": "https://api.github.com/users/kiview/repos",
+    "events_url": "https://api.github.com/users/kiview/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kiview/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-02-13T12:55:14Z",
+   "updated_at": "2026-02-13T12:55:14Z",
+   "body": "Just coming from far left field, but having this change land, would directly support the new `--worktree` feature we are just adding to our `docker sandbox` command, so totally in favor to move this forward 👍 ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3897097771/reactions",
+    "total_count": 3,
+    "+1": 2,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 1,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3918359346",
+   "html_url": "https://github.com/microsoft/vscode/pull/267692#issuecomment-3918359346",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/267692",
+   "id": 3918359346,
+   "node_id": "IC_kwDOAn8RLM7pjWsy",
+   "user": {
+    "login": "chrishas35",
+    "id": 35075,
+    "node_id": "MDQ6VXNlcjM1MDc1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/35075?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/chrishas35",
+    "html_url": "https://github.com/chrishas35",
+    "followers_url": "https://api.github.com/users/chrishas35/followers",
+    "following_url": "https://api.github.com/users/chrishas35/following{/other_user}",
+    "gists_url": "https://api.github.com/users/chrishas35/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/chrishas35/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/chrishas35/subscriptions",
+    "organizations_url": "https://api.github.com/users/chrishas35/orgs",
+    "repos_url": "https://api.github.com/users/chrishas35/repos",
+    "events_url": "https://api.github.com/users/chrishas35/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/chrishas35/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-02-18T03:32:27Z",
+   "updated_at": "2026-02-18T03:32:27Z",
+   "body": "Will this also work with worktrees coming off bare repos?  My current organization structure is:\r\n\r\n{repo_name}/.bare.git\r\n{repo_name}/main  -- worktree of main branch\r\n{repo_name}/feat1 -- worktree of feature 1\r\n{repo_name}/release/0.1 -- worktree of release/0.1 branch",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3918359346/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "f8426f3e769e6bad63fd43a559940f97877b13ea",
+   "node_id": "C_kwDOPzvDINoAKGY4NDI2ZjNlNzY5ZTZiYWQ2M2ZkNDNhNTU5OTQwZjk3ODc3YjEzZWE",
+   "commit": {
+    "author": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T17:24:25Z"
+    },
+    "committer": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T17:24:25Z"
+    },
+    "message": "feat(scm): open worktree hierarchy no matter what worktree comes first",
+    "tree": {
+     "sha": "f06ac91ec0fffd872bd57e23225f936323390d5b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f06ac91ec0fffd872bd57e23225f936323390d5b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f8426f3e769e6bad63fd43a559940f97877b13ea",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f8426f3e769e6bad63fd43a559940f97877b13ea",
+   "html_url": "https://github.com/microsoft/vscode/commit/f8426f3e769e6bad63fd43a559940f97877b13ea",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f8426f3e769e6bad63fd43a559940f97877b13ea/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "588f3b0719fb9996eff31fcbeed5f05c4807ae54",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/588f3b0719fb9996eff31fcbeed5f05c4807ae54",
+     "html_url": "https://github.com/microsoft/vscode/commit/588f3b0719fb9996eff31fcbeed5f05c4807ae54"
+    }
+   ]
+  },
+  {
+   "sha": "54c6698b85ae65686119d32c76587f416f47af2e",
+   "node_id": "C_kwDOPzvDINoAKDU0YzY2OThiODVhZTY1Njg2MTE5ZDMyYzc2NTg3ZjQxNmY0N2FmMmU",
+   "commit": {
+    "author": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T18:03:37Z"
+    },
+    "committer": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T18:03:37Z"
+    },
+    "message": "feat(scm): update comment",
+    "tree": {
+     "sha": "716d645c4e300d4f71237c461235405130fe289e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/716d645c4e300d4f71237c461235405130fe289e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/54c6698b85ae65686119d32c76587f416f47af2e",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/54c6698b85ae65686119d32c76587f416f47af2e",
+   "html_url": "https://github.com/microsoft/vscode/commit/54c6698b85ae65686119d32c76587f416f47af2e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/54c6698b85ae65686119d32c76587f416f47af2e/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f8426f3e769e6bad63fd43a559940f97877b13ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f8426f3e769e6bad63fd43a559940f97877b13ea",
+     "html_url": "https://github.com/microsoft/vscode/commit/f8426f3e769e6bad63fd43a559940f97877b13ea"
+    }
+   ]
+  },
+  {
+   "sha": "baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+   "node_id": "C_kwDOPzvDINoAKGJhYTZhNmNmODA2ZDJlYzY4ZWYzNjg3ODIwYTJjYTFiMTI0ZWNhZTA",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-21T18:11:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-21T18:11:02Z"
+    },
+    "message": "feat(scm): update optional chaining\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "038f038724b52af7549f06e042b54cc434c0a203",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/038f038724b52af7549f06e042b54cc434c0a203"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo0D+2CRC1aQ7uu5UhlAAA28gQAK/cg+mYXfxx7mBZjeDbQ0bH\nv8aqL0zMqMrqHMhTJ/opgM9aqgPsLMAPmF0UNMegjet+ykw1GqLs9rX5XoZpiFF2\nK2kJmBtn44QgwIDZmCTulysZCM5OA7nPHYjETdaWmRvrBpE0Dgd9fO/OPbyfwm6L\nzUlcVE1wjwSNEg2fAIXp+w/qoZbUFBiHUXyp8EdXrdZtnG3GKZMDanrtJhzFTs6q\nvN4BfseWgqgzfyMwXHyyCUALMprgjseqLCxavExY1dfrtqKUIP14nt3zAB/NwIYY\nf/9PlGcsPbQK+741PWcnbaWt9BVrQt+GHBX6H/8bi7MVXpT64X+AXWbgUZJXH4lX\nGSd06Bc+MCwNwPtcotqnQU3vh7VJtP/Wy0rAQVVXuC3fs/zsacmXfTOUJ+oP5zAl\nPcF7EM4qDdQ9GrhmQyFv+YRmF7A0UDY/EiPoOKRGR+anvwp8Y1K6tF3Wsh3sxIKp\nB13DSzBiSo6uwkvKfItlAC1MnKbtmxTAq2kP+mScTMaGRLwzwea9yXN2Byveqcri\n17L8Hu9I1HG9w8yWpz6z9nBuW8Rn9wk9MZ5pQi8P0tvxT3LClMUlF7D0eXtpShjU\nw8ynQDYYzaYWhdQwgQtewF9Z7FBuf9enr9SgYrrgFWlOpQjdhLq81SvUac5f+vW9\nkiC8KMix0W/69wTh+iZA\n=wCm9\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 038f038724b52af7549f06e042b54cc434c0a203\nparent 54c6698b85ae65686119d32c76587f416f47af2e\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758478262 +0200\ncommitter GitHub <noreply@github.com> 1758478262 +0200\n\nfeat(scm): update optional chaining\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2025-09-21T18:11:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+   "html_url": "https://github.com/microsoft/vscode/commit/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "54c6698b85ae65686119d32c76587f416f47af2e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/54c6698b85ae65686119d32c76587f416f47af2e",
+     "html_url": "https://github.com/microsoft/vscode/commit/54c6698b85ae65686119d32c76587f416f47af2e"
+    }
+   ]
+  },
+  {
+   "sha": "a329bc70f365b48f509af71a13ace38a4eec199e",
+   "node_id": "C_kwDOPzvDINoAKGEzMjliYzcwZjM2NWI0OGY1MDlhZjcxYTEzYWNlMzhhNGVlYzE5OWU",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-21T18:12:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-21T18:12:29Z"
+    },
+    "message": "feat(scm): catch worktree bootstrap error\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "136bd8c2692ae94e63cce1dcaf31df233ff8909c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/136bd8c2692ae94e63cce1dcaf31df233ff8909c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a329bc70f365b48f509af71a13ace38a4eec199e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo0EANCRC1aQ7uu5UhlAAAd0oQAB1gvF1Y+o8NMlGFiCVEUuoS\n30uo7rtCut4MrB/dEJVZZowu62DjqM1k9R9YBvIDlkdQ+2y0T2mjXgYEGB4Qw+cC\n2BsTBPD/RPxP5V1LUw2MK8W1P+3/hI8vDqpT+5JDBz+NSHQv/AH21zd4pnwgRqO1\nhmvvcMtrqU+dlRL0LqkWIY0k2an54hitc4Pt5JKE3C1tJHvYDXQswP8GdgKlig2b\ncZViYoSvHDTanrCb0uEp8OXMeIaukQzPI4s0r6WPzE6hc7Z+kRuMGzZnvwxPvDi1\nSaasPoxrtKukzquIXzYpZdUE+KH4VyTF/3dC05JKMq9AXM5WiblxjovH/i1Db1up\nI82hgiAxzMGUtWRk9QiRwrDF6DipeB/lw+630lBvdetmDt4ldjkplAQKSrI2Hh6R\nM8Tve6x10RR3yAlXGxSurVF45wEVxyNvZJIlqBZxgbgSemjtOo/D0gAtWArqyO3J\nIo3iML1CBfs3YU42TbeaAWLSCtOA60JyDcSXeWdzuQci/Lx3xlJgsZKkf4kLvAmb\nyYponRvO4qpSKbBsVNv/S9LS5RjwPpo60yv+q7W5pRLQ7+kp5WXmKd635Ws0ECgk\nMykQHb6ml2wga2Fx8DtQCDjSt6wqtBg55wXZQoIBFey+RNdt43ddNSVUccZq3Obr\nwyiNnLbAqhRst4bblTwI\n=7bsu\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 136bd8c2692ae94e63cce1dcaf31df233ff8909c\nparent baa6a6cf806d2ec68ef3687820a2ca1b124ecae0\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758478349 +0200\ncommitter GitHub <noreply@github.com> 1758478349 +0200\n\nfeat(scm): catch worktree bootstrap error\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2025-09-21T18:12:30Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a329bc70f365b48f509af71a13ace38a4eec199e",
+   "html_url": "https://github.com/microsoft/vscode/commit/a329bc70f365b48f509af71a13ace38a4eec199e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a329bc70f365b48f509af71a13ace38a4eec199e/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0",
+     "html_url": "https://github.com/microsoft/vscode/commit/baa6a6cf806d2ec68ef3687820a2ca1b124ecae0"
+    }
+   ]
+  },
+  {
+   "sha": "4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+   "node_id": "C_kwDOPzvDINoAKDRiMjZhNWNmYTFlZTU5Y2I1Y2Y5NDAxZjVhN2ZjZTZkNTQ0OTNiY2E",
+   "commit": {
+    "author": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T18:15:14Z"
+    },
+    "committer": {
+     "name": "eddienubes",
+     "email": "cool.gegeg@gmail.com",
+     "date": "2025-09-21T18:15:14Z"
+    },
+    "message": "feat(scm): update error log",
+    "tree": {
+     "sha": "087cdf0da68840af51cbdbda1924ad9880fc99cb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/087cdf0da68840af51cbdbda1924ad9880fc99cb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+   "html_url": "https://github.com/microsoft/vscode/commit/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a329bc70f365b48f509af71a13ace38a4eec199e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a329bc70f365b48f509af71a13ace38a4eec199e",
+     "html_url": "https://github.com/microsoft/vscode/commit/a329bc70f365b48f509af71a13ace38a4eec199e"
+    }
+   ]
+  },
+  {
+   "sha": "f63c91c849d453b0c7830e925f37f9946c0b2083",
+   "node_id": "C_kwDOPzvDINoAKGY2M2M5MWM4NDlkNDUzYjBjNzgzMGU5MjVmMzdmOTk0NmMwYjIwODM",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-22T13:54:31Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-22T13:54:31Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "e43e04f9156385ad0ee3a7810d4fe9d6e8a3bf7b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e43e04f9156385ad0ee3a7810d4fe9d6e8a3bf7b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f63c91c849d453b0c7830e925f37f9946c0b2083",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo0VUXCRC1aQ7uu5UhlAAAXwgQAIXaecpHKDzoVtRvlrOqAwQH\nISHiWJEa+KmL5CbuiYS0XBQo9yXYiI1/cpH4NRfU4HnT/kKyMlfhNue5aUFvbWcS\n5H9+PTN6MEWEgibAYoKX3y5d0+gIK84nQJFDGXH5s9a7HZh/MCvM8Da+/s3R+cYB\ndEGDTfSL6Lkw2KGieMCMyLeSTjcyog41IYDfrq4WNeZoG9tN6gbh1UFtStp9Krxo\nwTk7YV+tet6WYXZh1I2kl7q8EcwHx3tc5K/CEspQ5RlUDZE+v9AxGTmT+EVsfG3i\njnPjbKWVoL1gsqgYzrFXeUKugswwASEpmXRN84DlrMsOXuPGtygeMTn5H0FzCW95\nKJltjObQjYaEZf77mCFROOJ/DBB6DXijJWsURkoxlbYOkN0E+Lvd/5BeT8vuFlaJ\nUxS0FzHfxNeJvV6AxknvBeFm13zM1pcoRz/+YRNwvc6wrIcFd9rbcWX4nnbuLryg\naD+Fk3ZD7J+qvyElddNGHic5T38mTbQE8skHFmhOfxTSA1jy4FhGLPbaMFoEYnu5\nB02SJj5ecUD2J1AmBsMdM34n5VXrfRUk5n2uaCsVAHneC0Pty6CQSbnniG7WKtdr\nW7wp5AlEKXWyG0do54T356qzjUux+SBrmPa2NAg608cxTFkgHs8xE948JCD0l2mN\nw//17NiMrkoiiYi6ec/W\n=tb7N\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree e43e04f9156385ad0ee3a7810d4fe9d6e8a3bf7b\nparent 4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca\nparent 79f73108ce1cc0c6cf4d79f66f6bb1d83a945429\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758549271 +0200\ncommitter GitHub <noreply@github.com> 1758549271 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-22T13:54:32Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f63c91c849d453b0c7830e925f37f9946c0b2083",
+   "html_url": "https://github.com/microsoft/vscode/commit/f63c91c849d453b0c7830e925f37f9946c0b2083",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f63c91c849d453b0c7830e925f37f9946c0b2083/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca",
+     "html_url": "https://github.com/microsoft/vscode/commit/4b26a5cfa1ee59cb5cf9401f5a7fce6d54493bca"
+    },
+    {
+     "sha": "79f73108ce1cc0c6cf4d79f66f6bb1d83a945429",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/79f73108ce1cc0c6cf4d79f66f6bb1d83a945429",
+     "html_url": "https://github.com/microsoft/vscode/commit/79f73108ce1cc0c6cf4d79f66f6bb1d83a945429"
+    }
+   ]
+  },
+  {
+   "sha": "3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+   "node_id": "C_kwDOPzvDINoAKDNlMzNlM2RlMzA2ZmEyYTA3ZGJlZjEzOTJjY2Q2YTJhZjgyOGQ1Mzg",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-22T14:59:05Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-22T14:59:05Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "b550b6d66095742526e9b10c6c395b84282b24fa",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b550b6d66095742526e9b10c6c395b84282b24fa"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo0WQ5CRC1aQ7uu5UhlAAAc8YQAIK2npC7lgVyQsyYvXkcOe6Z\nVsNIMJIe9cVA8Xvqsg38+Yaq3lXOAAPYBNtaACsy0g9LBtvnmhQEYwIRVOktd34U\nJ4U8y7kT8Tkw5QBpst1PdSRrasGMvp4ExERFA9AsNsShJoYwda9MOYQ6D3k7c+aG\n/5ZBPofX2PQeYcg5V1CEMeLtcxAjexVhyUKdr5Xr0SRkQXiYrarUtVjs7R0I9WtI\nKnbeUbyxawtG3gWcWNt6iKjVNHy3n8I4tk5wNISI5WIrHjtti07bSCgJ7fqgs9BA\nJmLrPirO0QT/LKn6CogPhMWWSA16xH+oqSKea6OzF3pBunXukJqhLm8OoGoc+gqs\n4DdLjneWNFrn60tNA7qauCAXM500g9ytnClmkq50j5r4tNilNcOnfsn5tuiLwp/h\nsk3UfTj+/3DD/RUMtm7Dars6FI5r2LMcZ8KTbwha1RmjojoOZWMPlARciz2NFc5u\nUFSw9MfEHlfUcauHnauMWVNFxGc8iZ3/JYUwNtmG7WmaDkL/cDXcZZ/hWnd0h+wY\nRLBSf/e+f4ni4XmhlHLvvXXB5eiYGQwhIo2tepfR8BmB2qz8BXSXwiiSxDsKZuAZ\nMTsdla4NtEDflGBtGwZK0voTwxs5QyRAyuacGxGdJJ/MJoeDWuCSvEoSoTx7J3aj\nAiDmZl3A6b+B0Uu7sXq/\n=CSan\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b550b6d66095742526e9b10c6c395b84282b24fa\nparent f63c91c849d453b0c7830e925f37f9946c0b2083\nparent 9ea52a05709d5883caff288cd15f870abb00f413\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758553145 +0200\ncommitter GitHub <noreply@github.com> 1758553145 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-22T14:59:06Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+   "html_url": "https://github.com/microsoft/vscode/commit/3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3e33e3de306fa2a07dbef1392ccd6a2af828d538/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f63c91c849d453b0c7830e925f37f9946c0b2083",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f63c91c849d453b0c7830e925f37f9946c0b2083",
+     "html_url": "https://github.com/microsoft/vscode/commit/f63c91c849d453b0c7830e925f37f9946c0b2083"
+    },
+    {
+     "sha": "9ea52a05709d5883caff288cd15f870abb00f413",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9ea52a05709d5883caff288cd15f870abb00f413",
+     "html_url": "https://github.com/microsoft/vscode/commit/9ea52a05709d5883caff288cd15f870abb00f413"
+    }
+   ]
+  },
+  {
+   "sha": "c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+   "node_id": "C_kwDOPzvDINoAKGM5YjYyZjljN2ZmYWQ3MjFiMjRiOTk2NjFhY2I2Y2I4NGM4YTI3MjU",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-23T07:31:13Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-23T07:31:13Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "984eae75589903e96a1e7f3770f4bb9aea109224",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/984eae75589903e96a1e7f3770f4bb9aea109224"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo0kzBCRC1aQ7uu5UhlAAAFx8QAKkk0yOP+g51L7thuZYIciP7\n2hwJbWokxypDL4WDeuQrSXP9qA2UoEtVnKDxEGhj+XitHzrDitj+8R5E8s+bd2Sz\n18cNa+CXZ3hPbB/p/zedqPM6Bm0es3D/o/RKrZuO2Jw9W9u4D+EzXjULdjgCsx31\nVSuFIXSAwON7uLoO5NlGCEmtQPIkHNTjrfv/aymtlzDsBJzrbxCHaPFAC32M5GS0\nuvcfPNGMMJw6I3H39tgRdpx7Zi6C8FmkhYzj8Basr8FnqGYUToYLJJiETjEi2AGe\n5sNbiLX2lpUWflsJrh5jQhIuRI6fQ/gk9g5zsdgNZ5wcJknn8uOjPgTpjALlNfmw\nkQckBLV3W0ebBAIS6TvFxxohAGwu97KVYuFbOZUsj1t3WfXCuIdmBJ2KfFA8VvIf\nUA+/A/AD0AkPFOgU2bSOwgOGe8tMhjlk7+cnF6IyQSRiyH8rizH0O2JXa7CmtdXN\nkEsDPNVoG6XFx783WjrjZ2za9WJ1BtdO7IaXOsnZRD+ox5WmdQB94iRNuWDdUntk\nxfAbwEF7IRAhrlHyWVKWkzmgYqmOG76lHjaz24EPL+iaYfkvD/KaXTLGGmUIzzuQ\nwa/vO12xuR/efLzcwrbeXxpl/b0bC7+/4mSAaBRkKU9JW21pPyWm0swN/ubKnKbD\n9vfcNTHS6J1jtAvYtibw\n=5uAA\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 984eae75589903e96a1e7f3770f4bb9aea109224\nparent 3e33e3de306fa2a07dbef1392ccd6a2af828d538\nparent a4fc751b40251389573c97ae2c190474b1560cc0\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758612673 +0200\ncommitter GitHub <noreply@github.com> 1758612673 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-23T07:31:14Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+   "html_url": "https://github.com/microsoft/vscode/commit/c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c9b62f9c7ffad721b24b99661acb6cb84c8a2725/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3e33e3de306fa2a07dbef1392ccd6a2af828d538",
+     "html_url": "https://github.com/microsoft/vscode/commit/3e33e3de306fa2a07dbef1392ccd6a2af828d538"
+    },
+    {
+     "sha": "a4fc751b40251389573c97ae2c190474b1560cc0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a4fc751b40251389573c97ae2c190474b1560cc0",
+     "html_url": "https://github.com/microsoft/vscode/commit/a4fc751b40251389573c97ae2c190474b1560cc0"
+    }
+   ]
+  },
+  {
+   "sha": "8995c29849a18c0b800390137b7dbbe6bbb58be1",
+   "node_id": "C_kwDOPzvDINoAKDg5OTVjMjk4NDlhMThjMGI4MDAzOTAxMzdiN2RiYmU2YmJiNThiZTE",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-24T09:59:35Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-24T09:59:35Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "a32ab3ddef7dd9113c5d3b8169d40f5d3c9238d9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a32ab3ddef7dd9113c5d3b8169d40f5d3c9238d9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8995c29849a18c0b800390137b7dbbe6bbb58be1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo08EHCRC1aQ7uu5UhlAAAYhgQAIUq/eyi/I2KTjBVVg7BpLam\nir/L3e04ljLVEGvpFNbeev4aL/cjawo8i8bLDFIVWkx+ki1XIZtCr9sgfjA4Rmf0\nC9W0sRUsAZEF9BlpwReuPh/08Eaam9rc7rBI+zbvvW1DV6nRKoVABXnJviUFymkL\n/XIlTXHU6ANwqOoabuULEL96sKYSNfhQOuXUfsy1zs4YeVBR0RKSFvFdbZEY91Nz\nsi7tQXeWhDJgwQM96yugfctp992yJExp+X4WHJF/tqg4mvBT45dB69ol3oWcLIzh\n9wIlcu7w+rZGf0doT1S3K4THfiB+RCdR+Ph1WKeD1z3S62f88jW5/KT/OBxGgKZ4\ngCCqRcNCmO6TeNJZl057Rj8LoflvUofma85BAOn/CXMdhZjD4DBJkBVU3eTsZhNs\nd47is3hHox5rWiNyDLVia8bYkBpwNH/yYL19ECaS0XPWyCc/c9Ggx0ugcxq79SIA\ngKMrrYA9tIRq+PkybVOEYve4GOQQgqoHGE/uC+XGkkFckXvXmfnAw0IQCjDsN0fD\nsstvPQbiuVLs/cBfn0MaR/eNZEIxvPqQ/B2QnulU8SaFdN3zcEx4NFstaFigopiR\nLpyIWClStL1QSDlkI5NSJfPL+RqpUrHHPnnTwxA8PcubIgp5+3WfbZ9FvpgbAc0R\n/WM9YSCPh0l/b45661WP\n=CVf4\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a32ab3ddef7dd9113c5d3b8169d40f5d3c9238d9\nparent c9b62f9c7ffad721b24b99661acb6cb84c8a2725\nparent 457ca13be8b22a80f40c5d4e72c22367149fe89a\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1758707975 +0200\ncommitter GitHub <noreply@github.com> 1758707975 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-24T09:59:35Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8995c29849a18c0b800390137b7dbbe6bbb58be1",
+   "html_url": "https://github.com/microsoft/vscode/commit/8995c29849a18c0b800390137b7dbbe6bbb58be1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8995c29849a18c0b800390137b7dbbe6bbb58be1/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c9b62f9c7ffad721b24b99661acb6cb84c8a2725",
+     "html_url": "https://github.com/microsoft/vscode/commit/c9b62f9c7ffad721b24b99661acb6cb84c8a2725"
+    },
+    {
+     "sha": "457ca13be8b22a80f40c5d4e72c22367149fe89a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/457ca13be8b22a80f40c5d4e72c22367149fe89a",
+     "html_url": "https://github.com/microsoft/vscode/commit/457ca13be8b22a80f40c5d4e72c22367149fe89a"
+    }
+   ]
+  },
+  {
+   "sha": "c4015f352b757cb46b11d3158427877450779701",
+   "node_id": "C_kwDOPzvDINoAKGM0MDE1ZjM1MmI3NTdjYjQ2YjExZDMxNTg0Mjc4Nzc0NTA3Nzk3MDE",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-29T09:14:32Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-29T09:14:32Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "0b49cbe81c3e12a7d12e9fc09b0cf8e34a3fa64c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0b49cbe81c3e12a7d12e9fc09b0cf8e34a3fa64c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c4015f352b757cb46b11d3158427877450779701",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo2k34CRC1aQ7uu5UhlAAAkz8QAKSBE7l8QpQUJeOLcDrJkDxF\nWLaLzNz5yzrhIlq+PilpN44j1k2vXBc9WQ9OI9ecytnMr40qyECItaK/ba4gkMHL\nNPf0yyt8CbQ2yGmOLrkbqR3iUfnE7wChT5FywlZMy4HxbXAwa6bVJWJkE7we2MV0\nsOHa/cVxzxtK2wnei0Qum8KpqsbOPBHHXQXeTeGFiEg7adLdPmsAtEX1eQfHmcu7\ngeYkoyAy76v9QGnQ9EYs3BOn6XEGzux7JXuiw8hiKw60Mz2TejQfQCaN0v0LdakV\nFqN5SXuIRpE68v2kv9oBqQ6WFvtzg49+kR7s8FfF2ftkdPQBvn2g53H1cwDGaHLc\nRGtBOX8bgYmgT2mD7QemhFpqVdP8CDjiTkfHSVenHl6tRkpdvsRgsWD93eXZjPUy\nRH+ulaup5bGZcJQ/GzJrCsVo0BwrabvBR/5xP3f78Xj85xrUDRvTK2GlZXrDMhLT\nBWkrzz6i6Xtj4Z6T1EmN2wiRshaxjLBeoHwQ1GLEjJjCS6oZmqasF/6t9Fb7j3S4\nMYplNvM4mbvxBCHLJQKNBJC1lYw4jPoJAQu17KeOwPHPYThJXav8az2DC06MxB5E\npkNxYHz02c/fQiNFf1+YMyO17lYzF7gciwnw3TsGQ0SOwXadiZGPQr1aaMGu+n9W\n09VVbLyS/uWDeDPRQnvz\n=9GHd\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0b49cbe81c3e12a7d12e9fc09b0cf8e34a3fa64c\nparent 8995c29849a18c0b800390137b7dbbe6bbb58be1\nparent 8854c84dc90d4e5f7e3eedff4162501afb8de88a\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1759137272 +0200\ncommitter GitHub <noreply@github.com> 1759137272 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-29T09:14:33Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c4015f352b757cb46b11d3158427877450779701",
+   "html_url": "https://github.com/microsoft/vscode/commit/c4015f352b757cb46b11d3158427877450779701",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c4015f352b757cb46b11d3158427877450779701/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8995c29849a18c0b800390137b7dbbe6bbb58be1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8995c29849a18c0b800390137b7dbbe6bbb58be1",
+     "html_url": "https://github.com/microsoft/vscode/commit/8995c29849a18c0b800390137b7dbbe6bbb58be1"
+    },
+    {
+     "sha": "8854c84dc90d4e5f7e3eedff4162501afb8de88a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8854c84dc90d4e5f7e3eedff4162501afb8de88a",
+     "html_url": "https://github.com/microsoft/vscode/commit/8854c84dc90d4e5f7e3eedff4162501afb8de88a"
+    }
+   ]
+  },
+  {
+   "sha": "80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+   "node_id": "C_kwDOPzvDINoAKDgwZDBhYjRjNWZkZTliZjg1YmJhNjcwMDRkMmE0Yjc3YzJkZThjYzE",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-09-30T10:48:48Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-30T10:48:48Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "2ed5e258dd6f1d311c9f3f2e0a57f7a5d30f4dfb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2ed5e258dd6f1d311c9f3f2e0a57f7a5d30f4dfb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo27WQCRC1aQ7uu5UhlAAA9AkQACcFDNrqcKySNY9w8NcA1pTb\n4sGWarlxBlgS9gzUoIgTSeJk6njFnpSFRgJLKiSER0DHzBWZKy9xUJvYufYLTcu0\nqh/d59VblKLmQmiV+kuDSrsARfcxvwKoQzMkOi2A4evNovbdf3sbdP35ouA+yXHM\nXd3GYz4QwDqfulCZe3qmxvcSlBjygsaebGOymM6ldKGFbkfZnU9BuisRGplhWuA8\nMra2i6VFYk7eluVx9xHw2QJE4asJ1+Xi8jC1oGP0PaNMrTyg7URy9S3hbAhMj2Ge\n0t3ia6kGEGrJEd756YzuZXVz/jGI5yePjMaPZtFE23oDU/ON4M3oJBRym65q/VNe\nt9u6ffZFk4YaW1aIpUZ8q9sB3vkRuLm8MbdYQRDWhI9x+plRzmmJuk/ootX4Tckm\n13qW1bJuXDT2mUyuvGJm7PWZ97hEt1aIpq1u8q3BtoGx3wCuqj4TPC8cmKBHJGP6\n/tJQ7ORH+rbj+RmZ8gfS+kA46ViIVmDx/iTEHNeoz5iDt7+DUZKwUZMHd5DNiDFZ\nk0POAq/N73jsVqDuxIWJ7vR+C5tjFZFoaNd9/qBl8ts6UpKFZcHRSlT1hHcn4AZq\nT7l2Cb1aAUA6A0Z2iAzIt7y4XnPkb3DYiqEzA84SAmbo8eGoTzYf9Fier+xAlpT9\nOtpPKSgT4Nwfp0o4ZSMe\n=Oz2X\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2ed5e258dd6f1d311c9f3f2e0a57f7a5d30f4dfb\nparent c4015f352b757cb46b11d3158427877450779701\nparent 0de9bec93f74f8b926a4cd48f303612f4d1c3da8\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1759229328 +0200\ncommitter GitHub <noreply@github.com> 1759229328 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-09-30T10:48:48Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+   "html_url": "https://github.com/microsoft/vscode/commit/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c4015f352b757cb46b11d3158427877450779701",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c4015f352b757cb46b11d3158427877450779701",
+     "html_url": "https://github.com/microsoft/vscode/commit/c4015f352b757cb46b11d3158427877450779701"
+    },
+    {
+     "sha": "0de9bec93f74f8b926a4cd48f303612f4d1c3da8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0de9bec93f74f8b926a4cd48f303612f4d1c3da8",
+     "html_url": "https://github.com/microsoft/vscode/commit/0de9bec93f74f8b926a4cd48f303612f4d1c3da8"
+    }
+   ]
+  },
+  {
+   "sha": "78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "node_id": "C_kwDOPzvDINoAKDc4ZjdkMDE4MmRhM2I2OWNjNDRkZTRmMjVmYjY2MGRhN2RhMjY3OTE",
+   "commit": {
+    "author": {
+     "name": "Dmytro Tiapukhin",
+     "email": "53977359+eddienubes@users.noreply.github.com",
+     "date": "2025-10-16T13:30:19Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-10-16T13:30:19Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "4b7bbe407bd2f59b73cc64432e3ea8ded1334f00",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4b7bbe407bd2f59b73cc64432e3ea8ded1334f00"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/78f7d0182da3b69cc44de4f25fb660da7da26791",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo8PNrCRC1aQ7uu5UhlAAAWIQQADO6Gs4kyQ8MjechRujSLQNW\ndOXAozH8qGUVxKhx0oUq4Reh5ezQcEyHLKsBQN75wwxIaAbWzLfkUfGu6aG2B2iW\nhFj1JTHXudGVXE+Cw2DjaC2y/OR5Cxb/RMShIvN5bOS759wRexVlLJAxJAfzwqPD\nxD62e762BOLmhO9dEejERHBzFwZPJ5yVHfDo6+bB9COAX/psmaTojzSjCaiWHUCz\nazNAlDkokz86/nEbz3muRk+AT2AAe6SBXZn4kShD1+nh9CaDX7d8YLE4AlXbI5MU\n4s9k5NbFCJXEZ/x9Yu6NWZAAXvLivdTNuPQ1LhctLV+2kR0FOsglh4+wSuWvQNCw\n8gVvPyKgUn18TEUAB5qxSDxh/mcj3pjBrpyCFDEsAUWV6eqxoDtM2sOb/Kdx92Rs\nL0/PtvJqRNlLjZIND4E2vlqAS21pv3GfFbw2HWpYoGcd5PFY7H5pOkLzY/Joz7YT\nOolNN171PD2BU6chN1ZMdmo/5mnkVnJK5NVW0sY1NMlfV/mpR5MVhfIi4jmkETei\nYYVIoXSUDO+3Qyqo9eQ+KntaTbWiYCnBIVvhFgZ+VS7U6yjJhR4j6z9Go5rDTcxE\n+uXL8Qi1PvUMj88V04Mlq4W8lmSmRoVdRXmt4uqVeBIXEoX2lsOi9pBdATMaZDcM\nwiCmsjgOr//DzM7cp8vs\n=ryBS\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4b7bbe407bd2f59b73cc64432e3ea8ded1334f00\nparent 80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1\nparent 3add072f87d142a8de947b8376de2c805bd2a6fe\nauthor Dmytro Tiapukhin <53977359+eddienubes@users.noreply.github.com> 1760621419 +0200\ncommitter GitHub <noreply@github.com> 1760621419 +0200\n\nMerge branch 'main' into main",
+     "verified_at": "2025-10-16T13:30:20Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "html_url": "https://github.com/microsoft/vscode/commit/78f7d0182da3b69cc44de4f25fb660da7da26791",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/78f7d0182da3b69cc44de4f25fb660da7da26791/comments",
+   "author": {
+    "login": "eddienubes",
+    "id": 53977359,
+    "node_id": "MDQ6VXNlcjUzOTc3MzU5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/53977359?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eddienubes",
+    "html_url": "https://github.com/eddienubes",
+    "followers_url": "https://api.github.com/users/eddienubes/followers",
+    "following_url": "https://api.github.com/users/eddienubes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eddienubes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eddienubes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eddienubes/subscriptions",
+    "organizations_url": "https://api.github.com/users/eddienubes/orgs",
+    "repos_url": "https://api.github.com/users/eddienubes/repos",
+    "events_url": "https://api.github.com/users/eddienubes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eddienubes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1",
+     "html_url": "https://github.com/microsoft/vscode/commit/80d0ab4c5fde9bf85bba67004d2a4b77c2de8cc1"
+    },
+    {
+     "sha": "3add072f87d142a8de947b8376de2c805bd2a6fe",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3add072f87d142a8de947b8376de2c805bd2a6fe",
+     "html_url": "https://github.com/microsoft/vscode/commit/3add072f87d142a8de947b8376de2c805bd2a6fe"
+    }
+   ]
+  }
+ ]
+}

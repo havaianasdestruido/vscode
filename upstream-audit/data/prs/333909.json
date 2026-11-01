@@ -1,0 +1,704 @@
+{
+ "fetchedAt": "2026-11-01T00:54:46.010Z",
+ "pr": {
+  "number": 333909,
+  "title": "Editor textarea: short content unless a screen reader is attached (fixes IME jitter in WebKit)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-02T00:07:09Z",
+  "updated_at": "2026-09-17T20:11:38Z",
+  "user": "PathGao",
+  "author_association": "NONE",
+  "additions": 7,
+  "deletions": 7,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 2,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "textarea-short-content-unless-screen-reader",
+   "sha": "b98cb71ef30792010b5cddb9a38b20210ba7098e",
+   "repo": "PathGao/vscode",
+   "label": "PathGao:textarea-short-content-unless-screen-reader"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "fc0a9e94576224c89cc08d390b38ab760a261f1f"
+  },
+  "body": "Fixes microsoft/monaco-editor#4796 — lines jump up and down while typing Chinese, Safari only.\r\n\r\nSafari and Firefox have no `EditContext`, so input goes through the hidden textarea. During IME composition it is a one-row overlay holding a full page of text, so each render scrolls it to the caret's row (`scrollTop = nlBefore * lineHeight`). WebKit then scrolls that same element itself to keep the caret visible, and stops 3px short of row-aligned because the caret box is shorter than the line box; the next render writes the aligned value back. Trace in the issue: 102 self-scrolls over three composed lines, every one off by exactly 3px.\r\n\r\nIt only holds a page because `getScreenReaderContent` treats `AccessibilitySupport.Unknown` as \"possibly a screen reader\", while `writeNativeTextAreaContent` already treats it as \"none\" and skips render-time writes (#192278). This aligns them — `Unknown` now gets the short content `Disabled` already produces, with no wrap sizing — so nothing overflows and the browser has nothing to scroll. `Enabled` is untouched; Android's `Unknown` still reaches the word branch composition diffing needs. The second commit moves the composition branch's `scrollTop`/`scrollLeft` writes after `_doRender` to match the sibling branch: consistency, not the fix.\r\n\r\nVerification: this change built into Monaco in the app that reproduces the bug (macOS 26, WKWebView, system Chinese IME) — composition no longer jitters on any line, and ASCII typing, select-all, copy/paste, undo and cross-line cursor movement are unchanged. Not verified: Firefox, and screen-reader behaviour under `Unknown`, which now behaves like the everyday `Disabled` path.\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "6d1ab16559b75f94edc141cb7829cff80e3074e6",
+   "filename": "src/vs/editor/browser/controller/editContext/textArea/textAreaEditContext.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 7,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b98cb71ef30792010b5cddb9a38b20210ba7098e/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FeditContext%2FtextArea%2FtextAreaEditContext.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b98cb71ef30792010b5cddb9a38b20210ba7098e/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FeditContext%2FtextArea%2FtextAreaEditContext.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FeditContext%2FtextArea%2FtextAreaEditContext.ts?ref=b98cb71ef30792010b5cddb9a38b20210ba7098e",
+   "patch": "@@ -207,8 +207,8 @@ export class TextAreaEditContext extends AbstractEditContext {\n \t\tconst textAreaInputHost: ITextAreaInputHost = {\n \t\t\tcontext: this._context,\n \t\t\tgetScreenReaderContent: (): TextAreaState => {\n-\t\t\t\tif (this._accessibilitySupport === AccessibilitySupport.Disabled) {\n-\t\t\t\t\t// We know for a fact that a screen reader is not attached\n+\t\t\t\tif (this._accessibilitySupport === AccessibilitySupport.Disabled || (this._accessibilitySupport === AccessibilitySupport.Unknown && !browser.isAndroid)) {\n+\t\t\t\t\t// No screen reader is known to be attached; a page here gives WebKit an overflow to scroll during IME composition (monaco-editor#4796)\n \t\t\t\t\t// On OSX, we write the character before the cursor to allow for \"long-press\" composition\n \t\t\t\t\t// Also on OSX, we write the word before the cursor to allow for the Accessibility Keyboard to give good hints\n \t\t\t\t\tconst selection = this._selections[0];\n@@ -559,13 +559,13 @@ export class TextAreaEditContext extends AbstractEditContext {\n \t\t\tthis._accessibilityPageSize = accessibilityPageSize;\n \t\t}\n \n-\t\t// When wrapping is enabled and a screen reader might be attached,\n+\t\t// When wrapping is enabled and a screen reader is attached,\n \t\t// we will size the textarea to match the width used for wrapping points computation (see `domLineBreaksComputer.ts`).\n \t\t// This is because screen readers will read the text in the textarea and we'd like that the\n \t\t// wrapping points in the textarea match the wrapping points in the editor.\n \t\tconst layoutInfo = options.get(EditorOption.layoutInfo);\n \t\tconst wrappingColumn = layoutInfo.wrappingColumn;\n-\t\tif (wrappingColumn !== -1 && this._accessibilitySupport !== AccessibilitySupport.Disabled) {\n+\t\tif (wrappingColumn !== -1 && this._accessibilitySupport === AccessibilitySupport.Enabled) {\n \t\t\tconst fontInfo = options.get(EditorOption.fontInfo);\n \t\t\tthis._textAreaWrapping = true;\n \t\t\tthis._textAreaWidth = Math.round(wrappingColumn * fontInfo.typicalHalfwidthCharacterWidth);\n@@ -748,9 +748,6 @@ export class TextAreaEditContext extends AbstractEditContext {\n \t\t\t\t\t(textareaSpansSingleToken ? viewLineData.tokens.getPresentation(startTokenIndex) : null)\n \t\t\t\t);\n \n-\t\t\t\tthis.textArea.domNode.scrollTop = lineCount * lineHeight;\n-\t\t\t\tthis.textArea.domNode.scrollLeft = scrollLeft;\n-\n \t\t\t\tthis._doRender({\n \t\t\t\t\tlastRenderPosition: null,\n \t\t\t\t\ttop: top,\n@@ -765,6 +762,9 @@ export class TextAreaEditContext extends AbstractEditContext {\n \t\t\t\t\tstrikethrough: presentation.strikethrough,\n \t\t\t\t\tfontSize\n \t\t\t\t});\n+\t\t\t\t// After `_doRender`, as the branch below does: the offsets are clamped against the size it just set\n+\t\t\t\tthis.textArea.domNode.scrollTop = lineCount * lineHeight;\n+\t\t\t\tthis.textArea.domNode.scrollLeft = scrollLeft;\n \t\t\t}\n \t\t\treturn;\n \t\t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5084364553,
+   "node_id": "PRR_kwDOAn8RLM8AAAABLw0_CQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟡 Changes recommended\n\nThe new condition bypasses required Android composition handling when accessibility support is unknown.\n\n*Once you've addressed the issues Copilot identified, you can request another Copilot review.*\n\n<details>\n<summary>Pull request overview</summary>\n\nAligns textarea content and wrapping with confirmed screen-reader support to prevent WebKit IME jitter.\n\n**Changes:**\n- Uses short textarea content unless accessibility support is enabled.\n- Restricts textarea wrapping to screen-reader mode.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/vs/editor/browser/controller/editContext/textArea/textAreaEditContext.ts` | Updates textarea content and wrapping behavior. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n### Suppressed comments (1)\n\n**src/vs/editor/browser/controller/editContext/textArea/textAreaEditContext.ts:571**\n* This inline explanation exceeds the project's one-line limit for comments inside methods. It can be stated concisely without restating the preceding screen-reader wrapping rationale.\n```\n\t\t// Without one, the textarea only ever holds the short content `getScreenReaderContent` writes,\n\t\t// and there is nothing to wrap.\n```\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 2\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/333909#pullrequestreview-5084364553",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/333909",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/333909#pullrequestreview-5084364553"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/333909"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-02T00:11:57Z",
+   "commit_id": "2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5502398086",
+   "html_url": "https://github.com/microsoft/vscode/pull/333909#issuecomment-5502398086",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333909",
+   "id": 5502398086,
+   "node_id": "IC_kwDOAn8RLM8AAAABR_fuhg",
+   "user": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-02T00:17:05Z",
+   "updated_at": "2026-09-02T00:17:05Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5502398086/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5502418344",
+   "html_url": "https://github.com/microsoft/vscode/pull/333909#issuecomment-5502418344",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333909",
+   "id": 5502418344,
+   "node_id": "IC_kwDOAn8RLM8AAAABR_g9qA",
+   "user": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-02T00:19:33Z",
+   "updated_at": "2026-09-02T00:19:33Z",
+   "body": "Addressed in 9b39c2c: the Android cases now behave exactly as before — `Unknown` on Android still reaches the word branch, only the non-Android `Unknown` case takes the short content — and the in-method comments are one line each.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5502418344/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5566380277",
+   "html_url": "https://github.com/microsoft/vscode/pull/333909#issuecomment-5566380277",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333909",
+   "id": 5566380277,
+   "node_id": "IC_kwDOAn8RLM8AAAABS8g49Q",
+   "user": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-07T07:01:40Z",
+   "updated_at": "2026-09-07T07:01:40Z",
+   "body": "@aiday-mar could you check this pls？Thanks",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5566380277/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5720590653",
+   "html_url": "https://github.com/microsoft/vscode/pull/333909#issuecomment-5720590653",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333909",
+   "id": 5720590653,
+   "node_id": "IC_kwDOAn8RLM8AAAABVPlJPQ",
+   "user": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-17T20:11:38Z",
+   "updated_at": "2026-09-17T20:11:38Z",
+   "body": "@alexdima The five workflow runs on this PR have been stuck at `action_required` since Sep 5 — I'm a first-time contributor here, so Code OSS and Monaco Editor checks have never run and there is no CI evidence to review against. Could you approve them?\n\nAnd if you have a moment to take the review yourself, that would be very welcome. It is 7 lines in `textAreaEditContext.ts`, on the WebKit textarea path you worked in for the clipboard workaround, and it fixes microsoft/monaco-editor#4796 — lines jump up and down while typing Chinese in Safari. Happy for it to stay with @aiday-mar if you would rather; I mainly want it to stop sitting without CI.\n\nThanks!\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5720590653/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+   "node_id": "C_kwDOULaCxNoAKDJmZGVkYWRlYThhYWJkNWE2ODk3Y2Y3YmE5MzBmNmM2YzJhYzUyZTI",
+   "commit": {
+    "author": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:06:43Z"
+    },
+    "committer": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:06:43Z"
+    },
+    "message": "Editor textarea: short content unless a screen reader is attached\n\n`writeNativeTextAreaContent` already treats AccessibilitySupport.Unknown as\n\"no screen reader\": it skips render-time writes unless\nisScreenReaderOptimized() (#192278). `getScreenReaderContent` disagreed and\nhanded Unknown the paged content, so a one-row textarea carried several\nrows of text and had to be scrolled to the caret's row.\n\nWebKit scrolls a focused textarea to keep its caret visible on every IME\ncomposition update, landing a few pixels short of the row-aligned offset\n`_render` writes; the next render writes it back, and the composed text\njitters on every keystroke (microsoft/monaco-editor#4796). With the short\ncontent there is no overflow to scroll and nothing to fight over.\n\nBehaviour with a screen reader attached (Enabled) is unchanged.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "35ba5d37749055e87d463c0e629b4ae7b1c11479",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/35ba5d37749055e87d463c0e629b4ae7b1c11479"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+   "html_url": "https://github.com/microsoft/vscode/commit/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2/comments",
+   "author": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b5a065f3fdc4db24b058aadbb796232ecdf2a1f4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b5a065f3fdc4db24b058aadbb796232ecdf2a1f4",
+     "html_url": "https://github.com/microsoft/vscode/commit/b5a065f3fdc4db24b058aadbb796232ecdf2a1f4"
+    }
+   ]
+  },
+  {
+   "sha": "9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+   "node_id": "C_kwDOULaCxNoAKDkxNzJhNGQxZmM1ZjYwYzg3MWE1NDBmNTdmOGRhYzYwZWY2YTZlMGE",
+   "commit": {
+    "author": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:11:42Z"
+    },
+    "committer": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:11:42Z"
+    },
+    "message": "Editor textarea: write the composition overlay's scroll offsets after sizing it\n\nThe composition branch of `_render` wrote `scrollTop`/`scrollLeft` before\n`_doRender` gave the textarea its size for the row, while the\nnon-composition branch a few lines down does it the other way round. A\nscroll offset is clamped against the element's size at the time it is\nwritten, so the order the sibling branch uses is the one that cannot lose\npart of the write. No behavioural difference was measured for the jitter in\nmonaco-editor#4796 — with the short content there is nothing to scroll —\nthis only makes the two branches agree.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "a4952c3a79bebd4bffcc277f99bdf5ab933000b7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a4952c3a79bebd4bffcc277f99bdf5ab933000b7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+   "html_url": "https://github.com/microsoft/vscode/commit/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a/comments",
+   "author": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2",
+     "html_url": "https://github.com/microsoft/vscode/commit/2fdedadea8aabd5a6897cf7ba930f6c6c2ac52e2"
+    }
+   ]
+  },
+  {
+   "sha": "9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+   "node_id": "C_kwDOULaCxNoAKDliMzljMmNlNTBjOTdjZTg1N2E0YTgxYmI1N2ZkNDhjZTY1Zjk3MDg",
+   "commit": {
+    "author": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:19:16Z"
+    },
+    "committer": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-02T00:19:16Z"
+    },
+    "message": "Editor textarea: keep the Android exception, one-line comments\n\nAndroid + Unknown went through the short-content branch and returned\nEMPTY before reaching the Android word handling that composition diffing\nrelies on. The Android cases now behave exactly as before; only the\nnon-Android Unknown case takes the short content.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "7043873f4e7751b3b5a8778602a9e779515851ec",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7043873f4e7751b3b5a8778602a9e779515851ec"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+   "html_url": "https://github.com/microsoft/vscode/commit/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708/comments",
+   "author": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a",
+     "html_url": "https://github.com/microsoft/vscode/commit/9172a4d1fc5f60c871a540f57f8dac60ef6a6e0a"
+    }
+   ]
+  },
+  {
+   "sha": "8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+   "node_id": "C_kwDOULaCxNoAKDhhZDEyN2M0ZGJkNzAzMmUyZTgxNDNkMjM2MjMzYTJjNWM4Y2RhY2M",
+   "commit": {
+    "author": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-04T22:30:11Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-04T22:30:11Z"
+    },
+    "message": "Merge branch 'main' into textarea-short-content-unless-screen-reader",
+    "tree": {
+     "sha": "76a0d308083ed403420831979514ec140f387555",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/76a0d308083ed403420831979514ec140f387555"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm0ZzCRC1aQ7uu5UhlAAAuFgQAFVv7CPL34Z2DhIZ5fde1TNG\n4by4IBTQdjdQGTAVCAjINaNAvBg311SkBg8/jjt+MRD3+B5le22nQ/PEbE4YrKzl\n0+nQOEDa7ZbHsG5GJtpLj5Qf2O82CLZLojyL+tU7Z9ZoM6z66XAtDy94ZcHc8yrM\n0/+2RRCIiFw2rmBqeeUB/24/BnACwx2JCfbVOKCg/MFWhU+jTbiTT3cYuECeVRfD\nnxxwAOIsJXGE5BIIpKBMTjEmxy8gioCJgfPx+qbK+SjRHY4ZxuzqP8ZaRMbHggnu\nHbH5pOrZNk2SiWTHpaQsZxRbIB4MCkKG2FqfV8MMmZISeEQ67Ppwf92YaA20EUe6\nlSPrhTeGVrqd71DWjz7bDrZHFI8e+3h504JgkYWinlzRteBe4jGXDumxJeEgELBn\nSGpvYzEDP62Nk8leK1RsFQt43ONJkfs2227dgFYYowL8a/vpm6tsbsQJLQU/MyiC\ncigcH0XQQYHrSfc56JKC0GzM2Sq0shu0ku8il2bhpenoqS6OsDJ+G4ddzhnmXTll\ncMIi02j9YSyv5lOlDR+lSYsA69Oi2i67FiaXKXfQcrjTR5ebhiIO+x/T3mxrRYvf\nRcUjI0hVF/s2l8c2eck4PHiNamsVVkv7uRGLlwToazkjVXEqSgvseZ9ROEka4OEO\n4s7u1ziLLze6k7IOEUPZ\n=JkRB\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 76a0d308083ed403420831979514ec140f387555\nparent 9b39c2ce50c97ce857a4a81bb57fd48ce65f9708\nparent 9db4cf85bcf637555c0933f07d6acd2f876f4d49\nauthor PathGao <42336971+PathGao@users.noreply.github.com> 1788561011 +0800\ncommitter GitHub <noreply@github.com> 1788561011 +0800\n\nMerge branch 'main' into textarea-short-content-unless-screen-reader",
+     "verified_at": "2026-09-04T22:30:12Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+   "html_url": "https://github.com/microsoft/vscode/commit/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc/comments",
+   "author": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708",
+     "html_url": "https://github.com/microsoft/vscode/commit/9b39c2ce50c97ce857a4a81bb57fd48ce65f9708"
+    },
+    {
+     "sha": "9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "html_url": "https://github.com/microsoft/vscode/commit/9db4cf85bcf637555c0933f07d6acd2f876f4d49"
+    }
+   ]
+  },
+  {
+   "sha": "b98cb71ef30792010b5cddb9a38b20210ba7098e",
+   "node_id": "C_kwDOULaCxNoAKGI5OGNiNzFlZjMwNzkyMDEwYjVjZGRiOWEzOGIyMDIxMGJhNzA5OGU",
+   "commit": {
+    "author": {
+     "name": "PathGao",
+     "email": "42336971+PathGao@users.noreply.github.com",
+     "date": "2026-09-05T08:16:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-05T08:16:29Z"
+    },
+    "message": "Merge branch 'main' into textarea-short-content-unless-screen-reader",
+    "tree": {
+     "sha": "439057b234299adac850863f0b6c42548e456cf4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/439057b234299adac850863f0b6c42548e456cf4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b98cb71ef30792010b5cddb9a38b20210ba7098e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm8/dCRC1aQ7uu5UhlAAActkQACuL60Um7rFuDqfVHzY0W8N1\nlEIBwSKRRm68VZ+0J9ofziEJEocl5kpjm6F5IQMjXHnrVvnMVRCJcY1Ey8Hz0eGr\nj+QLey8+1yifC/WG24R08HeWk0u/r3LI3NphoSY3Syb4q8F2wP0uzi7PMTlhGzPy\nxTPpu5XmwilGfF4vzRSSYsNkbl1d+U/lXvF0+QCVVkK063OYsaVPtuHm6ci0xIzq\nY7sjPwqWFEsCUH6g7KXCg8cydmthgqY5ZSoQ+k8xJ2jk9S4jlaVaP5XEjmaOSfxJ\nwpEHz5RBcaAQWmm+Wo/DzvLOXVI2JZ71JDUYm+LtlfNEr4iRbgpe1ftAJdoo8zQc\nDyW040ydnWvaBOZ7JePkqH8UK5bfSrpgEI/vwxwWyPjRV7fjY81ImV6YA9gEPjeX\nC+NlorATe2EvaSsMLoSvgqnrBczwnQ6zJztnLI1qmzKJvYLVRUNtFb+XRfnDPvbj\nKlrP2E19fzIkFA8P0DAteDiKafMoKMlQnK3VZOiFLvCJx+Y82dJuTbYjCcAXO3ET\nY4xS0UfWoEl9vMq5M2aQiPCnf61CGFpVhKCZl1SFwd0oNevkB0QTU1Jy068U+8Au\nEFGOd45coUKnusYNZ2P1a6W225Zq9DAsMLgKm2E5CMrm9l1vs7dB4KaxmwHJl7xg\n1GwvaE5r6XFxRjU6R107\n=NFFG\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 439057b234299adac850863f0b6c42548e456cf4\nparent 8ad127c4dbd7032e2e8143d236233a2c5c8cdacc\nparent fc0a9e94576224c89cc08d390b38ab760a261f1f\nauthor PathGao <42336971+PathGao@users.noreply.github.com> 1788596189 +0800\ncommitter GitHub <noreply@github.com> 1788596189 +0800\n\nMerge branch 'main' into textarea-short-content-unless-screen-reader",
+     "verified_at": "2026-09-05T08:16:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b98cb71ef30792010b5cddb9a38b20210ba7098e",
+   "html_url": "https://github.com/microsoft/vscode/commit/b98cb71ef30792010b5cddb9a38b20210ba7098e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b98cb71ef30792010b5cddb9a38b20210ba7098e/comments",
+   "author": {
+    "login": "PathGao",
+    "id": 42336971,
+    "node_id": "MDQ6VXNlcjQyMzM2OTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/42336971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PathGao",
+    "html_url": "https://github.com/PathGao",
+    "followers_url": "https://api.github.com/users/PathGao/followers",
+    "following_url": "https://api.github.com/users/PathGao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PathGao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PathGao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PathGao/subscriptions",
+    "organizations_url": "https://api.github.com/users/PathGao/orgs",
+    "repos_url": "https://api.github.com/users/PathGao/repos",
+    "events_url": "https://api.github.com/users/PathGao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PathGao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc",
+     "html_url": "https://github.com/microsoft/vscode/commit/8ad127c4dbd7032e2e8143d236233a2c5c8cdacc"
+    },
+    {
+     "sha": "fc0a9e94576224c89cc08d390b38ab760a261f1f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fc0a9e94576224c89cc08d390b38ab760a261f1f",
+     "html_url": "https://github.com/microsoft/vscode/commit/fc0a9e94576224c89cc08d390b38ab760a261f1f"
+    }
+   ]
+  }
+ ]
+}

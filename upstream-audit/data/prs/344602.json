@@ -1,0 +1,183 @@
+{
+ "fetchedAt": "2026-11-01T00:55:56.483Z",
+ "pr": {
+  "number": 344602,
+  "title": "refactor(cli): add error handling for VS Code CLI bootstrap",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-27T16:53:34Z",
+  "updated_at": "2026-10-27T18:17:50Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 16,
+  "deletions": 11,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-59",
+   "sha": "b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-59"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "d4dd44c1926b91e01a98ead72f10be7c460a06ae"
+  },
+  "body": "Wrap core initialization, NLS configuration, and ESM bootstrapping steps in a try-catch block to gracefully handle unexpected startup failures and improve stability.\n\nFixes #344601 \n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "1f8adf6ea8988563f0e21c505e4fb6e958767fc9",
+   "filename": "src/cli.ts",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 11,
+   "changes": 27,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3/src%2Fcli.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3/src%2Fcli.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fcli.ts?ref=b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+   "patch": "@@ -9,18 +9,23 @@ import { bootstrapESM } from './bootstrap-esm.js';\n import { resolveNLSConfiguration } from './vs/base/node/nls.js';\n import { product } from './bootstrap-meta.js';\n \n-// NLS\n-const nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, nlsMetadataHash: product.nlsMetadataHash, userDataPath: '', nlsMetadataPath: import.meta.dirname });\n-process.env['VSCODE_NLS_CONFIG'] = JSON.stringify(nlsConfiguration); // required for `bootstrap-esm` to pick up NLS messages\n+try {\n+\t// NLS\n+\tconst nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, nlsMetadataHash: product.nlsMetadataHash, userDataPath: '', nlsMetadataPath: import.meta.dirname });\n+\tprocess.env['VSCODE_NLS_CONFIG'] = JSON.stringify(nlsConfiguration); // required for `bootstrap-esm` to pick up NLS messages\n \n-// Enable portable support\n-configurePortable(product);\n+\t// Enable portable support\n+\tconfigurePortable(product);\n \n-// Signal processes that we got launched as CLI\n-process.env['VSCODE_CLI'] = '1';\n+\t// Signal processes that we got launched as CLI\n+\tprocess.env['VSCODE_CLI'] = '1';\n \n-// Bootstrap ESM\n-await bootstrapESM();\n+\t// Bootstrap ESM\n+\tawait bootstrapESM();\n \n-// Load Server\n-await import('./vs/code/node/cli.js');\n+\t// Load Server\n+\tawait import('./vs/code/node/cli.js');\n+} catch (error) {\n+\tconsole.error('Fatal error during VS Code CLI bootstrap:', error);\n+\tprocess.exit(1);\n+}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5671128246,
+   "node_id": "PRR_kwDOAn8RLM8AAAABUgaMtg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n### 🟢 Approval recommended\n\nThe narrowly scoped handler preserves successful initialization and reports startup failures without introducing identified regressions.\n\n**No open issues** 🎉\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nThis PR addresses #344601 by adding error handling around VS Code CLI initialization, making startup failures clearer for users and automation.\n\n**Changes:**\n- Wraps NLS configuration, portable setup, ESM bootstrap, and CLI module loading in a single `try-catch`.\n- Logs a contextual fatal error and exits with code `1` when initialization fails.\n\nNo actionable defects were identified. Startup failure paths were not runtime-tested.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/​cli.ts` | Adds a bootstrap error handler with diagnostic logging and a nonzero exit code. |\n</details>\n\n<sub>Review effort: Balanced</sub>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/344602#pullrequestreview-5671128246",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/344602",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/344602#pullrequestreview-5671128246"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/344602"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-27T16:57:06Z",
+   "commit_id": "b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+   "node_id": "C_kwDOTk4kkdoAKGI5Y2M2OGU3YjI5MmUyNDI4ZDFiNzZjM2Y5ZTViMmU5MmQ1YzU0YzM",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-27T16:52:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-27T16:52:25Z"
+    },
+    "message": "refactor(cli): add error handling for VS Code CLI bootstrap\n\nWrap core initialization, NLS configuration, and ESM bootstrapping steps in a try-catch block to gracefully handle unexpected startup failures and improve stability.",
+    "tree": {
+     "sha": "46a370cd1a47a9c1e8ae65d8b897b2c118aaf907",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/46a370cd1a47a9c1e8ae65d8b897b2c118aaf907"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq4NbJCRC1aQ7uu5UhlAAAT2EQADdUD454LCOUK8aSQ85mGsAs\nsw2laTnBHe0eCIkkNqBOLFs8KgntlW3+kL/yJ2flXKnTSnAQZZ/tdlW41ZUkVOq6\nz5JAK4bBCauPpwiULwnsyvekkd4X+mtPiS80uVufQx2XZfdZgHfGb8qKKTeYw2hs\n6QvKW8cxBZsO3+SBYw0Cl8NocpEaD6namMbgMDLBsYVngIwhnmYG6rciunqaej3Z\nr7/a0+tOihqqUlN+1nisAKM4tLnAs2Ws6Crq6rMEt+nFtgR/oUxd8dzZpo7iVOn4\nvEsd8VU8zcFeOmi41pimlUu4mw6fcdxFTgBCQnPjnGxUWAPi9/YoRfEV+5Ufm9Ji\n86dfaVKwssD2coiNbPCPM/03cVQEerUkIUxt52kOHCUsrQIr1FFTlE8Drecb6v+M\nzgZbhZ6Rik9hxcRsu1xsVFOiQ1Xqn2LuLpqwkWncFrfuZeu6kXOWZIPQ3K+ErqTk\nIgfehXtAOd63B4ns8iOJiB77pVTn+gYfcn/xcOFHJitZcqoFEu6Uyfeh0MsX7B2p\no70qpydpoCyF9YNB6IrvI3e5YPa9dwBbudud/aoPvW7K7rRcs37Nv26s4sU2GDFd\nVVcSz8BrFzr9ZN2jLIQXJUhNw/s146v0cnEY2QOUSrj1c4Afdnhwc9TVBv9iX6lZ\nVPTHEVNT6+VirvBV2/gL\n=SZMi\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 46a370cd1a47a9c1e8ae65d8b897b2c118aaf907\nparent d4dd44c1926b91e01a98ead72f10be7c460a06ae\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1793119945 +0300\ncommitter GitHub <noreply@github.com> 1793119945 +0300\n\nrefactor(cli): add error handling for VS Code CLI bootstrap\n\nWrap core initialization, NLS configuration, and ESM bootstrapping steps in a try-catch block to gracefully handle unexpected startup failures and improve stability.",
+     "verified_at": "2026-10-27T16:52:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+   "html_url": "https://github.com/microsoft/vscode/commit/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b9cc68e7b292e2428d1b76c3f9e5b2e92d5c54c3/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d4dd44c1926b91e01a98ead72f10be7c460a06ae",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d4dd44c1926b91e01a98ead72f10be7c460a06ae",
+     "html_url": "https://github.com/microsoft/vscode/commit/d4dd44c1926b91e01a98ead72f10be7c460a06ae"
+    }
+   ]
+  }
+ ]
+}

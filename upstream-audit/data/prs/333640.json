@@ -1,0 +1,740 @@
+{
+ "fetchedAt": "2026-11-01T00:54:37.127Z",
+ "pr": {
+  "number": 333640,
+  "title": "`microsoft-authentication`: support for disabling Instance Discovery",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-08-31T20:56:21Z",
+  "updated_at": "2026-10-22T17:54:25Z",
+  "user": "tombuildsstuff",
+  "author_association": "NONE",
+  "additions": 57,
+  "deletions": 6,
+  "changed_files": 5,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 5,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "f/instance-discovery",
+   "sha": "1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "repo": "tombuildsstuff/vscode",
+   "label": "tombuildsstuff:f/instance-discovery"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "8c00dcbe4de257039c8c507753e6813cd31c584b"
+  },
+  "body": "MSAL's Instance Discovery is enabled by default but requires that the Authority Host is validatable via the public Microsoft Entra endpoint.\r\n\r\nThis commit introduces support for disabling Instance Discovery which allows for using Custom Authority Hosts as needed - which allows working with custom environments.\r\n\r\nThis functionality is both opt-in by the user and only supported when using a custom environment.\r\n\r\nFixes #265677",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "ded9089b00c89cbb706de640e18b68ddd570fcbe",
+   "filename": "extensions/microsoft-authentication/package.json",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 0,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fpackage.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fpackage.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmicrosoft-authentication%2Fpackage.json?ref=1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "patch": "@@ -125,6 +125,12 @@\n             \"tags\": [\n               \"onExP\"\n             ]\n+          },\n+          \"microsoft-authentication.instanceDiscovery\": {\n+            \"type\": \"boolean\",\n+            \"default\": true,\n+            \"scope\": \"application\",\n+            \"markdownDescription\": \"%microsoft-authentication.instanceDiscovery.description%\"\n           }\n         }\n       }"
+  },
+  {
+   "sha": "2914e8a4112ff1a9bdf5687afc523cd93c731100",
+   "filename": "extensions/microsoft-authentication/package.nls.json",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 0,
+   "changes": 7,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fpackage.nls.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fpackage.nls.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmicrosoft-authentication%2Fpackage.nls.json?ref=1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "patch": "@@ -6,6 +6,13 @@\n \t\"microsoft-authentication.implementation.description\": \"The authentication implementation to use for signing in with a Microsoft account.\",\n \t\"microsoft-authentication.implementation.enumDescriptions.msal\": \"Use the Microsoft Authentication Library (MSAL) to sign in with a Microsoft account.\",\n \t\"microsoft-authentication.implementation.enumDescriptions.msal-no-broker\": \"Use the Microsoft Authentication Library (MSAL) to sign in with a Microsoft account using a browser. This is useful if you are having issues with the native broker.\",\n+\t\"microsoft-authentication.instanceDiscovery.description\": {\n+\t\t\"message\": \"Controls whether the Authority Host used for authentication should be validated via Instance Discovery using the public Microsoft Entra endpoint. This should only be disabled when signing in to a custom environment (see `#microsoft-sovereign-cloud.customEnvironment#`) whose authority cannot be validated publicly.\",\n+\t\t\"comment\": [\n+\t\t\t\"{Locked='`#microsoft-sovereign-cloud.customEnvironment#`'}\",\n+\t\t\t\"The `#microsoft-sovereign-cloud.customEnvironment#` syntax will turn into a link. Do not translate it.\"\n+\t\t]\n+\t},\n \t\"microsoft-sovereign-cloud.environment.description\": {\n \t\t\"message\": \"The Sovereign Cloud to use for authentication. If you select `custom`, you must also set the `#microsoft-sovereign-cloud.customEnvironment#` setting.\",\n \t\t\"comment\": ["
+  },
+  {
+   "sha": "98f6d390df2d6ceb9d0e70865f1c9aa4180d3851",
+   "filename": "extensions/microsoft-authentication/src/extension.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 1,
+   "changes": 3,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fextension.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fextension.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmicrosoft-authentication%2Fsrc%2Fextension.ts?ref=1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "patch": "@@ -143,7 +143,8 @@ export async function activate(context: ExtensionContext) {\n \tlet microsoftSovereignCloudAuthProviderDisposable = await initMicrosoftSovereignCloudAuthProvider(context, uriHandler);\n \n \tcontext.subscriptions.push(workspace.onDidChangeConfiguration(async e => {\n-\t\tif (e.affectsConfiguration('microsoft-sovereign-cloud')) {\n+\t\t// The custom environment's PCAs read instanceDiscovery when they're created, so recreate them\n+\t\tif (e.affectsConfiguration('microsoft-sovereign-cloud') || e.affectsConfiguration('microsoft-authentication.instanceDiscovery')) {\n \t\t\tmicrosoftSovereignCloudAuthProviderDisposable?.dispose();\n \t\t\tmicrosoftSovereignCloudAuthProviderDisposable = await initMicrosoftSovereignCloudAuthProvider(context, uriHandler);\n \t\t}"
+  },
+  {
+   "sha": "7c81dff6dad52f664bef950f170b9e71f0e161db",
+   "filename": "extensions/microsoft-authentication/src/node/cachedPublicClientApplication.ts",
+   "status": "modified",
+   "additions": 41,
+   "deletions": 4,
+   "changes": 45,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FcachedPublicClientApplication.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FcachedPublicClientApplication.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FcachedPublicClientApplication.ts?ref=1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "patch": "@@ -5,6 +5,7 @@\n \n import { PublicClientApplication, AccountInfo, SilentFlowRequest, AuthenticationResult, InteractiveRequest, LogLevel, RefreshTokenRequest, BrokerOptions, DeviceCodeRequest } from '@azure/msal-node';\n import { NativeBrokerPlugin } from '@azure/msal-node-extensions';\n+import { Environment } from '@azure/ms-rest-azure-env';\n import { Disposable, SecretStorage, LogOutputChannel, window, ProgressLocation, l10n, EventEmitter, workspace, env, Uri, UIKind } from 'vscode';\n import { DeferredPromise, raceCancellationAndTimeoutError } from '../common/async';\n import { SecretStorageCachePlugin } from '../common/cachePlugin';\n@@ -28,6 +29,39 @@ export function getNativeBrokerOptions(clientId: string, logger: LogOutputChanne\n \treturn nativeBrokerPlugin.isBrokerAvailable ? { nativeBrokerPlugin } : undefined;\n }\n \n+const builtInAuthorityHosts = new Set(\n+\t[Environment.AzureCloud, Environment.ChinaCloud, Environment.USGovernment, Environment.GermanCloud]\n+\t\t.map(e => new URL(e.activeDirectoryEndpointUrl).host)\n+);\n+\n+/**\n+ * The authorities MSAL should trust without Instance Discovery, when the user has disabled it.\n+ *\n+ * MSAL validates the Authority Host via Instance Discovery against the public Microsoft Entra\n+ * endpoint (login.microsoftonline.com) which confirms that this is well known - but this won't\n+ * succeed for custom authorities. Therefore, when Instance Discovery is disabled via settings, we\n+ * trust the Authority Host of a custom environment instead - mirroring the approach used by other\n+ * Azure tooling which allows disabling Instance Discovery. Built-in clouds keep Instance Discovery.\n+ */\n+function getKnownAuthorities(clientId: string, environment: Environment, logger: LogOutputChannel): string[] | undefined {\n+\tif (workspace.getConfiguration('microsoft-authentication').get<boolean>('instanceDiscovery') !== false) {\n+\t\treturn undefined;\n+\t}\n+\tlet host: string;\n+\ttry {\n+\t\thost = new URL(environment.activeDirectoryEndpointUrl).host;\n+\t} catch {\n+\t\tlogger.warn(`[${clientId}] Instance Discovery disabled but the environment's activeDirectoryEndpointUrl is not a valid URL; falling back to Instance Discovery`);\n+\t\treturn undefined;\n+\t}\n+\tif (builtInAuthorityHosts.has(host)) {\n+\t\tlogger.info(`[${clientId}] Instance Discovery disabled via settings but ignored for the built-in authority host: ${host}`);\n+\t\treturn undefined;\n+\t}\n+\tlogger.info(`[${clientId}] Instance Discovery disabled via settings; trusting authority host: ${host}`);\n+\treturn [host];\n+}\n+\n export class CachedPublicClientApplication implements ICachedPublicClientApplication {\n \t// Core properties\n \tprivate _pca: PublicClientApplication;\n@@ -56,7 +90,8 @@ export class CachedPublicClientApplication implements ICachedPublicClientApplica\n \t\tprivate readonly _secretStorage: SecretStorage,\n \t\tprivate readonly _accountAccess: IAccountAccess,\n \t\tprivate readonly _logger: LogOutputChannel,\n-\t\ttelemetryReporter: MicrosoftAuthenticationTelemetryReporter\n+\t\ttelemetryReporter: MicrosoftAuthenticationTelemetryReporter,\n+\t\tenvironment: Environment\n \t) {\n \t\tthis._secretStorageCachePlugin = new SecretStorageCachePlugin(\n \t\t\tthis._secretStorage,\n@@ -67,8 +102,9 @@ export class CachedPublicClientApplication implements ICachedPublicClientApplica\n \t\tconst loggerOptions = new MsalLoggerOptions(_logger, telemetryReporter);\n \t\tconst broker = getNativeBrokerOptions(_clientId, _logger);\n \t\tthis.isBrokerAvailable = !!broker;\n+\t\tconst knownAuthorities = getKnownAuthorities(_clientId, environment, _logger);\n \t\tthis._pca = new PublicClientApplication({\n-\t\t\tauth: { clientId: _clientId },\n+\t\t\tauth: { clientId: _clientId, knownAuthorities },\n \t\t\tsystem: {\n \t\t\t\tloggerOptions: {\n \t\t\t\t\tcorrelationId: _clientId,\n@@ -97,9 +133,10 @@ export class CachedPublicClientApplication implements ICachedPublicClientApplica\n \t\tsecretStorage: SecretStorage,\n \t\taccountAccess: IAccountAccess,\n \t\tlogger: LogOutputChannel,\n-\t\ttelemetryReporter: MicrosoftAuthenticationTelemetryReporter\n+\t\ttelemetryReporter: MicrosoftAuthenticationTelemetryReporter,\n+\t\tenvironment: Environment\n \t): Promise<CachedPublicClientApplication> {\n-\t\tconst app = new CachedPublicClientApplication(clientId, secretStorage, accountAccess, logger, telemetryReporter);\n+\t\tconst app = new CachedPublicClientApplication(clientId, secretStorage, accountAccess, logger, telemetryReporter, environment);\n \t\tawait app.initialize();\n \t\treturn app;\n \t}"
+  },
+  {
+   "sha": "43125ef7894b6af27aaa941462762dd53d229255",
+   "filename": "extensions/microsoft-authentication/src/node/publicClientCache.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FpublicClientCache.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FpublicClientCache.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmicrosoft-authentication%2Fsrc%2Fnode%2FpublicClientCache.ts?ref=1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "patch": "@@ -156,7 +156,7 @@ export class CachedPublicClientApplicationManager implements ICachedPublicClient\n \t}\n \n \tprivate async _doCreatePublicClientApplication(clientId: string): Promise<ICachedPublicClientApplication> {\n-\t\tconst pca = await CachedPublicClientApplication.create(clientId, this._secretStorage, this._accountAccess, this._logger, this._telemetryReporter);\n+\t\tconst pca = await CachedPublicClientApplication.create(clientId, this._secretStorage, this._accountAccess, this._logger, this._telemetryReporter, this._env);\n \t\tthis._pcas.set(clientId, pca);\n \t\tconst disposable = Disposable.from(\n \t\t\tpca,"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5071170676,
+   "node_id": "PRR_kwDOAn8RLM8AAAABLkPsdA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds opt-in support for bypassing MSAL Instance Discovery for custom authority hosts.\n\n**Changes:**\n- Adds and documents the `instanceDiscovery` setting.\n- Configures MSAL `knownAuthorities` from the custom environment.\n- Logs fallback behavior for invalid authority URLs.\n\n### Reviewed changes\n\nCopilot reviewed 3 out of 3 changed files in this pull request and generated 3 comments.\n\n| File | Description |\n| ---- | ----------- |\n| `cachedPublicClientApplication.ts` | Applies the custom authority to MSAL configuration. |\n| `package.json` | Contributes the new boolean setting. |\n| `package.nls.json` | Adds the localized setting description. |\n\n\n\n\n\n\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5071170676",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/333640",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5071170676"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/333640"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-08-31T21:01:10Z",
+   "commit_id": "cd1c271789ba50234d95c874f268778a95ee59dd"
+  },
+  {
+   "id": 5582373303,
+   "node_id": "PRR_kwDOAn8RLM8AAAABTLxBtw",
+   "user": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?u=40d2e63d02af5a9fb95648fd36fed4b721295ba9&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5582373303",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/333640",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5582373303"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/333640"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-20T08:06:48Z",
+   "commit_id": "1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8"
+  },
+  {
+   "id": 5582373796,
+   "node_id": "PRR_kwDOAn8RLM8AAAABTLxDpA",
+   "user": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?u=40d2e63d02af5a9fb95648fd36fed4b721295ba9&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5582373796",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/333640",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/333640#pullrequestreview-5582373796"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/333640"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-20T08:06:51Z",
+   "commit_id": "1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5484454891",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#issuecomment-5484454891",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333640",
+   "id": 5484454891,
+   "node_id": "IC_kwDOAn8RLM8AAAABRuYj6w",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-31T20:56:59Z",
+   "updated_at": "2026-10-20T08:07:04Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @TylerLeonhardt\n\nMatched files:\n- `extensions/microsoft-authentication/package.json`\n- `extensions/microsoft-authentication/package.nls.json`\n- `extensions/microsoft-authentication/src/extension.ts`\n- `extensions/microsoft-authentication/src/node/cachedPublicClientApplication.ts`\n- `extensions/microsoft-authentication/src/node/publicClientCache.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5484454891/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5830088709",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#issuecomment-5830088709",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333640",
+   "id": 5830088709,
+   "node_id": "IC_kwDOAn8RLM8AAAABW4AYBQ",
+   "user": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T09:28:09Z",
+   "updated_at": "2026-09-25T09:28:09Z",
+   "body": "@TylerLeonhardt anything you need for this one?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5830088709/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6347523924",
+   "html_url": "https://github.com/microsoft/vscode/pull/333640#issuecomment-6347523924",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/333640",
+   "id": 6347523924,
+   "node_id": "IC_kwDOAn8RLM8AAAABeleHVA",
+   "user": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-22T17:54:25Z",
+   "updated_at": "2026-10-22T17:54:25Z",
+   "body": "hey @TylerLeonhardt - just checking if there's anything else you need for this one? The GitHub Check failure is due to adding a new configuration value (which is required afaik?) - unless you can point me to another way to achieve this? I'm happy to update as needed",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6347523924/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+   "node_id": "C_kwDOUKLRO9oAKDY4Y2UxYjc1ZmNmYTVkMDljZjU3OTk0MWIyYjFmMzA2ZDM3OTM4Mjc",
+   "commit": {
+    "author": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-08-31T20:35:04Z"
+    },
+    "committer": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:03:40Z"
+    },
+    "message": "`microsoft-authentication`: support for disabling Instance Discovery\n\nMSAL's Instance Discovery is enabled by default but requires that the Authority Host is validatable\nvia the public Microsoft Entra endpoint.\n\nThis commit introduces support for disabling Instance Discovery which allows for using Custom Authority\nHosts as needed - which allows working with custom environments.\n\nThis functionality is both opt-in by the user and only supported when using a custom environment.\n\nFixes #265677",
+    "tree": {
+     "sha": "f4e8f01d585c235b76b5a223fa66a7551e0763b5",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f4e8f01d585c235b76b5a223fa66a7551e0763b5"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+   "html_url": "https://github.com/microsoft/vscode/commit/68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/68ce1b75fcfa5d09cf579941b2b1f306d3793827/comments",
+   "author": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8c00dcbe4de257039c8c507753e6813cd31c584b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8c00dcbe4de257039c8c507753e6813cd31c584b",
+     "html_url": "https://github.com/microsoft/vscode/commit/8c00dcbe4de257039c8c507753e6813cd31c584b"
+    }
+   ]
+  },
+  {
+   "sha": "e1e43c39813c1daaa002f00db371c48f1015e9a7",
+   "node_id": "C_kwDOUKLRO9oAKGUxZTQzYzM5ODEzYzFkYWFhMDAyZjAwZGIzNzFjNDhmMTAxNWU5YTc",
+   "commit": {
+    "author": {
+     "name": "Tom Harvey",
+     "email": "tombuildsstuff@users.noreply.github.com",
+     "date": "2026-09-25T09:27:25Z"
+    },
+    "committer": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:03:40Z"
+    },
+    "message": "Potential fix for pull request finding\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "d711dd0b0a1fb04b070f752e913d8234249092a8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d711dd0b0a1fb04b070f752e913d8234249092a8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e1e43c39813c1daaa002f00db371c48f1015e9a7",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e1e43c39813c1daaa002f00db371c48f1015e9a7",
+   "html_url": "https://github.com/microsoft/vscode/commit/e1e43c39813c1daaa002f00db371c48f1015e9a7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e1e43c39813c1daaa002f00db371c48f1015e9a7/comments",
+   "author": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/68ce1b75fcfa5d09cf579941b2b1f306d3793827",
+     "html_url": "https://github.com/microsoft/vscode/commit/68ce1b75fcfa5d09cf579941b2b1f306d3793827"
+    }
+   ]
+  },
+  {
+   "sha": "740ce0eafadba7fbfe241d96d388c7700be475d0",
+   "node_id": "C_kwDOUKLRO9oAKDc0MGNlMGVhZmFkYmE3ZmJmZTI0MWQ5NmQzODhjNzcwMGJlNDc1ZDA",
+   "commit": {
+    "author": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:04:09Z"
+    },
+    "committer": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:04:09Z"
+    },
+    "message": "`microsoft-authentication`: fix typo in Instance Discovery comment\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "cf3321b1befebe43d62594944fac65ed2d716f3f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/cf3321b1befebe43d62594944fac65ed2d716f3f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/740ce0eafadba7fbfe241d96d388c7700be475d0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/740ce0eafadba7fbfe241d96d388c7700be475d0",
+   "html_url": "https://github.com/microsoft/vscode/commit/740ce0eafadba7fbfe241d96d388c7700be475d0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/740ce0eafadba7fbfe241d96d388c7700be475d0/comments",
+   "author": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e1e43c39813c1daaa002f00db371c48f1015e9a7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e1e43c39813c1daaa002f00db371c48f1015e9a7",
+     "html_url": "https://github.com/microsoft/vscode/commit/e1e43c39813c1daaa002f00db371c48f1015e9a7"
+    }
+   ]
+  },
+  {
+   "sha": "1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "node_id": "C_kwDOUKLRO9oAKDFjZGNlZmZiMjVjMTlkOTE5MjI3OWUwZTlhOGFiNzg1YjdlNmUxYjg",
+   "commit": {
+    "author": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:05:59Z"
+    },
+    "committer": {
+     "name": "tombuildsstuff",
+     "email": "git@tom.ibuildstuff.eu",
+     "date": "2026-10-20T08:05:59Z"
+    },
+    "message": "`microsoft-authentication`: only trust custom authorities for custom environments\n\nDerive the known authorities from the PCA's own environment rather than the\n`microsoft-sovereign-cloud.customEnvironment` setting, so the public `microsoft`\nprovider (and built-in sovereign clouds) keep Instance Discovery, and recreate\nthe sovereign cloud provider when `instanceDiscovery` changes so it takes effect\nwithout a reload.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "b2fcda2a84d9b41aa95a4e97c44a726dd73ea084",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b2fcda2a84d9b41aa95a4e97c44a726dd73ea084"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "html_url": "https://github.com/microsoft/vscode/commit/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1cdceffb25c19d9192279e0e9a8ab785b7e6e1b8/comments",
+   "author": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "tombuildsstuff",
+    "id": 666005,
+    "node_id": "MDQ6VXNlcjY2NjAwNQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/666005?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tombuildsstuff",
+    "html_url": "https://github.com/tombuildsstuff",
+    "followers_url": "https://api.github.com/users/tombuildsstuff/followers",
+    "following_url": "https://api.github.com/users/tombuildsstuff/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tombuildsstuff/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tombuildsstuff/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tombuildsstuff/subscriptions",
+    "organizations_url": "https://api.github.com/users/tombuildsstuff/orgs",
+    "repos_url": "https://api.github.com/users/tombuildsstuff/repos",
+    "events_url": "https://api.github.com/users/tombuildsstuff/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tombuildsstuff/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "740ce0eafadba7fbfe241d96d388c7700be475d0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/740ce0eafadba7fbfe241d96d388c7700be475d0",
+     "html_url": "https://github.com/microsoft/vscode/commit/740ce0eafadba7fbfe241d96d388c7700be475d0"
+    }
+   ]
+  }
+ ]
+}

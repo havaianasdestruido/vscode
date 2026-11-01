@@ -1,0 +1,223 @@
+{
+ "fetchedAt": "2026-11-01T00:53:23.906Z",
+ "pr": {
+  "number": 313554,
+  "title": "Prunes stale closed repository entries (#313551)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-30T17:52:41Z",
+  "updated_at": "2026-04-30T18:36:17Z",
+  "user": "eamodio",
+  "author_association": "CONTRIBUTOR",
+  "additions": 11,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 2,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "bug/remove-dead-closed-repos",
+   "sha": "6d84116ef15758147a7d79fd0704e7b4d819d15f",
+   "repo": "eamodio/vscode",
+   "label": "eamodio:bug/remove-dead-closed-repos"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "cdf20ffcbad3d12018f77bc7daf2b6275be009fa"
+  },
+  "body": "Closes #313551\r\n\r\n - Removes closed repository records from the manager if the underlying path no longer exists on disk\r\n - Prevents dead repository entries from persisting when a user attempts to reopen a deleted or moved folder\r\n \r\n /cc @lszomoru ",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "0c8da84dd11c6eebd2209cd174b602d6d763618f",
+   "filename": "extensions/git/src/model.ts",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6d84116ef15758147a7d79fd0704e7b4d819d15f/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6d84116ef15758147a7d79fd0704e7b4d819d15f/extensions%2Fgit%2Fsrc%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fmodel.ts?ref=6d84116ef15758147a7d79fd0704e7b4d819d15f",
+   "patch": "@@ -699,6 +699,17 @@ export class Model implements IRepositoryResolver, IBranchProtectionProviderRegi\n \t\t} catch (err) {\n \t\t\t// noop\n \t\t\tthis.logger.trace(`[Model][openRepository] Opening repository for path='${repoPath}' failed. Error:${err}`);\n+\n+\t\t\t// Prune stale closed-repository entries:\n+\t\t\t// if the user explicitly asked to reopen a closed repo and the path no longer exists on disk, drop the entry so it does not stick around forever\n+\t\t\tif (openIfClosed && this._closedRepositoriesManager.isRepositoryClosed(repoPath)) {\n+\t\t\t\ttry {\n+\t\t\t\t\tawait fs.promises.access(repoPath);\n+\t\t\t\t} catch {\n+\t\t\t\t\tthis._closedRepositoriesManager.deleteRepository(repoPath);\n+\t\t\t\t\tthis.logger.info(`[Model][openRepository] Removed stale closed repository entry: ${repoPath}`);\n+\t\t\t\t}\n+\t\t\t}\n \t\t}\n \t}\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4207390914,
+   "node_id": "PRR_kwDOAn8RLM76x7DC",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR addresses stale `closedRepositories` workspace-state entries in the Git extension by pruning closed repository paths that no longer exist on disk when a reopen attempt fails, preventing “dead” entries from persisting and repeatedly prompting the user.\n\n**Changes:**\n- On failed `openRepository` attempts with `openIfClosed=true`, checks whether the requested path exists on disk.\n- If the path is missing, removes that path from the closed-repositories manager and logs the pruning event.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313554#pullrequestreview-4207390914",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313554",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313554#pullrequestreview-4207390914"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313554"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-30T17:57:53Z",
+   "commit_id": "6d84116ef15758147a7d79fd0704e7b4d819d15f"
+  },
+  {
+   "id": 4207404262,
+   "node_id": "PRR_kwDOAn8RLM76x-Tm",
+   "user": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313554#pullrequestreview-4207404262",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313554",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313554#pullrequestreview-4207404262"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313554"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-30T17:59:27Z",
+   "commit_id": "6d84116ef15758147a7d79fd0704e7b4d819d15f"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "6d84116ef15758147a7d79fd0704e7b4d819d15f",
+   "node_id": "C_kwDOA61EONoAKDZkODQxMTZlZjE1NzU4MTQ3YTdkNzlmZDA3MDRlN2I0ZDgxOWQxNWY",
+   "commit": {
+    "author": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T17:51:16Z"
+    },
+    "committer": {
+     "name": "Eric Amodio",
+     "email": "eamodio@gmail.com",
+     "date": "2026-04-30T17:51:16Z"
+    },
+    "message": "Prunes stale closed repository entries (#313551)\n - Removes closed repository records from the manager if the underlying path no longer exists on disk\n - Prevents dead repository entries from persisting when a user attempts to reopen a deleted or moved folder",
+    "tree": {
+     "sha": "9ba78ed5ded98c4b7749210e7cfe1c720f64038a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9ba78ed5ded98c4b7749210e7cfe1c720f64038a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6d84116ef15758147a7d79fd0704e7b4d819d15f",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6d84116ef15758147a7d79fd0704e7b4d819d15f",
+   "html_url": "https://github.com/microsoft/vscode/commit/6d84116ef15758147a7d79fd0704e7b4d819d15f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6d84116ef15758147a7d79fd0704e7b4d819d15f/comments",
+   "author": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "eamodio",
+    "id": 641685,
+    "node_id": "MDQ6VXNlcjY0MTY4NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/641685?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eamodio",
+    "html_url": "https://github.com/eamodio",
+    "followers_url": "https://api.github.com/users/eamodio/followers",
+    "following_url": "https://api.github.com/users/eamodio/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eamodio/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eamodio/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eamodio/subscriptions",
+    "organizations_url": "https://api.github.com/users/eamodio/orgs",
+    "repos_url": "https://api.github.com/users/eamodio/repos",
+    "events_url": "https://api.github.com/users/eamodio/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eamodio/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "43d0ed45492da1b1ca1738893956de429d46b5e8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/43d0ed45492da1b1ca1738893956de429d46b5e8",
+     "html_url": "https://github.com/microsoft/vscode/commit/43d0ed45492da1b1ca1738893956de429d46b5e8"
+    }
+   ]
+  }
+ ]
+}

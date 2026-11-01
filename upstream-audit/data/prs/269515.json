@@ -1,0 +1,1558 @@
+{
+ "fetchedAt": "2026-11-01T00:52:36.550Z",
+ "pr": {
+  "number": 269515,
+  "title": "Show JSDoc descriptions for JS in HTML script tags",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-10-02T10:51:33Z",
+  "updated_at": "2026-08-29T01:17:48Z",
+  "user": "magliocchetti",
+  "author_association": "CONTRIBUTOR",
+  "additions": 72,
+  "deletions": 2,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 1,
+  "commits_count": 12,
+  "labels": [],
+  "milestone": "On Deck",
+  "requested_reviewers": [],
+  "head": {
+   "ref": "268776-fix-jsdoc-hover-html-script-tags",
+   "sha": "40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "repo": "magliocchetti/vscode",
+   "label": "magliocchetti:268776-fix-jsdoc-hover-html-script-tags"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "44065855e430e776bafc28fe7bd69f696a8baf58"
+  },
+  "body": "## Summary\r\n\r\nPreserves structured JSDoc links when hovering over JavaScript inside HTML `<script>` tags.\r\n\r\nJSDoc descriptions and tags are already included by #312585. This change handles the remaining link-rendering path: TypeScript QuickInfo returns `{@link}` and `{@linkcode}` content as structured display parts, which the HTML language server previously flattened to plain text.\r\n\r\n## Changes\r\n\r\n- Converts TypeScript `link`, `linkName`, and `linkText` display parts to Markdown.\r\n- Preserves labeled links, bare URL links, and `{@linkcode}` formatting.\r\n- Applies link rendering to both documentation text and JSDoc tag text while retaining the existing hover and tag layout.\r\n- Adds deterministic coverage using user-defined JSDoc rather than relying on wording from TypeScript library files.\r\n\r\n## Testing\r\n\r\nAdded hover coverage for:\r\n\r\n- `{@link URL label}`\r\n- `{@link URL}`\r\n- `{@linkcode URL label}`\r\n- Links inside `@see` tags\r\n\r\nFixes #268776.\r\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "5ec28d04265ffca7351b6efec06ca41232b0c312",
+   "filename": "extensions/html-language-features/server/src/modes/javascriptMode.ts",
+   "status": "modified",
+   "additions": 49,
+   "deletions": 2,
+   "changes": 51,
+   "blob_url": "https://github.com/microsoft/vscode/blob/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Fmodes%2FjavascriptMode.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Fmodes%2FjavascriptMode.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Fmodes%2FjavascriptMode.ts?ref=40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "patch": "@@ -190,7 +190,7 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume\n \t\t\tconst info = jsLanguageService.getQuickInfoAtPosition(jsDocument.uri, jsDocument.offsetAt(position));\n \t\t\tif (info) {\n \t\t\t\tconst signature = ts.displayPartsToString(info.displayParts);\n-\t\t\t\tconst documentation = ts.displayPartsToString(info.documentation);\n+\t\t\t\tconst documentation = displayPartsToMarkdown(info.documentation);\n \t\t\t\tconst tags = tagsToMarkdown(info.tags);\n \n \t\t\t\tconst parts: string[] = [];\n@@ -456,9 +456,56 @@ export function getJavaScriptMode(documentRegions: LanguageModelCache<HTMLDocume\n \t};\n }\n \n+function displayPartsToMarkdown(parts: readonly ts.SymbolDisplayPart[] | string | undefined): string {\n+\tif (!parts) {\n+\t\treturn '';\n+\t}\n+\tif (typeof parts === 'string') {\n+\t\treturn parts;\n+\t}\n+\n+\tconst result: string[] = [];\n+\tlet currentLink: { name?: string; text?: string; linkcode: boolean } | undefined;\n+\tfor (const part of parts) {\n+\t\tswitch (part.kind) {\n+\t\t\tcase 'link':\n+\t\t\t\tif (currentLink) {\n+\t\t\t\t\tconst text = currentLink.text ?? currentLink.name;\n+\t\t\t\t\tif (text) {\n+\t\t\t\t\t\tif (/^https?:/.test(text)) {\n+\t\t\t\t\t\t\tconst [url, ...labelParts] = text.split(' ');\n+\t\t\t\t\t\t\tconst label = labelParts.join(' ') || url;\n+\t\t\t\t\t\t\tresult.push(labelParts.length === 0 && !currentLink.linkcode ? `<${url}>` : `[${currentLink.linkcode ? `\\`${label.replace(/`/g, '\\\\`')}\\`` : label}](${url})`);\n+\t\t\t\t\t\t} else {\n+\t\t\t\t\t\t\tresult.push(text.replace(/`/g, '\\\\`'));\n+\t\t\t\t\t\t}\n+\t\t\t\t\t}\n+\t\t\t\t\tcurrentLink = undefined;\n+\t\t\t\t} else {\n+\t\t\t\t\tcurrentLink = { linkcode: part.text === '{@linkcode ' };\n+\t\t\t\t}\n+\t\t\t\tbreak;\n+\t\t\tcase 'linkName':\n+\t\t\t\tif (currentLink) {\n+\t\t\t\t\tcurrentLink.name = part.text;\n+\t\t\t\t}\n+\t\t\t\tbreak;\n+\t\t\tcase 'linkText':\n+\t\t\t\tif (currentLink) {\n+\t\t\t\t\tcurrentLink.text = part.text;\n+\t\t\t\t}\n+\t\t\t\tbreak;\n+\t\t\tdefault:\n+\t\t\t\tresult.push(part.text);\n+\t\t\t\tbreak;\n+\t\t}\n+\t}\n+\treturn result.join('');\n+}\n+\n \n function tagToMarkdown(tag: ts.JSDocTagInfo): string {\n-\tconst text = ts.displayPartsToString(tag.text);\n+\tconst text = displayPartsToMarkdown(tag.text);\n \tswitch (tag.name) {\n \t\tcase 'param':\n \t\tcase 'template':"
+  },
+  {
+   "sha": "06becf8c9a001696cc32f08db5bec312c0250eba",
+   "filename": "extensions/html-language-features/server/src/test/hover.test.ts",
+   "status": "modified",
+   "additions": 23,
+   "deletions": 0,
+   "changes": 23,
+   "blob_url": "https://github.com/microsoft/vscode/blob/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Ftest%2Fhover.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Ftest%2Fhover.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fhtml-language-features%2Fserver%2Fsrc%2Ftest%2Fhover.test.ts?ref=40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "patch": "@@ -79,4 +79,27 @@ suite('HTML Hover', () => {\n \t\tassert.match(value, /```typescript[\\s\\S]*sayHello[\\s\\S]*```/, `signature missing in hover: ${value}`);\n \t\tassert.ok(value.includes('Returns a friendly greeting.'), `JSDoc description missing in hover: ${value}`);\n \t});\n+\n+\ttest('JavaScript hover in <script> preserves JSDoc links', async () => {\n+\t\tconst html = [\n+\t\t\t'<html><head><script>',\n+\t\t\t'/**',\n+\t\t\t' * See {@link https://example.com/docs API documentation}.',\n+\t\t\t' * See {@link https://example.com/bare}.',\n+\t\t\t' * See {@linkcode https://example.com/code API code}.',\n+\t\t\t' * @see {@link https://example.com/reference API reference}',\n+\t\t\t' */',\n+\t\t\t'class LinkedClass {}',\n+\t\t\t'new Linked|Class();',\n+\t\t\t'</script></head></html>'\n+\t\t].join('\\n');\n+\t\tconst value = await getHoverValue(html);\n+\n+\t\tassert.deepStrictEqual([\n+\t\t\tvalue.includes('[API documentation](https://example.com/docs)'),\n+\t\t\tvalue.includes('<https://example.com/bare>'),\n+\t\t\tvalue.includes('[`API code`](https://example.com/code)'),\n+\t\t\tvalue.includes('*@see* — [API reference](https://example.com/reference)')\n+\t\t], [true, true, true, true], `JSDoc links missing in hover: ${value}`);\n+\t});\n });"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3293942617,
+   "node_id": "PRR_kwDOAn8RLM7EVZNZ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull Request Overview\n\nThis PR enhances the hover information displayed for JavaScript code inside HTML `<script>` tags by adding JSDoc descriptions and MDN reference links, bringing parity with the hover behavior in standalone `.js` and `.ts` files.\n\n**Key changes:**\n- Added a `displayPartsToMarkdown()` helper function to convert TypeScript display parts to markdown format with link support\n- Enhanced the `doHover()` method to include documentation and JSDoc tags in hover tooltips\n- Added comprehensive test coverage for the new hover functionality\n\n### Reviewed Changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 1 comment.\n\n| File | Description |\n| ---- | ----------- |\n| `extensions/html-language-features/server/src/modes/javascriptMode.ts` | Added markdown conversion helper and enhanced hover method to include JSDoc documentation and tags |\n| `extensions/html-language-features/server/src/test/hover.test.ts` | Added new test suite covering hover functionality for DataTransfer, Blob, and built-in methods |\n\n\n<details>\n<summary>Comments suppressed due to low confidence (1)</summary>\n\n**extensions/html-language-features/server/src/modes/javascriptMode.ts:1**\n* The `substr()` method is deprecated. Use `substring()` or `slice()` instead for better compatibility and future-proofing.\n```\n/*---------------------------------------------------------------------------------------------\n```\n</details>\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-3293942617",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/269515",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-3293942617"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/269515"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-10-02T10:51:54Z",
+   "commit_id": "0c54579143ceed55e5d4b877cc652573a3eb6f61"
+  },
+  {
+   "id": 3361895490,
+   "node_id": "PRR_kwDOAn8RLM7IYnRC",
+   "user": {
+    "login": "aeschli",
+    "id": 6461412,
+    "node_id": "MDQ6VXNlcjY0NjE0MTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6461412?u=583a66b96653150e4c1da049eaef21e53c01f47d&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aeschli",
+    "html_url": "https://github.com/aeschli",
+    "followers_url": "https://api.github.com/users/aeschli/followers",
+    "following_url": "https://api.github.com/users/aeschli/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aeschli/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aeschli/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aeschli/subscriptions",
+    "organizations_url": "https://api.github.com/users/aeschli/orgs",
+    "repos_url": "https://api.github.com/users/aeschli/repos",
+    "events_url": "https://api.github.com/users/aeschli/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aeschli/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "DISMISSED",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-3361895490",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/269515",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-3361895490"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/269515"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-10-21T17:25:15Z",
+   "commit_id": "2c3e8a134342699f3b37290ef8edd7748c0dc78e"
+  },
+  {
+   "id": 4804957869,
+   "node_id": "PRR_kwDOAn8RLM8AAAABHmXWrQ",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?u=dfefdb2dfb250f55935f01ef0feba2a0709a47f9&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-4804957869",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/269515",
+   "author_association": "COLLABORATOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-4804957869"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/269515"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-29T07:01:45Z",
+   "commit_id": "40ba07ad2f040ae502cd8e876b2eb8b491bfdb47"
+  },
+  {
+   "id": 4805905634,
+   "node_id": "PRR_kwDOAn8RLM8AAAABHnRM4g",
+   "user": {
+    "login": "alexr00",
+    "id": 38270282,
+    "node_id": "MDQ6VXNlcjM4MjcwMjgy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/38270282?u=fdac7bbc0dc36780a8af94118f3171ee1a739bef&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/alexr00",
+    "html_url": "https://github.com/alexr00",
+    "followers_url": "https://api.github.com/users/alexr00/followers",
+    "following_url": "https://api.github.com/users/alexr00/following{/other_user}",
+    "gists_url": "https://api.github.com/users/alexr00/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/alexr00/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/alexr00/subscriptions",
+    "organizations_url": "https://api.github.com/users/alexr00/orgs",
+    "repos_url": "https://api.github.com/users/alexr00/repos",
+    "events_url": "https://api.github.com/users/alexr00/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/alexr00/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-4805905634",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/269515",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/269515#pullrequestreview-4805905634"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/269515"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-29T08:43:31Z",
+   "commit_id": "40ba07ad2f040ae502cd8e876b2eb8b491bfdb47"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3428045648",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#issuecomment-3428045648",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/269515",
+   "id": 3428045648,
+   "node_id": "IC_kwDOAn8RLM7MU9NQ",
+   "user": {
+    "login": "aeschli",
+    "id": 6461412,
+    "node_id": "MDQ6VXNlcjY0NjE0MTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6461412?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aeschli",
+    "html_url": "https://github.com/aeschli",
+    "followers_url": "https://api.github.com/users/aeschli/followers",
+    "following_url": "https://api.github.com/users/aeschli/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aeschli/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aeschli/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aeschli/subscriptions",
+    "organizations_url": "https://api.github.com/users/aeschli/orgs",
+    "repos_url": "https://api.github.com/users/aeschli/repos",
+    "events_url": "https://api.github.com/users/aeschli/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aeschli/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-10-21T17:25:34Z",
+   "updated_at": "2025-10-21T17:25:34Z",
+   "body": "Thanks @obrobrio2000 !",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3428045648/reactions",
+    "total_count": 1,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 1,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3429455966",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#issuecomment-3429455966",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/269515",
+   "id": 3429455966,
+   "node_id": "IC_kwDOAn8RLM7MaVhe",
+   "user": {
+    "login": "amunger",
+    "id": 2019016,
+    "node_id": "MDQ6VXNlcjIwMTkwMTY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2019016?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/amunger",
+    "html_url": "https://github.com/amunger",
+    "followers_url": "https://api.github.com/users/amunger/followers",
+    "following_url": "https://api.github.com/users/amunger/following{/other_user}",
+    "gists_url": "https://api.github.com/users/amunger/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/amunger/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/amunger/subscriptions",
+    "organizations_url": "https://api.github.com/users/amunger/orgs",
+    "repos_url": "https://api.github.com/users/amunger/repos",
+    "events_url": "https://api.github.com/users/amunger/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/amunger/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-10-21T20:32:33Z",
+   "updated_at": "2025-10-21T20:32:33Z",
+   "body": "lint errors: \r\n\r\n``` \r\n[hygiene                  ] extensions/html-language-features/server/src/modes/javascriptMode.ts(258,42): Unexpected unicode character: \"—\" (charCode: 8212). To suppress, use // allow-any-unicode-next-line\r\n[hygiene                  ] File not formatted. Run the 'Format Document' command to fix it: extensions/html-language-features/server/src/modes/javascriptMode.ts\r\n```",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3429455966/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5148212122",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#issuecomment-5148212122",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/269515",
+   "id": 5148212122,
+   "node_id": "IC_kwDOAn8RLM8AAAABMtt7mg",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-07-31T23:08:33Z",
+   "updated_at": "2026-07-31T23:08:33Z",
+   "body": "@magliocchetti please accept the term",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5148212122/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5148429322",
+   "html_url": "https://github.com/microsoft/vscode/pull/269515#issuecomment-5148429322",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/269515",
+   "id": 5148429322,
+   "node_id": "IC_kwDOAn8RLM8AAAABMt7MCg",
+   "user": {
+    "login": "microsoft-github-policy-service[bot]",
+    "id": 77245923,
+    "node_id": "MDM6Qm90NzcyNDU5MjM=",
+    "avatar_url": "https://avatars.githubusercontent.com/in/95686?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D",
+    "html_url": "https://github.com/apps/microsoft-github-policy-service",
+    "followers_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/microsoft-github-policy-service%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-31T23:54:59Z",
+   "updated_at": "2026-07-31T23:54:59Z",
+   "body": "\n@magliocchetti please read the following Contributor License Agreement(CLA). If you agree with the CLA, please reply with the following information.\n\n```\n@microsoft-github-policy-service agree [company=\"{your company}\"]\n```\n\n> Options:\n> - (default - no company specified) I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer.\n>```\n>@microsoft-github-policy-service agree\n>```\n> - (when company given) I am making Submissions in the course of work for my employer (or my employer has intellectual property rights in my Submissions by contract or applicable law). I have permission from my employer to make Submissions and enter into this Agreement on behalf of my employer. By signing below, the defined term “You” includes me and my employer.\n>```\n>@microsoft-github-policy-service agree company=\"Microsoft\"\n>```\n\n<details>\n    <summary>Contributor License Agreement</summary>\n    \n### Contribution License Agreement\nThis Contribution License Agreement (**“Agreement”**) is agreed to by the party signing below (**“You”**),\nand conveys certain license rights to Microsoft Corporation and its affiliates (“Microsoft”) for Your\ncontributions to Microsoft open source projects. This Agreement is effective as of the latest signature\ndate below.\n1. **Definitions**.\n**“Code”** means the computer software code, whether in human-readable or machine-executable form,\nthat is delivered by You to Microsoft under this Agreement.\n**“Project”** means any of the projects owned or managed by Microsoft and offered under a license\napproved by the Open Source Initiative (www.opensource.org).\n**“Submit”** is the act of uploading, submitting, transmitting, or distributing code or other content to any\nProject, including but not limited to communication on electronic mailing lists, source code control\nsystems, and issue tracking systems that are managed by, or on behalf of, the Project for the purpose of\ndiscussing and improving that Project, but excluding communication that is conspicuously marked or\notherwise designated in writing by You as “Not a Submission.”\n**“Submission”** means the Code and any other copyrightable material Submitted by You, including any\nassociated comments and documentation.\n2. **Your Submission**. You must agree to the terms of this Agreement before making a Submission to any\nProject. This Agreement covers any and all Submissions that You, now or in the future (except as\ndescribed in Section 4 below), Submit to any Project.\n3. **Originality of Work**. You represent that each of Your Submissions is entirely Your original work.\nShould You wish to Submit materials that are not Your original work, You may Submit them separately\nto the Project if You (a) retain all copyright and license information that was in the materials as You\nreceived them, (b) in the description accompanying Your Submission, include the phrase “Submission\ncontaining materials of a third party:” followed by the names of the third party and any licenses or other\nrestrictions of which You are aware, and (c) follow any other instructions in the Project’s written\nguidelines concerning Submissions.\n4. **Your Employer**. References to “employer” in this Agreement include Your employer or anyone else\nfor whom You are acting in making Your Submission, e.g. as a contractor, vendor, or agent. If Your\nSubmission is made in the course of Your work for an employer or Your employer has intellectual\nproperty rights in Your Submission by contract or applicable law, You must secure permission from Your\nemployer to make the Submission before signing this Agreement. In that case, the term “You” in this\nAgreement will refer to You and the employer collectively. If You change employers in the future and\ndesire to Submit additional Submissions for the new employer, then You agree to sign a new Agreement\nand secure permission from the new employer before Submitting those Submissions.\n5. **Licenses**.\n  * **Copyright License**. You grant Microsoft, and those who receive the Submission directly or\nindirectly from Microsoft, a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license in the\nSubmission to reproduce, prepare derivative works of, publicly display, publicly perform, and distribute\nthe Submission and such derivative works, and to sublicense any or all of the foregoing rights to third\nparties.\n  * **Patent License**. You grant Microsoft, and those who receive the Submission directly or\nindirectly from Microsoft, a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license under\nYour patent claims that are necessarily infringed by the Submission or the combination of the\nSubmission with the Project to which it was Submitted to make, have made, use, offer to sell, sell and\nimport or otherwise dispose of the Submission alone or with the Project.\n  * **Other Rights Reserved**. Each party reserves all rights not expressly granted in this Agreement.\nNo additional licenses or rights whatsoever (including, without limitation, any implied licenses) are\ngranted by implication, exhaustion, estoppel or otherwise.\n6. **Representations and Warranties**. You represent that You are legally entitled to grant the above\nlicenses. You represent that each of Your Submissions is entirely Your original work (except as You may\nhave disclosed under Section 3). You represent that You have secured permission from Your employer to\nmake the Submission in cases where Your Submission is made in the course of Your work for Your\nemployer or Your employer has intellectual property rights in Your Submission by contract or applicable\nlaw. If You are signing this Agreement on behalf of Your employer, You represent and warrant that You\nhave the necessary authority to bind the listed employer to the obligations contained in this Agreement.\nYou are not expected to provide support for Your Submission, unless You choose to do so. UNLESS\nREQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE WARRANTIES\nEXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED UNDER THIS AGREEMENT IS\nPROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTY OF\nNONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\n7. **Notice to Microsoft**. You agree to notify Microsoft in writing of any facts or circumstances of which\nYou later become aware that would make Your representations in this Agreement inaccurate in any\nrespect.\n8. **Information about Submissions**. You agree that contributions to Projects and information about\ncontributions may be maintained indefinitely and disclosed publicly, including Your name and other\ninformation that You submit with Your Submission.\n9. **Governing Law/Jurisdiction**. This Agreement is governed by the laws of the State of Washington, and\nthe parties consent to exclusive jurisdiction and venue in the federal courts sitting in King County,\nWashington, unless no federal subject matter jurisdiction exists, in which case the parties consent to\nexclusive jurisdiction and venue in the Superior Court of King County, Washington. The parties waive all\ndefenses of lack of personal jurisdiction and forum non-conveniens.\n10. **Entire Agreement/Assignment**. This Agreement is the entire agreement between the parties, and\nsupersedes any and all prior agreements, understandings or communications, written or oral, between\nthe parties relating to the subject matter hereof. This Agreement may be assigned by Microsoft.\n\n</details>\n<!-- Policy app identification https://img.shields.io/static/v1?label=ContributorLicenseAgreement. -->",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5148429322/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 95686,
+    "client_id": "Iv1.e5c853bd5285bc19",
+    "slug": "microsoft-github-policy-service",
+    "node_id": "MDM6QXBwOTU2ODY=",
+    "owner": {
+     "login": "microsoft1estools",
+     "id": 61292947,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMjkyOTQ3",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61292947?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/microsoft1estools",
+     "html_url": "https://github.com/microsoft1estools",
+     "followers_url": "https://api.github.com/users/microsoft1estools/followers",
+     "following_url": "https://api.github.com/users/microsoft1estools/following{/other_user}",
+     "gists_url": "https://api.github.com/users/microsoft1estools/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/microsoft1estools/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/microsoft1estools/subscriptions",
+     "organizations_url": "https://api.github.com/users/microsoft1estools/orgs",
+     "repos_url": "https://api.github.com/users/microsoft1estools/repos",
+     "events_url": "https://api.github.com/users/microsoft1estools/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/microsoft1estools/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "Microsoft GitHub Policy Service",
+    "description": "The GitHub Policy Service is created and maintained by the GitHub Inside Microsoft team at Microsoft 1ES. This service is the foundation for the compliance and governance efforts on our GitHub instances. In a nutshell, the Policy Service manages GitHub organizations and repositories using Config-As-Code.\r\n\r\nMicrosoft project maintainers who are employees can learn more about this app, including support and feedback opportunities, at [GitOps](https://aka.ms/1es-gitops).",
+    "external_url": "https://aka.ms/1es-gitops",
+    "html_url": "https://github.com/apps/microsoft-github-policy-service",
+    "created_at": "2021-01-10T19:27:33Z",
+    "updated_at": "2026-07-22T20:32:02Z",
+    "permissions": {
+     "actions": "write",
+     "administration": "write",
+     "checks": "write",
+     "contents": "write",
+     "custom_properties_for_organizations": "write",
+     "dependabot_secrets": "write",
+     "deployments": "write",
+     "discussions": "write",
+     "environments": "write",
+     "issues": "write",
+     "members": "write",
+     "merge_queues": "read",
+     "metadata": "read",
+     "organization_administration": "write",
+     "organization_custom_properties": "write",
+     "packages": "write",
+     "pages": "write",
+     "plan": "read",
+     "pull_requests": "write",
+     "repository_custom_properties": "write",
+     "repository_projects": "write",
+     "secret_scanning_alerts": "write",
+     "security_events": "write",
+     "statuses": "write",
+     "vulnerability_alerts": "write",
+     "workflows": "write"
+    },
+    "events": [
+     "branch_protection_rule",
+     "check_run",
+     "check_suite",
+     "code_scanning_alert",
+     "commit_comment",
+     "create",
+     "delete",
+     "dependabot_alert",
+     "deployment",
+     "deployment_review",
+     "deployment_status",
+     "deploy_key",
+     "discussion",
+     "discussion_comment",
+     "fork",
+     "issues",
+     "issue_comment",
+     "label",
+     "member",
+     "membership",
+     "merge_group",
+     "merge_queue_entry",
+     "milestone",
+     "organization",
+     "page_build",
+     "public",
+     "pull_request",
+     "pull_request_review",
+     "pull_request_review_comment",
+     "pull_request_review_thread",
+     "push",
+     "registry_package",
+     "release",
+     "repository",
+     "repository_dispatch",
+     "secret_scanning_alert",
+     "security_and_analysis",
+     "star",
+     "status",
+     "team",
+     "team_add",
+     "watch",
+     "workflow_dispatch",
+     "workflow_job",
+     "workflow_run"
+    ]
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "0c54579143ceed55e5d4b877cc652573a3eb6f61",
+   "node_id": "C_kwDOP6pyQNoAKDBjNTQ1NzkxNDNjZWVkNTVlNWQ0Yjg3N2NjNjUyNTczYTNlYjZmNjE",
+   "commit": {
+    "author": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T10:49:52Z"
+    },
+    "committer": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T10:49:52Z"
+    },
+    "message": "Show JSDoc descriptions for JS in HTML script tags\n\nWhen hovering over JavaScript code inside HTML `<script>` tags, JSDoc\ndescriptions and MDN reference links from TypeScript definition files\nwere not being displayed, although they worked correctly in .js and .ts files.\n\nThe issue was in the HTML language features server's `doHover` method in\njavascriptMode.ts. It only extracted the type signature from TypeScript's\nQuickInfo (info.displayParts) but ignored the documentation\n(info.documentation) and tags (info.tags) containing JSDoc descriptions\nand MDN links.\n\nThis commit:\n- Adds displayPartsToMarkdown() helper to convert TypeScript display parts\n  to markdown, properly handling {@link https://...} tags for MDN references\n- Modifies doHover() to include documentation and tags in hover response\n- Adds test cases to verify JSDoc descriptions and MDN links are shown\n\nFixes #268776\n\nSigned-off-by: Giovanni Magliocchetti <giovimag123@gmail.com>",
+    "tree": {
+     "sha": "50a94775abab454fcce9844b8f3e0dac2582d3d9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/50a94775abab454fcce9844b8f3e0dac2582d3d9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0c54579143ceed55e5d4b877cc652573a3eb6f61",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0c54579143ceed55e5d4b877cc652573a3eb6f61",
+   "html_url": "https://github.com/microsoft/vscode/commit/0c54579143ceed55e5d4b877cc652573a3eb6f61",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0c54579143ceed55e5d4b877cc652573a3eb6f61/comments",
+   "author": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "76838534d061e1274986bec0b68b8674a835d11b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/76838534d061e1274986bec0b68b8674a835d11b",
+     "html_url": "https://github.com/microsoft/vscode/commit/76838534d061e1274986bec0b68b8674a835d11b"
+    }
+   ]
+  },
+  {
+   "sha": "4171a1be49ad8457d118797e22147a44abb9abd7",
+   "node_id": "C_kwDOP6pyQNoAKDQxNzFhMWJlNDlhZDg0NTdkMTE4Nzk3ZTIyMTQ3YTQ0YWJiOWFiZDc",
+   "commit": {
+    "author": {
+     "name": "Giovanni Magliocchetti",
+     "email": "62136803+obrobrio2000@users.noreply.github.com",
+     "date": "2025-10-02T10:52:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-10-02T10:52:46Z"
+    },
+    "message": "Update extensions/html-language-features/server/src/test/hover.test.ts\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "322020e281b66275d34cea203a42ef78d8068960",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/322020e281b66275d34cea203a42ef78d8068960"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4171a1be49ad8457d118797e22147a44abb9abd7",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo3ll+CRC1aQ7uu5UhlAAAoXkQADcpHtfbLbZ8fjYFOmxKArNw\nU1baxmte2Kb29Ol6tXQBnIf/CIdii6se057x2ZGghdY2+i4VVEhGAfpb+sn5DaGX\na7TrCLOtAtRi8o0IU5sNA8zmO4AXWJlmZa7ey8FyCoF1gqU69dBJW5WwP0ihSZ/v\nDbiv5/jwLBPPCMS+TRKi2Vh16Jxrx261E/Kn8d8yrWfy/92POLS/M/miJhoN5kl8\nDJTlhGMZfBy3ZAc5/ziKuv62xdMiwEYnoJmAZNOq3gaeB0qchRELD0yGwnYkUzbm\njK7SABfR3/ugC52RLrHL9mmxabXkCS36/MUxcjm+hTiyR98JcePi9Hchr09yuX5b\noQPlxnwVSe8pB2eRTTQeF7SG3/jSLdMRjR0HEHNL6JfM3v1dwrRYUis0JgJsVON4\nd61SuCu6TNFbuocCBrVFe1UP9Fdt8VahYXidJLhI8d5HYTNbS7s26236MdWP2ITz\nZ8TEnjpsSeGnRG/YRxPnJwsPp1oVdnCOJSjfgb9RMaAz3f5uw2jx9Jx9s5ZZBDwY\n0NcvS79N6HQxzbWGD1SC/4hbK8Pb24RalC5v7mUhjS873wQapQUBe7Y8xzAinX6b\nTMDqxQGgRwdJbtvLczeRTcgy/rn4hmyD6r+4gbAGXT5Py7T/dAPkKZGDhSMSFfmw\nHeRrjsC4Q5dQnvG1zgXN\n=VbOq\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 322020e281b66275d34cea203a42ef78d8068960\nparent 0c54579143ceed55e5d4b877cc652573a3eb6f61\nauthor Giovanni Magliocchetti <62136803+obrobrio2000@users.noreply.github.com> 1759402366 +0200\ncommitter GitHub <noreply@github.com> 1759402366 +0200\n\nUpdate extensions/html-language-features/server/src/test/hover.test.ts\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2025-10-02T10:52:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4171a1be49ad8457d118797e22147a44abb9abd7",
+   "html_url": "https://github.com/microsoft/vscode/commit/4171a1be49ad8457d118797e22147a44abb9abd7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4171a1be49ad8457d118797e22147a44abb9abd7/comments",
+   "author": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0c54579143ceed55e5d4b877cc652573a3eb6f61",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0c54579143ceed55e5d4b877cc652573a3eb6f61",
+     "html_url": "https://github.com/microsoft/vscode/commit/0c54579143ceed55e5d4b877cc652573a3eb6f61"
+    }
+   ]
+  },
+  {
+   "sha": "2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+   "node_id": "C_kwDOP6pyQNoAKDJjM2U4YTEzNDM0MjY5OWYzYjM3MjkwZWY4ZWRkNzc0OGMwZGM3OGU",
+   "commit": {
+    "author": {
+     "name": "Martin Aeschlimann",
+     "email": "martinae@microsoft.com",
+     "date": "2026-01-27T08:44:28Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-01-27T08:44:28Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "9139f1064890cf3d065dfc6f0cf8f6498a62c44e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9139f1064890cf3d065dfc6f0cf8f6498a62c44e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpeHrsCRC1aQ7uu5UhlAAAvQUQADNzl0utiym3VH+jtCDt8+HB\nhyF2tFSObKB3Ysihqph1d04SXNae4ZJS1PmEbD+ht/a0mYUFR0n1YbvTsVXfxInz\nJhe6qIWeKgWsBdEbSTDPLXGqIncyQZnvV5e5BDE6qEkxJNy6huucwDdP6wAmzg4W\nmBxN7jp8xPYGUv1P6RfLWufwSqW/aJYl+dvaG0rWt1TeGIN1d3/0/0SucIRTe8La\nUI8UAYbnDaEPXy1BesOBNVWrmpRlf7/cPGL0DolE1wjzZpBm07KI0Cq/12gvBTTp\n3jGgkdlYYLq/YmR0dsADclrLqwBcXDeYnQCkWZPhTYgtP59nEvUO2JwNHQmGHxMt\nKeUsbc/dGh3WstYboZrd/DLaqrtt42/bTmJaX3ScsFrjJx5UPjPWmembSgm2m4rc\nc3WzwtTwc5fJZncdUPic+YGIuT2ZuOC3TbXn/Wz1D3BXEb5+z4CkNGzs6mt9K6S+\niYU4Zvf5fHXnVA+s6OxKPyajReD7U9ZG+ImeRv+Ju+IbRA+onaHjvIHgVQkJUrvS\nkwbZJfDKJ2OtN0BF14tlyvVLs3DZ5/4mRCP5hSk5LW5eKs6G+6BFa/tqp1qgOUNq\nBY4USuQUthbDEcMpK90uz3koHFknWI3zIKZj5AScE2CZ0iG/n6rkRVyiS5VfeOc0\n8zvdteEozSeswOz357bb\n=2HCE\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9139f1064890cf3d065dfc6f0cf8f6498a62c44e\nparent 4171a1be49ad8457d118797e22147a44abb9abd7\nparent 4ac2f00e079341b85e75a62b418b28bc8009d2a4\nauthor Martin Aeschlimann <martinae@microsoft.com> 1769503468 +0100\ncommitter GitHub <noreply@github.com> 1769503468 +0100\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-01-27T08:44:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+   "html_url": "https://github.com/microsoft/vscode/commit/2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2c3e8a134342699f3b37290ef8edd7748c0dc78e/comments",
+   "author": {
+    "login": "aeschli",
+    "id": 6461412,
+    "node_id": "MDQ6VXNlcjY0NjE0MTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6461412?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aeschli",
+    "html_url": "https://github.com/aeschli",
+    "followers_url": "https://api.github.com/users/aeschli/followers",
+    "following_url": "https://api.github.com/users/aeschli/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aeschli/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aeschli/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aeschli/subscriptions",
+    "organizations_url": "https://api.github.com/users/aeschli/orgs",
+    "repos_url": "https://api.github.com/users/aeschli/repos",
+    "events_url": "https://api.github.com/users/aeschli/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aeschli/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4171a1be49ad8457d118797e22147a44abb9abd7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4171a1be49ad8457d118797e22147a44abb9abd7",
+     "html_url": "https://github.com/microsoft/vscode/commit/4171a1be49ad8457d118797e22147a44abb9abd7"
+    },
+    {
+     "sha": "4ac2f00e079341b85e75a62b418b28bc8009d2a4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4ac2f00e079341b85e75a62b418b28bc8009d2a4",
+     "html_url": "https://github.com/microsoft/vscode/commit/4ac2f00e079341b85e75a62b418b28bc8009d2a4"
+    }
+   ]
+  },
+  {
+   "sha": "30db887851468e8c98ad13f93da50c604465125e",
+   "node_id": "C_kwDOP6pyQNoAKDMwZGI4ODc4NTE0NjhlOGM5OGFkMTNmOTNkYTUwYzYwNDQ2NTEyNWU",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:16:53Z"
+    },
+    "committer": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:16:53Z"
+    },
+    "message": "Merge remote-tracking branch 'origin/main' into dev/dmitriv/pr-269515-jsdoc-html-hover\n\n# Conflicts:\n#\textensions/html-language-features/server/src/modes/javascriptMode.ts\n#\textensions/html-language-features/server/src/test/hover.test.ts",
+    "tree": {
+     "sha": "f9f28e3fd78a3999fb601e6eb6a36f10f75969a7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f9f28e3fd78a3999fb601e6eb6a36f10f75969a7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/30db887851468e8c98ad13f93da50c604465125e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJPBAABCAA5FiEEp85d68HG+9zRmqfX0PisqUaCvjsFAmppmtUbFIAAAAAABAAO\nbWFudTIsMi41KzEuMTIsMiwxAAoJEND4rKlGgr47OlsP/RUNONZXDNfLkxylFS62\n8MTlZXFy3XPAdrN3U7HQOLu3YnaDmn4gUOpMA+XtNMM/pUbWEEmSq+PzpLgR+0ma\ndTXPq6nQ1iy9L9LV9/OSV557nrVfunG+TeFO5sTTH1A6V3aD+8sSepG7OOtxnvpV\nPIBN8hAuQclRwos6ucGGIFKoy3ST/aEPteOzVOfp11QjWqRPLdT8T5cBKD3pmgPc\nTV636rN99O6FDKPfgvKIYhr/PSLo+1ohhqKgYozGRUwZ8Hg4cDqqw22aKjLD6QzQ\nkv8NtAHnwbxv8KZVQpIRBfQpS10Zy51BSlyd79IEphmX5KcyO5JA+JtsaDXzWYGu\nyqQx+/R3SvNh1Y85g8KyPCNKrBZ1OMulYAnSmF9wzyHtcTLcVXXYOXV4teT8JDoF\n2sSF0sy0j4svoR5hSNDi9kn3V/Eb1qVp3W1HpGVEjq74AURLZ7ErrH4lqAByt7fJ\nfnrwWXAOq1ZX8GV4cGvAiYxLAtrhmv8rFL/H4b5w1A6SaWJe8a5uLROYBwmtuiPk\nHCKskdImuMz+KPvWK/KEJQinECzRIfxT4DQi9VPNi5XItAh2kGAePmiDCQJp10P7\nH8oLOOpdErCFmLMUVm78UBidx2oSvF+/TaIg0OV83kKEiplYt6Mg+Bomo02Wm5T9\nlqZ3rGb7/Ls4HBgK0SqL2ZDd\n=flCJ\n-----END PGP SIGNATURE-----",
+     "payload": "tree f9f28e3fd78a3999fb601e6eb6a36f10f75969a7\nparent 2c3e8a134342699f3b37290ef8edd7748c0dc78e\nparent 1acfef960ec990773cacb8f74592fa50450583cf\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785305813 -0700\ncommitter Dmitriy Vasyura <dmitriv@microsoft.com> 1785305813 -0700\n\nMerge remote-tracking branch 'origin/main' into dev/dmitriv/pr-269515-jsdoc-html-hover\n\n# Conflicts:\n#\textensions/html-language-features/server/src/modes/javascriptMode.ts\n#\textensions/html-language-features/server/src/test/hover.test.ts\n",
+     "verified_at": "2026-07-29T06:38:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/30db887851468e8c98ad13f93da50c604465125e",
+   "html_url": "https://github.com/microsoft/vscode/commit/30db887851468e8c98ad13f93da50c604465125e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/30db887851468e8c98ad13f93da50c604465125e/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "parents": [
+    {
+     "sha": "2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2c3e8a134342699f3b37290ef8edd7748c0dc78e",
+     "html_url": "https://github.com/microsoft/vscode/commit/2c3e8a134342699f3b37290ef8edd7748c0dc78e"
+    },
+    {
+     "sha": "1acfef960ec990773cacb8f74592fa50450583cf",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1acfef960ec990773cacb8f74592fa50450583cf",
+     "html_url": "https://github.com/microsoft/vscode/commit/1acfef960ec990773cacb8f74592fa50450583cf"
+    }
+   ]
+  },
+  {
+   "sha": "545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+   "node_id": "C_kwDOP6pyQNoAKDU0NWU2ZjJhYmU4ZWYxYjA4YWRjN2M4MWJiMTg5YTk3OGQzNWQ0OTE",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:40:05Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-29T06:40:05Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "d494dd6f2b2dd25047a5789b622b82bf9f5df33e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d494dd6f2b2dd25047a5789b622b82bf9f5df33e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqaaBFCRC1aQ7uu5UhlAAACJcQAHVDo1aiImhdSq+R8Xeiv+HS\nJjZoCw2hb+ovParEWDl6bFuFnHQ/KEZR7PEUJKUcclMFD4Apc6SS8L338vGpoVWo\nM/1Rc7jVX7FcUA5OlKkRuAMhPbsFWUwDwRJ0Sszr1N2xLYK3GY7bfqyrGof2dFEA\niPeb8QZVdzlbYo1roSHtjIExnEWAIvl+kv1THhnUWBWNMhPW5RqArY3gSk7+8tV9\n4/n8mmPpS1weofkdyCpxRk/8BTjmOCZa0M3+VZtFQSGUVxM9TXw6994U2DWhg3a3\nJfVl0ufltOpZ47LxFQlnkIYTiFluu5IHrb3B5mNC8IndSrxeIaQemMTzTUGQaPLD\najmSVnv+LcnglI2P9UW6/0HNGOPzWpM8CB3f3sK6vLzzmznMw7+2pHBGtdh7Dila\n8CkN18dAygn9ReQr05iYD3uK6rRzflXFAq9j7tf3m78aMM+EpXld10rQA5Bq5X+7\n3P528vs2/NyCpoL0iPl4Z2eay2QYJqAQdfSJDypthz74Wcgj1HmMP0voPZFBoM+Y\nvkmSC26eyUkbyqoYxNaXW8ahLfDrqFWrDxhSj1hsXZiaQPnItE0qmWU8woTLtiGY\n/TPh+QK1v0EbEnegIVqrh+QHm5Z+uqPFkTudw9yAfo5qAmxcvzhFGTtkDzfaAcXu\nwoZpPPjO9diC9LXelRbD\n=RPWA\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree d494dd6f2b2dd25047a5789b622b82bf9f5df33e\nparent 30db887851468e8c98ad13f93da50c604465125e\nparent c90b41e23e0f0a100d00c281eb2ba72f7beef69b\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785307205 -0700\ncommitter GitHub <noreply@github.com> 1785307205 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-07-29T06:40:06Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+   "html_url": "https://github.com/microsoft/vscode/commit/545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/545e6f2abe8ef1b08adc7c81bb189a978d35d491/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "30db887851468e8c98ad13f93da50c604465125e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/30db887851468e8c98ad13f93da50c604465125e",
+     "html_url": "https://github.com/microsoft/vscode/commit/30db887851468e8c98ad13f93da50c604465125e"
+    },
+    {
+     "sha": "c90b41e23e0f0a100d00c281eb2ba72f7beef69b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c90b41e23e0f0a100d00c281eb2ba72f7beef69b",
+     "html_url": "https://github.com/microsoft/vscode/commit/c90b41e23e0f0a100d00c281eb2ba72f7beef69b"
+    }
+   ]
+  },
+  {
+   "sha": "b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+   "node_id": "C_kwDOP6pyQNoAKGI3ODRlM2NkNDc1YTNlMTE3OGEyYzZkYTJjZDk3MTQxODFjYjkxYjk",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:55:05Z"
+    },
+    "committer": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:55:39Z"
+    },
+    "message": "html: preserve JSDoc links in script hover",
+    "tree": {
+     "sha": "044f7956e130eb809287efe22c1ff25903d50222",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/044f7956e130eb809287efe22c1ff25903d50222"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJPBAABCAA5FiEEp85d68HG+9zRmqfX0PisqUaCvjsFAmppo+sbFIAAAAAABAAO\nbWFudTIsMi41KzEuMTIsMiwxAAoJEND4rKlGgr47rDcP/iVB08rL/vn4CKq49fRL\npEJklUOBg/8hjHrclniHi6ARUIW8JuPuXbz1xtnY/SYlEZ5ZIb27jev5/nbSIKBu\nwZOcgNPYzp6uKwCfVRWLJmWZMeOK93KuEfpTcAl/L90rWieXiGonu1Toj5Vo0BuD\ntLShcw9yyZ8Ye6E2yG+7RDTZ8ENtxzFABe2+yAEUAMKkZGSdOdDjYxKe92o+jVZS\nzIH0joj3lA9O3P6I7KHcPA34Hx1cSijIY5tvh51f3EGcS9+59KUHQTVZ4+FgdNWV\nYWbiuQGzWTZq/p3GJZULjoPd4wG0meG4rrMcoJi1c1hHWrkKGzdbww25YGUeoset\nWrJeeEbtaA+egppzJxI+3UYjVAgl6iXN9W4opexo0IcFV7h9+Qv2ag9a63TLXUkw\n5SrDbjfGotKSSqlL2UTPjS/Jg0SjyHX2W4wfzvQsTyKssD8VROLVhm9LbgPoLKcI\nCLSMN4f3Tft2/1eyeRm8qgAEGiqWhOXtM5Tfk9SgI/FYArMOT30b94/V35MKSmAo\nOXnYQIhuaGIbnn0rd/jMpNaZtolrD0CEWhbMk2uUCZh8kEKZ/t4txDCTS3ME8toA\n7GeworjhE6YyKEMAffSFZv6RHWtOsVSbSK7zP3/NZ6XR4d5yfNt4rRC/iOkx4ZTs\nyDLXkZ9cJVjafYYCMZqnxN3d\n=1lqM\n-----END PGP SIGNATURE-----",
+     "payload": "tree 044f7956e130eb809287efe22c1ff25903d50222\nparent 545e6f2abe8ef1b08adc7c81bb189a978d35d491\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785308105 -0700\ncommitter Dmitriy Vasyura <dmitriv@microsoft.com> 1785308139 -0700\n\nhtml: preserve JSDoc links in script hover\n",
+     "verified_at": "2026-07-29T06:55:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+   "html_url": "https://github.com/microsoft/vscode/commit/b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b784e3cd475a3e1178a2c6da2cd9714181cb91b9/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "parents": [
+    {
+     "sha": "545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/545e6f2abe8ef1b08adc7c81bb189a978d35d491",
+     "html_url": "https://github.com/microsoft/vscode/commit/545e6f2abe8ef1b08adc7c81bb189a978d35d491"
+    }
+   ]
+  },
+  {
+   "sha": "961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+   "node_id": "C_kwDOP6pyQNoAKDk2MWVkNDBlOTBjOTI1ZTRjOWJmNTdiY2JhYjhlNjQzZWFhMjJhZmM",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-29T06:59:33Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-29T06:59:33Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "70f725f05996f897aad4d8a34499b6632fa2afc7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/70f725f05996f897aad4d8a34499b6632fa2afc7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqaaTVCRC1aQ7uu5UhlAAA1JkQAGeYSNxNXVVVJxQ7wjhEttTT\ncHkaHNrAHsyQ1EmLXt1wCSJ99NiVE312npNFzgsceBgnD66I52olI6sm64z3AQ4k\nEi2PkYFqHY5HZspEGd21yjWOLf97P6lnrfWfFCZq4Qg4Y3aln4X1dVh49wgl2ETD\nVkuyQwBmzjGj1PCYrLATNF7cjxSgwOKSSw63UujUf71n4uB8LVbzCgefGEP5pP0J\nFWQjzEkyFbq98aYOjFh0FUKeCdt1c3B/MMdnftZPeatPHVCgZZt3nmAaVHE2qyyp\nRbo4emgdA+N43PCLkp4KY2LdlfU9qqQnPaBj9rzUos+W24MzMlyHRSMrt1jk/OeY\n7EYch/NRWMDNzgUUDibeLikpSLFP//23QxWySg+WBRSSYwxCDfSIFyphLGfgXZG0\nEjTW2jUrfY7GpW9r90frIjDyk+XA0wLnd2cJBvGfORa+fAREQ2ntVqWClIFW0rNq\nAXEshOGKe+Ciw1xsnxJ0AshfvkakRkhNmwKKul/hw6cnAUYEiIq8B6De/2WKDBrP\nZOUYMsOeQNFJBGdP9WDIVB/KadfLxgAjB74kHjpiaIc3/KcGc2YaJyp6BknhoM6f\nggAVN8F/tMeKspODN69Vi1XPTDCoaAoKwqfbdESyFK9xKn7QIxHoNJRnLivsjKZM\nB5Uk21QqVmon9a9pRJEA\n=Panr\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 70f725f05996f897aad4d8a34499b6632fa2afc7\nparent b784e3cd475a3e1178a2c6da2cd9714181cb91b9\nparent d2ba34a77c3d205108364ba72e68736d048858d8\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785308373 -0700\ncommitter GitHub <noreply@github.com> 1785308373 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-07-29T06:59:33Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+   "html_url": "https://github.com/microsoft/vscode/commit/961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/961ed40e90c925e4c9bf57bcbab8e643eaa22afc/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b784e3cd475a3e1178a2c6da2cd9714181cb91b9",
+     "html_url": "https://github.com/microsoft/vscode/commit/b784e3cd475a3e1178a2c6da2cd9714181cb91b9"
+    },
+    {
+     "sha": "d2ba34a77c3d205108364ba72e68736d048858d8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d2ba34a77c3d205108364ba72e68736d048858d8",
+     "html_url": "https://github.com/microsoft/vscode/commit/d2ba34a77c3d205108364ba72e68736d048858d8"
+    }
+   ]
+  },
+  {
+   "sha": "ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+   "node_id": "C_kwDOP6pyQNoAKGNlOTA3YjNmMjJmMDEzMWFhMjU2YzAzYzBmZDRiODU4YTE3NzNiOGM",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-30T21:17:55Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-30T21:17:55Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "c0d65919615c35e21368ee7b75bc38d9278e5242",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c0d65919615c35e21368ee7b75bc38d9278e5242"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqa7+DCRC1aQ7uu5UhlAAAeXMQAHRdkgb4w4kbWciTn84VQ25J\nT+fXLhZI8BgcIuyz6aNEdy7um3Fih/htQJFVqq91BHR52fJkpZxZwZ4FM+MoCJX4\n16DCjz7bGRUiydvrSg4xQtQmjDnS1WzkemnApVZTkDbFFTgudL8wtjtNA92UadA1\n/Get/y4Ds+/AlPgGn6vj8RtJ/46RvsWmDGTKpXPyy1J1TUpjkVO6cpssOns2pwfG\nrV5QVJSQHRofyxjuCciXrnBTYhLdQc3IFWVWT5cHJtQVHU4sKB7DO8W0S3F6XN5P\nQEAzqnu41q77w6FphlWz3s0eALl+S7kJu0AUr85uekis9XB9toEeT+yBZkC2cE7k\ntc2pV6lFS1k0JDm3wBRjI+dQtzuiZVVO8MkTvg7TQF8/isNDN/HisS23oGwwqau1\nsmgT5IRMPQI4z87rkp2o5B9xgUpo6ma5qkGdNtGURHRZ2ukr1vugxiD/rcZ5KNgJ\nbaDZdp+e7QCianei+00uKvLRNsFZ9UQoVWuxtu5hS7lj1nRZXThMszrBOfzGTcxZ\nMxuGIwUh2Gfv2cgJJmqwsDbkxPTJmoao19tEawyOgsyWebO0eOreFc7dzfcpaSua\nZn31Cz3JrBTDkqjgV//3YpgETbi3yzamIm8LM3VFsvgqt/t1psqGzB6opW/8ed4p\nY3q0iBXHs7jIXdxsftqn\n=Isfp\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c0d65919615c35e21368ee7b75bc38d9278e5242\nparent 961ed40e90c925e4c9bf57bcbab8e643eaa22afc\nparent ecb377984e968c6f85d90e943611df49001301f3\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785446275 -0700\ncommitter GitHub <noreply@github.com> 1785446275 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-07-30T21:17:56Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+   "html_url": "https://github.com/microsoft/vscode/commit/ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ce907b3f22f0131aa256c03c0fd4b858a1773b8c/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/961ed40e90c925e4c9bf57bcbab8e643eaa22afc",
+     "html_url": "https://github.com/microsoft/vscode/commit/961ed40e90c925e4c9bf57bcbab8e643eaa22afc"
+    },
+    {
+     "sha": "ecb377984e968c6f85d90e943611df49001301f3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ecb377984e968c6f85d90e943611df49001301f3",
+     "html_url": "https://github.com/microsoft/vscode/commit/ecb377984e968c6f85d90e943611df49001301f3"
+    }
+   ]
+  },
+  {
+   "sha": "cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+   "node_id": "C_kwDOP6pyQNoAKGNkMGM2NmVlZWM1ZTk1NTZhODgwM2MzZGU3NDZkMzZlY2I3NDAwZmY",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-31T01:54:55Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-31T01:54:55Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "fd0f8b75e9fd4a1cd2d67b9f3eeb0c93a8d47423",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fd0f8b75e9fd4a1cd2d67b9f3eeb0c93a8d47423"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqbABvCRC1aQ7uu5UhlAAAvAgQAJE9S8VnSmItpxRwRZ9e68aK\nEm5DiH3NwKrDEH7DkS/ug2BQTnyGatHBA7GtubZKTU+ftmQAsvP7OhEl7AZVXMHj\nA8KJLsrN/UDD6eEHd0gdCYcqEXsqtXZSmllI8fGtarzBqW2UdubBVM5VpHlQW5ie\nRNtvSkAMIs3f0/jxg9neFJe52QEeDFQbFSJGvAQx5zvmIXMYhp4K4/bOt4dHyK/z\nFfxSSEnyxUEkLT+v4yuuJg/J71nV2neX8lnwhzJOtqaOCA/IND3m4hqrnDUvadBa\nITc0k/MZA1XO7LpnIopXQpLEUwqRJ/Nj5v2yOxod3aaHG5RXgXCWBNz/2Bg32E5r\ndeMb1C5NjgvrJwOAMPYftaOfm3xhBOFKZFcCi5jRXjYPSlzsOXY4avOJx7d6fX6+\n5VI3kyhHq/KvmQft4E5Eyngm6vc8qrK92gz/F9WPyTbBmUALXEdDx7KgdchkgpsG\nFpMZ9kUG+4sPI1VXkBrcgUa7D3gMYC6UQu3YZKdJmq5FtQpxA8tflJjhPoRkzr8S\nXBbCroMvYOdLBcr7P6hMMvSCtqKhkVGO1lzw7bwD3w3KNMMzzJ1us31Es+qmi21f\nNPmZgqijitCsgVQgRBUAng3xrkcwdcce06CwdLfN3edMrT6AaqZszRRlvCx8Fsee\nFL/oTMGRzzvcokCq/JwI\n=FulE\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree fd0f8b75e9fd4a1cd2d67b9f3eeb0c93a8d47423\nparent ce907b3f22f0131aa256c03c0fd4b858a1773b8c\nparent 667ea72312b066db30cd156ee0e44c8ea690a12b\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785462895 -0700\ncommitter GitHub <noreply@github.com> 1785462895 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-07-31T01:54:55Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+   "html_url": "https://github.com/microsoft/vscode/commit/cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/cd0c66eeec5e9556a8803c3de746d36ecb7400ff/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ce907b3f22f0131aa256c03c0fd4b858a1773b8c",
+     "html_url": "https://github.com/microsoft/vscode/commit/ce907b3f22f0131aa256c03c0fd4b858a1773b8c"
+    },
+    {
+     "sha": "667ea72312b066db30cd156ee0e44c8ea690a12b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/667ea72312b066db30cd156ee0e44c8ea690a12b",
+     "html_url": "https://github.com/microsoft/vscode/commit/667ea72312b066db30cd156ee0e44c8ea690a12b"
+    }
+   ]
+  },
+  {
+   "sha": "6b1f6251a9143ed6a0b2b994d1c189401af476df",
+   "node_id": "C_kwDOP6pyQNoAKDZiMWY2MjUxYTkxNDNlZDZhMGIyYjk5NGQxYzE4OTQwMWFmNDc2ZGY",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-07-31T18:13:16Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-31T18:13:16Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "04f484898638a41db70cf67a39d4cfcf35a11949",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/04f484898638a41db70cf67a39d4cfcf35a11949"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6b1f6251a9143ed6a0b2b994d1c189401af476df",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqbOW8CRC1aQ7uu5UhlAAA/GsQADPRURkVyXg4jBjTcEBfgYBz\n9fl5OD5ryRVTS5t/N3Ri+l7PJIc8BZswtDWJtNgvLw3dlqAVTY4ki+FElrsHWxxs\nT/L1GE9R7T7cSlUs1Y1709Od67FGbAKjcrFLDkjgLswqPZGvy8xbOqKo2Z/EpoCp\n6TdkBqaCSUJQWYtJcCoPxsw0f4skoLW7XlyVOdtEoiwFpiwrbNLCf2MyETHQ92Lp\nnIlwYdVwf2Lw3cXrtsmvzvvnDlkBgp5CP8Yi9kBdDlGTLgBh73BQSuUYicBnJWAb\nkJAdwpw19tWDcTtndejGmD2+vNJOYpYfpcGTA85KuivxGPO6S6wBmhiOnNaQl8fh\niDdDQc3lvo93f0EIczkOrpce9vNY/uvjfzHxuj8qivGze/qNdAMU0/6Ah2Dls7Y1\nJSEKOqrLLUP3M8KI+cGELXFTDryfu2jq14VvGROLRJ1KKoLmee6/WjJsxYEkvEfc\nccRViKQnoiHCeccavNniWYoX/+WSQXlIbkoOy/liem8NqOWxB1psEW/JSTTRIqkK\nrKVTv7Q4HepAWtqCMzXbtZij2W90H200sZh6S3ScJg6yM4dtatcqfc1s+o0InSnH\nIEzGll6+9a46R184GoXEBY7uleRFDVehWB2d3+pkRio120GFPEA0NKPJY0qxy/hs\n3Nya2CviBCmDd2q3YM3K\n=flC8\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 04f484898638a41db70cf67a39d4cfcf35a11949\nparent cd0c66eeec5e9556a8803c3de746d36ecb7400ff\nparent cbde25b257c77bf8c618a912d4934bd2070cba80\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785521596 -0700\ncommitter GitHub <noreply@github.com> 1785521596 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-07-31T18:13:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6b1f6251a9143ed6a0b2b994d1c189401af476df",
+   "html_url": "https://github.com/microsoft/vscode/commit/6b1f6251a9143ed6a0b2b994d1c189401af476df",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6b1f6251a9143ed6a0b2b994d1c189401af476df/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cd0c66eeec5e9556a8803c3de746d36ecb7400ff",
+     "html_url": "https://github.com/microsoft/vscode/commit/cd0c66eeec5e9556a8803c3de746d36ecb7400ff"
+    },
+    {
+     "sha": "cbde25b257c77bf8c618a912d4934bd2070cba80",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cbde25b257c77bf8c618a912d4934bd2070cba80",
+     "html_url": "https://github.com/microsoft/vscode/commit/cbde25b257c77bf8c618a912d4934bd2070cba80"
+    }
+   ]
+  },
+  {
+   "sha": "bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+   "node_id": "C_kwDOP6pyQNoAKGJlZTljYTMxOWQ0ZWViMDQ1YjA4ZjVmMDMwM2VkZjFjYzRhOTVlMzQ",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-08-03T04:34:30Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-03T04:34:30Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "1bdef84b9c95e4b02cbb732ad7dad2139abe3427",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1bdef84b9c95e4b02cbb732ad7dad2139abe3427"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqcBpWCRC1aQ7uu5UhlAAAcHIQAIoYy0rmpGMF8+xnuqaHhWL9\nrhQDENoiFuFshzweyL3Fcqa8E4NeW/q0CZrvLAlEwbp/iSO40IFmra+AMoAORapD\n38el7jV6bzUOj5WCdFE3ar9sPfVZJQf5dIJI/HioVNZKcbQpNs8VneCAlNR6ZnwD\nhlzv52WtGiCa6endZ/gNp+IOCxSNgsDJczM4WwiACW5AgQCKXFI91QDKJ7epuIOt\noVvSJN3f5lyQDdJnyYsT0YP6gP50KfVrQ5HJICTixGrwFQy/Mxx71BBMWISdIsSF\nujwPYmls4hqpH6w+HxhpsGcLcRUwKTsW3KKtnN2neIBVwdxJaAErHQ++/20lqvUx\nZ+PhIbCNolnWXg3pg1OUpJNCmNa2Yb9yAh/1YwbYFBCPqbms0Nb522z47bVRn7C9\nHgKzaXxDtnmBzDG5rQIvFOj8BU8uWRxaRFPqoO1knEF1P2B91YEl4HJ2Tq3fegmw\nFcO/wFumYNKidjtEkMNJtltUYEqX5pAvMasoy3270QGuJWTwgzFgkc2fnPeP/0Ri\n7MlYVYBzbo+/M69nBr5LHbiqz54PGDhRJHgoF/2QuBIrE/3dXi89rwlWv+cxq2Kc\nXSgidtXWxbrj104PhOurr8egZ9pxZ4DIqL2KI9UkB2U5m4o0uuVpN7JcUtbKYwnZ\nFMGZscFXZzRnFyrVmIfz\n=opsy\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1bdef84b9c95e4b02cbb732ad7dad2139abe3427\nparent 6b1f6251a9143ed6a0b2b994d1c189401af476df\nparent d5dd3ab69669226d4a7d4819cad108ebdd6d7708\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1785731670 -0700\ncommitter GitHub <noreply@github.com> 1785731670 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-08-03T04:34:31Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+   "html_url": "https://github.com/microsoft/vscode/commit/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6b1f6251a9143ed6a0b2b994d1c189401af476df",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6b1f6251a9143ed6a0b2b994d1c189401af476df",
+     "html_url": "https://github.com/microsoft/vscode/commit/6b1f6251a9143ed6a0b2b994d1c189401af476df"
+    },
+    {
+     "sha": "d5dd3ab69669226d4a7d4819cad108ebdd6d7708",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d5dd3ab69669226d4a7d4819cad108ebdd6d7708",
+     "html_url": "https://github.com/microsoft/vscode/commit/d5dd3ab69669226d4a7d4819cad108ebdd6d7708"
+    }
+   ]
+  },
+  {
+   "sha": "40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "node_id": "C_kwDOP6pyQNoAKDQwYmEwN2FkMmYwNDBhZTUwMmNkOGU4NzZiMmViOGI0OTFiZmRiNDc",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-08-29T01:17:45Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-29T01:17:45Z"
+    },
+    "message": "Merge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+    "tree": {
+     "sha": "ebe8fe90d83e66ab85aae62dbac3661088250f3a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ebe8fe90d83e66ab85aae62dbac3661088250f3a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqkjM5CRC1aQ7uu5UhlAAAvOoQAGO6U7ry2lQNuLsDrIa3IKaT\np3B9riYLwHlpwbGEuKQKFKbXPksYagJFYI27/WcibSGlDoV+52sjn3d11Wf5+ozh\nZ3P2FMmQ70OhEz42t5sldYfPjIFeJIjnV7KmR2vcnC6ohQB+87h2WcZJ2n0aksXv\n6zLkggyBefNK9HAGfo1mSSECH9ekZiNxxl14sVSZ7QNAl22KMEs9/A9Bk6Lt4rGt\nk9nu/6EfKyfNN1Zn4K3zDmyP6yFvB2ajL1jd9WqthVDSyiEGsApAr1X18rhKnfQe\n1FEoqrn+7JYPKARf0EaGTFpXOCoPb2ka61AYE5VYir0YxFQ3jXKvL1ve70ueLzx/\n0U7csZeBRnPnQgCOoG0Vc+NpWhOzDWqkLzv2EWCfaxY0pe6Uz5SaaMzuYCU2gWYS\nBKuyNaUxeS4HZQDtDBeUZqBEZRyyVVQmihNIolqbNYmLqfTBdZSAtiyPXe1XUuTl\n7/gUIfAr49iHX5fpbhoArW7UEf5V+4Rks4jNsRhFcatt1QPfmTZaKzOmYymjjNhN\naB2jLY21y4Uch25AD4IPCdH79hwqCt1MuQNCt6ymxDjk53yUcPuRw+uhFkALAsCW\neLA31dM9K3H09w28GMgyvucpnArbyAzks/thTxzYzUIWbpsBUcPRJwPl5AxkOBxB\n7UJqHwNlOK0DjhTXHBWu\n=7yEM\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ebe8fe90d83e66ab85aae62dbac3661088250f3a\nparent bee9ca319d4eeb045b08f5f0303edf1cc4a95e34\nparent 44065855e430e776bafc28fe7bd69f696a8baf58\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1787966265 -0700\ncommitter GitHub <noreply@github.com> 1787966265 -0700\n\nMerge branch 'main' into 268776-fix-jsdoc-hover-html-script-tags",
+     "verified_at": "2026-08-29T01:17:46Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "html_url": "https://github.com/microsoft/vscode/commit/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/40ba07ad2f040ae502cd8e876b2eb8b491bfdb47/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34",
+     "html_url": "https://github.com/microsoft/vscode/commit/bee9ca319d4eeb045b08f5f0303edf1cc4a95e34"
+    },
+    {
+     "sha": "44065855e430e776bafc28fe7bd69f696a8baf58",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/44065855e430e776bafc28fe7bd69f696a8baf58",
+     "html_url": "https://github.com/microsoft/vscode/commit/44065855e430e776bafc28fe7bd69f696a8baf58"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:55:48.509Z",
+ "pr": {
+  "number": 343391,
+  "title": "Refactor Playwright test chat input focus logic and timeout handling",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-22T00:09:27Z",
+  "updated_at": "2026-10-22T01:29:19Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 14,
+  "deletions": 11,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-54",
+   "sha": "64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-54"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "0ba02a06143810d1d6b868535e68867aea0ee2e5"
+  },
+  "body": "Fixes #343388",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "e7ac77805d12952d8006962a5942406312b733e2",
+   "filename": ".agents/skills/launch/playwrightScripts/focus-chat-input.ts",
+   "status": "modified",
+   "additions": 14,
+   "deletions": 11,
+   "changes": 25,
+   "blob_url": "https://github.com/microsoft/vscode/blob/64368c0f0f15cfec35a2ad0ef847fa88f700e802/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/64368c0f0f15cfec35a2ad0ef847fa88f700e802/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts?ref=64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+   "patch": "@@ -1,5 +1,5 @@\n /*---------------------------------------------------------------------------------------------\n- *  Copyright (c) Microsoft Corporation. All rights reserved.\n+ *  Copyright (c) Microsoft Corporation. All rightsrols reserved.\n  *  Licensed under the MIT License. See License.txt in the project root for license information.\n  *--------------------------------------------------------------------------------------------*/\n \n@@ -13,22 +13,22 @@ async page => {\n \t];\n \n \tconst findVisibleChatInput = async () => {\n-\t\tlet firstVisible;\n \t\tfor (const selector of selectors) {\n \t\t\tconst candidates = page.locator(selector);\n-\t\t\tfor (let index = 0; index < await candidates.count(); index++) {\n+\t\t\tconst count = await candidates.count();\n+\t\t\tfor (let index = 0; index < count; index++) {\n \t\t\t\tconst candidate = candidates.nth(index);\n \t\t\t\tconst isExcluded = await candidate.evaluate(element => Boolean(element.closest('.inline-chat-widget, .automation-form-prompt-host')));\n \t\t\t\tif (await candidate.isVisible() && !isExcluded) {\n \t\t\t\t\tconst match = { input: candidate, selector };\n \t\t\t\t\tif (await candidate.evaluate(element => document.activeElement === element)) {\n \t\t\t\t\t\treturn match;\n \t\t\t\t\t}\n-\t\t\t\t\tfirstVisible ??= match;\n+\t\t\t\t\treturn match;\n \t\t\t\t}\n \t\t\t}\n \t\t}\n-\t\treturn firstVisible;\n+\t\treturn undefined;\n \t};\n \n \tconst isFocused = input => input.evaluate(element => document.activeElement === element);\n@@ -42,18 +42,21 @@ async page => {\n \t\t}\n \t\treturn true;\n \t};\n-\tconst waitForVisibleChatInput = async attempts => {\n-\t\tfor (let attempt = 0; attempt < attempts; attempt++) {\n+\n+\t// Polling for the visible chat input using a custom timeout-based loop\n+\tconst waitForVisibleChatInput = async (timeoutMs = 1000) => {\n+\t\tconst startTime = Date.now();\n+\t\twhile (Date.now() - startTime < timeoutMs) {\n \t\t\tconst match = await findVisibleChatInput();\n \t\t\tif (match) {\n \t\t\t\treturn match;\n \t\t\t}\n-\t\t\tawait page.waitForTimeout(100);\n+\t\t\tawait page.waitForTimeout(50);\n \t\t}\n \t\treturn undefined;\n \t};\n \n-\tlet match = await findVisibleChatInput();\n+\tlet match = await waitForVisibleChatInput(500);\n \tif (match) {\n \t\tconst focusInvoked = await focusIfNeeded(match.input);\n \t\treturn { focused: true, focusChanged: focusInvoked, focusInvoked, shortcutInvoked: false, commandPaletteFallbackInvoked: false, selector: match.selector };\n@@ -62,7 +65,7 @@ async page => {\n \tconst platform = await page.evaluate(() => navigator.userAgentData?.platform ?? navigator.platform);\n \tconst shortcut = /^mac/i.test(platform) ? 'Control+Meta+i' : 'Control+Alt+i';\n \tawait page.keyboard.press(shortcut);\n-\tmatch = await waitForVisibleChatInput(10);\n+\tmatch = await waitForVisibleChatInput(1000);\n \n \tlet commandPaletteFallbackInvoked = false;\n \tif (!match) {\n@@ -78,7 +81,7 @@ async page => {\n \t\t}\n \t\tawait commandPaletteInput.fill(`>${commandId}`);\n \t\tawait page.keyboard.press('Enter');\n-\t\tmatch = await waitForVisibleChatInput(50);\n+\t\tmatch = await waitForVisibleChatInput(3000);\n \t}\n \n \tif (!match) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5607839819,
+   "node_id": "PRR_kwDOAn8RLM8AAAABTkDYSw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "> [!WARNING]\n> Copilot couldn't run its full agentic review because it didn't start before the timeout. Make sure your repository has a runner available, or add a `copilot-code-review.yml` file specifying one with the `runs-on` attribute. See the [docs](https://gh.io/AA11tgch) for more details.\n\n<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n<details open>\n<summary><strong>1 open issue</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [This comment states the code is using Playwright&#39;s `expect().toPass()` pattern, but the…](https://github.com/microsoft/vscode/pull/343391#discussion_r4343349361) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nRefactors the Playwright helper that focuses the chat input by changing how a “best” input is selected and by replacing attempt-based polling with a timeout-based loop.\n\n**Changes:**\n- Optimized locator counting in `findVisibleChatInput` by hoisting `count()` out of the inner loop.\n- Changed `findVisibleChatInput` to return on the first visible match instead of scanning for the active element and keeping a fallback.\n- Replaced attempt-count polling with a `timeoutMs`-based polling loop and adjusted related call sites/timeouts.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| .agents/​skills/​launch/​playwrightScripts/​focus-chat-input.ts | Updates chat-input discovery/focus flow and refactors polling/timeout behavior. |\n</details>\n\n<sub>Review effort: Lite</sub>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/343391#pullrequestreview-5607839819",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/343391",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/343391#pullrequestreview-5607839819"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/343391"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "lite",
+   "submitted_at": "2026-10-22T00:25:43Z",
+   "commit_id": "41d02ae2e412c7585a6b13ecb4230bc40a2efa98"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+   "node_id": "C_kwDOTk4kkdoAKDQxZDAyYWUyZTQxMmM3NTg1YTZiMTNlY2I0MjMwYmM0MGEyZWZhOTg",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-22T00:08:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-22T00:08:25Z"
+    },
+    "message": "Refactor Playwright test chat input focus logic and timeout handling\n\n- Replaced manual fixed timeout loops with robust polling mechanism in `waitForVisibleChatInput`.\r\n- Optimized element search flow and improved test stability for finding active chat/agents inputs.",
+    "tree": {
+     "sha": "3c935584e65c38bc962e52778d263a89d32ab59e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3c935584e65c38bc962e52778d263a89d32ab59e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq2VP5CRC1aQ7uu5UhlAAAXdQQAF9EpB5IidJcz2pAon3LKrrT\n/wAahcKYKNaaGmUFid/oeSb0FyVsjBRBZIFBtCT9gKIKeY0rk6A2tgusxAqpyAuw\nEcy5acviBeh8jDuDmomcXun3+2xNkZ8hGNTCVqWU1ZbDkgW9Lflnc6r3G2qdR5DG\nBwnQbkiEOhNS1zxSHb9SusscUel4q1jbHv9+/YfT7hN3RSJe+vWZ2UAkYvpR2rHR\nPP+jWo+yVUrwK9EVAqIb2d6+z/V7010Zs5ARJYOqoHyH5lmZaXQwm2EQqpfbUA/e\n80CVmdPf6oznAlbmw+jlDrXQxe83JAYD0PhfF+lCZUGvuXimhqHl8mPNOYplr0rv\nf2PdwFy5HPHRljlrlhbGnO3lsxZkTdmFHVG9r8pv2SSebj1wQsktMwOB1wmEAWV/\n87aM7iDV+4MjDu5SsWNBu36nOavgJy++ldXDJyeGgwe76LNvPeWGUdrYMQpVKmae\n9LwhrFDQgLWc71CilOCQG9+1mMAni/YjPq0gll1f/oE+sI7cm7Mz2HQyT/v65Z+4\nFlOmrEZ5jUJ72+m4aWyGOTZenFYIhmEXXcVpCyoO5VRlJIi7wZvv14On+x1OTmOL\nAOpQRT1jCnva5zz6GhFyjgiaDtlPg91xrNHPqf+zGOv3UZvGvHT1g04nXV4L5hu7\nQGShWTQ/nh7XrS7dqEUk\n=twQs\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3c935584e65c38bc962e52778d263a89d32ab59e\nparent 0ba02a06143810d1d6b868535e68867aea0ee2e5\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1792627705 +0300\ncommitter GitHub <noreply@github.com> 1792627705 +0300\n\nRefactor Playwright test chat input focus logic and timeout handling\n\n- Replaced manual fixed timeout loops with robust polling mechanism in `waitForVisibleChatInput`.\r\n- Optimized element search flow and improved test stability for finding active chat/agents inputs.",
+     "verified_at": "2026-10-22T00:08:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+   "html_url": "https://github.com/microsoft/vscode/commit/41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/41d02ae2e412c7585a6b13ecb4230bc40a2efa98/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0ba02a06143810d1d6b868535e68867aea0ee2e5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0ba02a06143810d1d6b868535e68867aea0ee2e5",
+     "html_url": "https://github.com/microsoft/vscode/commit/0ba02a06143810d1d6b868535e68867aea0ee2e5"
+    }
+   ]
+  },
+  {
+   "sha": "64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+   "node_id": "C_kwDOTk4kkdoAKDY0MzY4YzBmMGYxNWNmZWMzNWEyYWQwZWY4NDdmYTg4ZjcwMGU4MDI",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-22T00:28:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-22T00:28:25Z"
+    },
+    "message": "Refactor comments and enhance waitForVisibleChatInput logic\n\nCorrected comments and improved clarity in the focus-chat-input script.",
+    "tree": {
+     "sha": "e4ea8abf2cc226316aae9c4b91c1c68d9fec0227",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e4ea8abf2cc226316aae9c4b91c1c68d9fec0227"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq2VipCRC1aQ7uu5UhlAAAatwQAJYx2XEhdB0VdkI2xnFbt8iZ\ns/kRE+maXDW1o59C3xAt5E9fQvhHvERk/SspBDUxwhAdti8DaZO5P2pQ4m6GEPXL\nTm74v4hcvsppkrFkbmPS/ag8w2dMAUCaKzO6sj0hUqzQYQ10ZshZN/1OuE6PZhis\noo+Rqv3p8EekLv70IOR+ZwyBKOJP7S1F4b9PiTBnLlW5vvga80J8pCWxoaUiv9pf\nR8vDSoxSQ8J9YtPaoCIMmwciI6qxJ5DCS19YEay8iBosWHzeZGThW7DFCbGEhidm\nrBojXrZPuedFbJs1tkVy7DAEdZA1u0BTapaCVZm3ypUqYEvgooIn5D53PLa4qP8R\nNBJkHVIZPqF3kLTDZdKiA6V3oDWj5X2c2Fd/Zpo7hHIDSWHRddgyhXHRAWYRBJj1\nQwvsy6WBtcN5rr9ByHOqIlTeu/HgtmFCxZjNPOejGHqKZblWJhBpX6WrZlvFrLEF\ngBv8jSiNIvo3lfl/JxEqcWRFe3eJTxjD9ycD00u00IkXHPCJ5sUN+c0N+WjYJviE\nDhrTDTueFvoTNIsW8Ut9VSit0DHyLJ/+i+JCsrDeJxMx9/32KD45jYEhJGX4jgHC\n9B6fATEqsxZwOmHBfmsg+HiFIZ5eHUJp6e0SiR1ObGrjihLyrufB35fuZVi6g210\ndKBqWNZ9e+FymPspHzLs\n=4Fuw\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree e4ea8abf2cc226316aae9c4b91c1c68d9fec0227\nparent 41d02ae2e412c7585a6b13ecb4230bc40a2efa98\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1792628905 +0300\ncommitter GitHub <noreply@github.com> 1792628905 +0300\n\nRefactor comments and enhance waitForVisibleChatInput logic\n\nCorrected comments and improved clarity in the focus-chat-input script.",
+     "verified_at": "2026-10-22T00:28:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+   "html_url": "https://github.com/microsoft/vscode/commit/64368c0f0f15cfec35a2ad0ef847fa88f700e802",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/64368c0f0f15cfec35a2ad0ef847fa88f700e802/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/41d02ae2e412c7585a6b13ecb4230bc40a2efa98",
+     "html_url": "https://github.com/microsoft/vscode/commit/41d02ae2e412c7585a6b13ecb4230bc40a2efa98"
+    }
+   ]
+  }
+ ]
+}

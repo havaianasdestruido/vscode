@@ -1,0 +1,352 @@
+{
+ "fetchedAt": "2026-11-01T00:51:21.915Z",
+ "pr": {
+  "number": 190291,
+  "title": "Notebook UI heading tweaks",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2023-08-11T21:15:44Z",
+  "updated_at": "2026-01-20T10:13:53Z",
+  "user": "christian-bromann",
+  "author_association": "CONTRIBUTOR",
+  "additions": 23,
+  "deletions": 20,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": "On Deck",
+  "requested_reviewers": [],
+  "head": {
+   "ref": "cb-notebook-ui-fix-2",
+   "sha": "4b061708f836bb6843a8bb0f6bd71039eefce617",
+   "repo": "christian-bromann/vscode",
+   "label": "christian-bromann:cb-notebook-ui-fix-2"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "I recently raised this https://github.com/microsoft/vscode/pull/188117 which got reverted as my changed introduced a heading border that was reaching into the scroll bar. This is a second attempt to improve the UI for notebooks, the additional tweak I made to fix the the problem that caused the revert was adding\r\n\r\n```css\r\nwidth: calc(100% - 2px);\r\n```\r\nto\r\n```css\r\nhr,\r\nh1,\r\nh2 {\r\n\tborder-bottom: 1px solid var(--vscode-notebook-cellBorderColor);\r\n\twidth: calc(100% - 2px);\r\n}\r\n```\r\n\r\n@daviddossett Let me know what you think!\r\n\r\nI am also happy to completely remove the border.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "02853a2d7026ea0c9f3c4d97793afa3b7dd89117",
+   "filename": "extensions/markdown-language-features/notebook/index.ts",
+   "status": "modified",
+   "additions": 23,
+   "deletions": 20,
+   "changes": 43,
+   "blob_url": "https://github.com/microsoft/vscode/blob/4b061708f836bb6843a8bb0f6bd71039eefce617/extensions%2Fmarkdown-language-features%2Fnotebook%2Findex.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/4b061708f836bb6843a8bb0f6bd71039eefce617/extensions%2Fmarkdown-language-features%2Fnotebook%2Findex.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fmarkdown-language-features%2Fnotebook%2Findex.ts?ref=4b061708f836bb6843a8bb0f6bd71039eefce617",
+   "patch": "@@ -177,41 +177,32 @@ export const activate: ActivationFunction<void> = (ctx) => {\n \t\thr {\n \t\t\tborder: 0;\n \t\t\theight: 2px;\n-\t\t\tborder-bottom: 2px solid;\n-\t\t}\n-\n-\t\th2, h3, h4, h5, h6 {\n-\t\t\tfont-weight: normal;\n \t\t}\n \n \t\th1 {\n-\t\t\tfont-size: 2.3em;\n-\t\t}\n-\n-\t\th2 {\n \t\t\tfont-size: 2em;\n+\t\t\tpadding-bottom: 0.3em;\n \t\t}\n \n-\t\th3 {\n-\t\t\tfont-size: 1.7em;\n+\t\th2 {\n+\t\t\tfont-size: 1.5em;\n+\t\t\tpadding-bottom: 0.3em;\n \t\t}\n \n \t\th3 {\n-\t\t\tfont-size: 1.5em;\n+\t\t\tfont-size: 1.25em;\n \t\t}\n \n \t\th4 {\n-\t\t\tfont-size: 1.3em;\n+\t\t\tfont-size: 1em;\n \t\t}\n \n \t\th5 {\n-\t\t\tfont-size: 1.2em;\n+\t\t\tfont-size: 0.875em;\n \t\t}\n \n-\t\th1,\n-\t\th2,\n-\t\th3 {\n-\t\t\tfont-weight: normal;\n+\t\th6 {\n+\t\t\tfont-size: 0.85em;\n \t\t}\n \n \t\tdiv {\n@@ -229,12 +220,24 @@ export const activate: ActivationFunction<void> = (ctx) => {\n \t\t}\n \n \t\t/* Removes bottom margin when only one item exists in markdown cell */\n-\t\t#preview > *:only-child,\n-\t\t#preview > *:last-child {\n+\t\t#preview > *:not(h1):not(h2):only-child,\n+\t\t#preview > *:not(h1):not(h2):last-child {\n \t\t\tmargin-bottom: 0;\n \t\t\tpadding-bottom: 0;\n \t\t}\n \n+\t\th1,\n+\t\th2,\n+\t\th3,\n+\t\th4,\n+\t\th5,\n+\t\th6 {\n+\t\t\tfont-weight: 600;\n+\t\t\tmargin-top: 24px;\n+\t\t\tmargin-bottom: 16px;\n+\t\t\tline-height: 1.25;\n+\t\t}\n+\n \t\t/* makes all markdown cells consistent */\n \t\tdiv {\n \t\t\tmin-height: var(--notebook-markdown-min-height);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 1596528801,
+   "node_id": "PRR_kwDOAn8RLM5fKRih",
+   "user": {
+    "login": "rebornix",
+    "id": 876920,
+    "node_id": "MDQ6VXNlcjg3NjkyMA==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/876920?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rebornix",
+    "html_url": "https://github.com/rebornix",
+    "followers_url": "https://api.github.com/users/rebornix/followers",
+    "following_url": "https://api.github.com/users/rebornix/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rebornix/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rebornix/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rebornix/subscriptions",
+    "organizations_url": "https://api.github.com/users/rebornix/orgs",
+    "repos_url": "https://api.github.com/users/rebornix/repos",
+    "events_url": "https://api.github.com/users/rebornix/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rebornix/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/190291#pullrequestreview-1596528801",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/190291",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/190291#pullrequestreview-1596528801"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/190291"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2023-08-25T21:29:06Z",
+   "commit_id": "e719048de222a6311dd007d85ca414b0cadfe407"
+  },
+  {
+   "id": 1596678671,
+   "node_id": "PRR_kwDOAn8RLM5fK2IP",
+   "user": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?u=029e1004d7b48bc669c3eef60c8b3566841c7477&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/190291#pullrequestreview-1596678671",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/190291",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/190291#pullrequestreview-1596678671"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/190291"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2023-08-26T01:08:25Z",
+   "commit_id": "e719048de222a6311dd007d85ca414b0cadfe407"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1719893484",
+   "html_url": "https://github.com/microsoft/vscode/pull/190291#issuecomment-1719893484",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/190291",
+   "id": 1719893484,
+   "node_id": "IC_kwDOAn8RLM5mg33s",
+   "user": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-09-14T17:52:07Z",
+   "updated_at": "2023-09-14T17:52:07Z",
+   "body": "ping @rebornix ",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1719893484/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+   "node_id": "C_kwDOJ8rII9oAKGE0YjhlM2MzOGMwMWI4ODk5OWY0NWViZWM2OGJjZWIzODQ5ZjZiYTA",
+   "commit": {
+    "author": {
+     "name": "Christian Bromann",
+     "email": "git@bromann.dev",
+     "date": "2023-07-17T22:22:27Z"
+    },
+    "committer": {
+     "name": "Christian Bromann",
+     "email": "git@bromann.dev",
+     "date": "2023-08-11T21:00:30Z"
+    },
+    "message": "Notebook UI heading tweaks",
+    "tree": {
+     "sha": "3f946192fbb78c5122246338be69fc5acee228ce",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3f946192fbb78c5122246338be69fc5acee228ce"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unknown_key",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJEBAABCAAuFiEEwHQzV04HKue2f7ezNVtdDqg7TRkFAmTWoW8QHGdpdEBicm9t\nYW5uLmRldgAKCRA1W10OqDtNGay6D/9tnecDO2330RudtUyHVGA5q75LNo0aEr/W\ned+acjghjntnFHWYvYq7w2+5BPsjSciyghiqFLAvnnZb/AuqgLPtYP203bqecZEg\nGUyXX5SYsKmgWYq07kvYq0p43PnYrCVrbq/5EeDZabn9chOiGUvwkDfUZV9zb9nC\nfe/WQ2zGfGrwhf6KP2w1LnTsjHJwuG3t8+DvNYrpIoACFxZ9pD76dJSptdI8U8c0\nm6debloNonkdmVZIL6SOeVnj8EVOWFhH+Vad0CHdWY7RILVOe5etb9qMRROaZEZe\nd42flWEeRyvObWJn9YFK52VpuJrZP6/eEnpt0iyDN7Aehp0iVAMeAcntBclaJx/I\nUEDmbvwal81wPr2j/uKqS13oNkkgFn2myDuGWLSbIDtMhF2SHTw6FpxBkbIeei/V\nHS5bmQvQkYma4QOe9tJuYWN6mHj9GIkUZFUW4wB0zm8fG9cGRX0VK8on3aJXhBBx\n5DcOwlYNYEfDxL2FypxgCueONkF0jbzJEgfUx0XPekhmht8VisahPpKvbec+Ye4/\n004pHl+67CImMBt31mJfyo7y+A5n2vFO6PtugHhaYYiH4tsbqqHSsY3sI+DLsPbT\nxeV+6frizQzy3y5rlXHI/LwSJqQIPYjwuFZr4dVte6eq4yrOt1qDRyieeMiWBlbd\nWObNaJWBmQ==\n=W4oo\n-----END PGP SIGNATURE-----",
+     "payload": "tree 3f946192fbb78c5122246338be69fc5acee228ce\nparent ee88f3f4d2f3e848d642e96c4d578f81ed273b9a\nauthor Christian Bromann <git@bromann.dev> 1689632547 -0700\ncommitter Christian Bromann <git@bromann.dev> 1691787630 -0700\n\nNotebook UI heading tweaks\n",
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+   "html_url": "https://github.com/microsoft/vscode/commit/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0/comments",
+   "author": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ee88f3f4d2f3e848d642e96c4d578f81ed273b9a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ee88f3f4d2f3e848d642e96c4d578f81ed273b9a",
+     "html_url": "https://github.com/microsoft/vscode/commit/ee88f3f4d2f3e848d642e96c4d578f81ed273b9a"
+    }
+   ]
+  },
+  {
+   "sha": "4b061708f836bb6843a8bb0f6bd71039eefce617",
+   "node_id": "C_kwDOJ8rII9oAKDRiMDYxNzA4ZjgzNmJiNjg0M2E4YmIwZjZiZDcxMDM5ZWVmY2U2MTc",
+   "commit": {
+    "author": {
+     "name": "Christian Bromann",
+     "email": "git@bromann.dev",
+     "date": "2023-08-11T21:13:13Z"
+    },
+    "committer": {
+     "name": "Christian Bromann",
+     "email": "git@bromann.dev",
+     "date": "2023-08-26T01:07:08Z"
+    },
+    "message": "tweak heading width",
+    "tree": {
+     "sha": "63f4bb07f777f2bd5768973c8d913e6d59c1e393",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/63f4bb07f777f2bd5768973c8d913e6d59c1e393"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4b061708f836bb6843a8bb0f6bd71039eefce617",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unknown_key",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJEBAABCAAuFiEEwHQzV04HKue2f7ezNVtdDqg7TRkFAmTpUEcQHGdpdEBicm9t\nYW5uLmRldgAKCRA1W10OqDtNGfbQD/9H6DHlOc5zWmU4v4KI8q/kdeVxPx8YYdoS\nnub4DSqVEuS0+Ubcd6pYDU4nbYSepcwEj3UZoEAJzoTZCROYuvyDmpbmu1mT1h1X\nuUzrA76R2ZD+9q0iRO8nJ8atOn5SXx2Jz0Put7a4bO4yi3jiNqCVX7WY2NDCkY3b\n36qzNFCTPgSThfRrcWxi7j3YInri9q6hglmps6qWvolGPr0+PM33ZAV0EY424fBO\nhSrvcJyLl9me8jnNNvB96mggcG8RkHZd/n6cHgAt/LjfeXJQNse6GoPUbXVv4fhv\nErR4BSgtpVAFhgQy1Vvh8gmx/xxIkYgkaCZbJ0L7k8FNCNw+dCqHr5mZG8Q5YTF5\nriU41VBCqo+mCe8M9KrSShXrtb5DScaaOxmYJWaCEX21997KseM4pnlLxhPvWI+L\nmm7L+LscPFyf2PfKxF6xUnKgsJYTU6hPP2UaW4ZwRVc1G5+FDRzAf1yvo3W5Bxda\n38UP/Se60Cd51h3IJ4wwZyimqHPlBGqKYDIzoeB9+TxyHjpK9ydR51iDzTcOIaWk\nWdhHC/zvgBTzGHviWMTbiuEa7OPfoTuDRnivhVagbQzDExNS++UskhYqqIxgXpu5\nrBIGeyomrmB7AAnneDpxvIyGTFZCmmGe1nMFUwBra+26he7UEZq8A6pglOTWFeFm\nnTSLV/T1ZQ==\n=+fAw\n-----END PGP SIGNATURE-----",
+     "payload": "tree 63f4bb07f777f2bd5768973c8d913e6d59c1e393\nparent a4b8e3c38c01b88999f45ebec68bceb3849f6ba0\nauthor Christian Bromann <git@bromann.dev> 1691788393 -0700\ncommitter Christian Bromann <git@bromann.dev> 1693012028 -0700\n\ntweak heading width\n",
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4b061708f836bb6843a8bb0f6bd71039eefce617",
+   "html_url": "https://github.com/microsoft/vscode/commit/4b061708f836bb6843a8bb0f6bd71039eefce617",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4b061708f836bb6843a8bb0f6bd71039eefce617/comments",
+   "author": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0",
+     "html_url": "https://github.com/microsoft/vscode/commit/a4b8e3c38c01b88999f45ebec68bceb3849f6ba0"
+    }
+   ]
+  }
+ ]
+}

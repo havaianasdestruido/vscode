@@ -1,0 +1,270 @@
+{
+ "fetchedAt": "2026-11-01T00:53:42.695Z",
+ "pr": {
+  "number": 314614,
+  "title": "Git - guard against undefined paths in parseGitChangesRaw (#287615)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-06T01:44:15Z",
+  "updated_at": "2026-05-06T03:00:16Z",
+  "user": "yogeshwaran-c",
+  "author_association": "CONTRIBUTOR",
+  "additions": 6,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 2,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/scm-history-undefined-path-287615",
+   "sha": "8bee66fb1427ce0a952b83b03143e313f810355e",
+   "repo": "yogeshwaran-c/vscode",
+   "label": "yogeshwaran-c:fix/scm-history-undefined-path-287615"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "154bcccdf299a90df2c3ef3d629a25439cdbc926"
+  },
+  "body": "@\nFixes #287615\n\n## Root cause\n\n`parseGitChangesRaw` in `extensions/git/src/git.ts` parses the null-delimited output of `git diff --raw --numstat -z`. The parser advances through the segments array using a manual `index++` counter and reads file paths via `segments[index++]` in two places:\n\n1. The colon-prefixed `--raw` branch: the file path that immediately follows the metadata segment.\n2. The `--numstat` rename branch: the new path that follows the empty filename and the skipped old path.\n\nNeither read was guarded for the case where `index` runs past the end of `segments` (or yields an empty/undefined value). When that happens, the resulting `filePath` is `undefined`, and the subsequent `Uri.file(...)` call throws:\n\n```\nThe \"path\" argument must be of type string. Received undefined\n```\n\nThis bubbles up through `GitHistoryProvider.provideHistoryItemChanges` and is logged by `extHostSCM.ts` as `ExtHostSCM#$provideHistoryItemChanges The \"path\" argument must be of type string. Received undefined`, leaving the multi-file diff editor with no listed files.\n\n## Fix\n\nAdd a defensive `if (!filePath) break;` / `if (!renamePath) break;` guard in both branches, mirroring the existing guard already present for the rename `newPath` segment a few lines below. If the segment stream is unexpectedly truncated, parsing stops cleanly instead of crashing the provider call.\n\nNarrow change: 6 added lines in one file, no behavior change for well-formed input.\n\n## Test plan\n\n- [x] Build passes locally\n- [ ] Open commit history for a commit with many changes (including renames) — no `path must be of type string` error in Extension Host log; changed files render in the multi-file diff editor.\n@",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "0fa0d548e9c9fbfd338a8506a8cdd02c518a8848",
+   "filename": "extensions/git/src/git.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 0,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/8bee66fb1427ce0a952b83b03143e313f810355e/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/8bee66fb1427ce0a952b83b03143e313f810355e/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fgit.ts?ref=8bee66fb1427ce0a952b83b03143e313f810355e",
+   "patch": "@@ -1138,6 +1138,9 @@ function parseGitChangesRaw(repositoryRoot: string, raw: string): DiffChange[] {\n \t\t\t// Parse --raw output\n \t\t\tconst [, , , , change] = segment.split(' ');\n \t\t\tconst filePath = segments[index++];\n+\t\t\tif (!filePath) {\n+\t\t\t\tbreak;\n+\t\t\t}\n \t\t\tconst originalUri = Uri.file(path.isAbsolute(filePath) ? filePath : path.join(repositoryRoot, filePath));\n \n \t\t\tlet uri = originalUri;\n@@ -1185,6 +1188,9 @@ function parseGitChangesRaw(repositoryRoot: string, raw: string): DiffChange[] {\n \t\t\t\tindex++;\n \n \t\t\t\tconst renamePath = segments[index++];\n+\t\t\t\tif (!renamePath) {\n+\t\t\t\t\tbreak;\n+\t\t\t\t}\n \t\t\t\tnumstatPath = path.isAbsolute(renamePath) ? renamePath : path.join(repositoryRoot, renamePath);\n \t\t\t} else {\n \t\t\t\tnumstatPath = path.isAbsolute(filePath) ? filePath : path.join(repositoryRoot, filePath);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4232641419,
+   "node_id": "PRR_kwDOAn8RLM78SPuL",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR hardens the Git extension’s `parseGitChangesRaw` parser (used for `git diff --raw --numstat -z`) to avoid throwing when the null-delimited segment stream is unexpectedly truncated, which was surfacing as `Uri.file(...)` receiving `undefined` and breaking commit history/multi-file diff rendering.\n\n**Changes:**\n- Add defensive guards to stop parsing when a `--raw` file path segment is missing.\n- Add defensive guards to stop parsing when a `--numstat` rename “new path” segment is missing.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/314614#pullrequestreview-4232641419",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/314614",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/314614#pullrequestreview-4232641419"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/314614"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-06T01:47:39Z",
+   "commit_id": "8bee66fb1427ce0a952b83b03143e313f810355e"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4384490338",
+   "html_url": "https://github.com/microsoft/vscode/pull/314614#issuecomment-4384490338",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314614",
+   "id": 4384490338,
+   "node_id": "IC_kwDOAn8RLM8AAAABBVYDYg",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-06T01:45:02Z",
+   "updated_at": "2026-05-06T01:45:02Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `extensions/git/src/git.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4384490338/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "8bee66fb1427ce0a952b83b03143e313f810355e",
+   "node_id": "C_kwDORXVh_doAKDhiZWU2NmZiMTQyN2NlMGE5NTJiODNiMDMxNDNlMzEzZjgxMDM1NWU",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-06T01:43:28Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-06T01:43:28Z"
+    },
+    "message": "Git - guard against undefined paths in parseGitChangesRaw (#287615)",
+    "tree": {
+     "sha": "c4c6d27ca303831eca7ec25a406cc531902039f2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c4c6d27ca303831eca7ec25a406cc531902039f2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8bee66fb1427ce0a952b83b03143e313f810355e",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8bee66fb1427ce0a952b83b03143e313f810355e",
+   "html_url": "https://github.com/microsoft/vscode/commit/8bee66fb1427ce0a952b83b03143e313f810355e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8bee66fb1427ce0a952b83b03143e313f810355e/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f4e6a58d8eea7933656343aa1f778a9ab08411ae",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f4e6a58d8eea7933656343aa1f778a9ab08411ae",
+     "html_url": "https://github.com/microsoft/vscode/commit/f4e6a58d8eea7933656343aa1f778a9ab08411ae"
+    }
+   ]
+  }
+ ]
+}

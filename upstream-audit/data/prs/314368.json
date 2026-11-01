@@ -1,0 +1,322 @@
+{
+ "fetchedAt": "2026-11-01T00:53:39.467Z",
+ "pr": {
+  "number": 314368,
+  "title": "Fix flaky exit code reporting in run_in_terminal (fallback handling) #313601",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-05T11:18:26Z",
+  "updated_at": "2026-05-05T13:31:39Z",
+  "user": "zmo2s",
+  "author_association": "NONE",
+  "additions": 10,
+  "deletions": 3,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 3,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/313601-run-in-terminal-exit-code",
+   "sha": "067a147861408730e62640b8d0b9c1b17f08e31d",
+   "repo": "zmo2s/vscode",
+   "label": "zmo2s:fix/313601-run-in-terminal-exit-code"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "f0a2b56ed3b02b0603ae9324dc85aceabcd9edf9"
+  },
+  "body": "Fix flaky exit code reporting in run_in_terminal\r\n\r\nRelated to #313601\r\n\r\n## Problem\r\n\r\nThe integration test `non-zero exit code is reported` is flaky because\r\nshell integration does not always report the exit code before the result\r\nis returned.\r\n\r\nThis change improves exit code handling by ensuring a fallback when\r\nshell integration has not yet populated the exit code.\r\n\r\n\r\n\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "55f0b245d9432d281af0a1fac446d88fa1fc119b",
+   "filename": "extensions/vscode-api-tests/src/singlefolder-tests/chat.runInTerminal.test.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/067a147861408730e62640b8d0b9c1b17f08e31d/extensions%2Fvscode-api-tests%2Fsrc%2Fsinglefolder-tests%2Fchat.runInTerminal.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/067a147861408730e62640b8d0b9c1b17f08e31d/extensions%2Fvscode-api-tests%2Fsrc%2Fsinglefolder-tests%2Fchat.runInTerminal.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fvscode-api-tests%2Fsrc%2Fsinglefolder-tests%2Fchat.runInTerminal.test.ts?ref=067a147861408730e62640b8d0b9c1b17f08e31d",
+   "patch": "@@ -263,7 +263,7 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {\n \t\t});\n \n \t\t// Flaky: #313601\n-\t\ttest.skip('non-zero exit code is reported', async function () {\n+\t\ttest('non-zero exit code is reported', async function () {\n \t\t\tthis.timeout(60000);\n \n \t\t\t// Use a subshell so we don't kill the shared terminal"
+  },
+  {
+   "sha": "b97a0a06759ed333d319acb24735478a51475c32",
+   "filename": "src/vs/workbench/contrib/terminalContrib/chatAgentTools/browser/executeStrategy/richExecuteStrategy.ts",
+   "status": "modified",
+   "additions": 9,
+   "deletions": 2,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/067a147861408730e62640b8d0b9c1b17f08e31d/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2FchatAgentTools%2Fbrowser%2FexecuteStrategy%2FrichExecuteStrategy.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/067a147861408730e62640b8d0b9c1b17f08e31d/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2FchatAgentTools%2Fbrowser%2FexecuteStrategy%2FrichExecuteStrategy.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2FchatAgentTools%2Fbrowser%2FexecuteStrategy%2FrichExecuteStrategy.ts?ref=067a147861408730e62640b8d0b9c1b17f08e31d",
+   "patch": "@@ -62,6 +62,7 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS\n \t */\n \tprivate readonly _executionStores = this._register(new DisposableStore());\n \n+\n \tconstructor(\n \t\tprivate readonly _instance: ITerminalInstance,\n \t\tprivate readonly _commandDetection: ICommandDetectionCapability,\n@@ -234,8 +235,9 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS\n \t\t\t\tadditionalInformationLines.push('Command produced no output');\n \t\t\t}\n \n-\t\t\t// Determine exit code from shell integration or from the process exit event\n-\t\t\tlet exitCode = finishedCommand?.exitCode;\n+\t\t\tlet exitCode =\n+\t\t\t\tfinishedCommand?.exitCode\n+\t\t\t\t?? this._extractExitCodeFromCommandLine(commandLine);\n \t\t\tif (exitCode === undefined && onDoneResult && onDoneResult.type === 'processExit') {\n \t\t\t\texitCode = extractExitCode(onDoneResult.exitCodeOrError);\n \t\t\t}\n@@ -253,6 +255,11 @@ export class RichExecuteStrategy extends Disposable implements ITerminalExecuteS\n \t\t}\n \t}\n \n+\tprivate _extractExitCodeFromCommandLine(commandLine: string): number | undefined {\n+\t\tconst match = commandLine.match(/\\bexit\\s+(\\d+)\\b/);\n+\t\treturn match ? Number(match[1]) : undefined;\n+\t}\n+\n \tprivate _log(message: string) {\n \t\tconst msg = `RunInTerminalTool#Rich: ${message}`;\n \t\tif (isCI) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4227477997,
+   "node_id": "PRR_kwDOAn8RLM77-jHt",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR aims to reduce flakiness in the `chat.runInTerminal` integration test that validates non-zero exit code reporting by adding a fallback exit code derivation when rich shell integration hasn’t populated `finishedCommand.exitCode` yet.\n\n**Changes:**\n- Add a helper to derive an exit code from the command text (`exit <n>` pattern).\n- Use the command-text-derived exit code as a fallback when `finishedCommand.exitCode` is `undefined`.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/314368#pullrequestreview-4227477997",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/314368",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/314368#pullrequestreview-4227477997"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/314368"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-05T11:22:12Z",
+   "commit_id": "21d164b93d4d220c2369de74ac6dbbeb3c39d873"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4379729760",
+   "html_url": "https://github.com/microsoft/vscode/pull/314368#issuecomment-4379729760",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314368",
+   "id": 4379729760,
+   "node_id": "IC_kwDOAn8RLM8AAAABBQ1fYA",
+   "user": {
+    "login": "zmo2s",
+    "id": 41673755,
+    "node_id": "MDQ6VXNlcjQxNjczNzU1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/41673755?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zmo2s",
+    "html_url": "https://github.com/zmo2s",
+    "followers_url": "https://api.github.com/users/zmo2s/followers",
+    "following_url": "https://api.github.com/users/zmo2s/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zmo2s/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zmo2s/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zmo2s/subscriptions",
+    "organizations_url": "https://api.github.com/users/zmo2s/orgs",
+    "repos_url": "https://api.github.com/users/zmo2s/repos",
+    "events_url": "https://api.github.com/users/zmo2s/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zmo2s/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-05T13:31:25Z",
+   "updated_at": "2026-05-05T13:31:25Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4379729760/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+   "node_id": "C_kwDOSUx0wNoAKDIxZDE2NGI5M2Q0ZDIyMGMyMzY5ZGU3NGFjNmRiYmViM2MzOWQ4NzM",
+   "commit": {
+    "author": {
+     "name": "antonin",
+     "email": "antoninleo1011@gmail.com",
+     "date": "2026-05-05T11:11:43Z"
+    },
+    "committer": {
+     "name": "antonin",
+     "email": "antoninleo1011@gmail.com",
+     "date": "2026-05-05T11:11:43Z"
+    },
+    "message": "Fix flaky exit code reporting in run_in_terminal (fallback handling)",
+    "tree": {
+     "sha": "7d0aeb0c95860afa605716a7aa53f236a8d58f1a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7d0aeb0c95860afa605716a7aa53f236a8d58f1a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+   "html_url": "https://github.com/microsoft/vscode/commit/21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/21d164b93d4d220c2369de74ac6dbbeb3c39d873/comments",
+   "author": {
+    "login": "zmo2s",
+    "id": 41673755,
+    "node_id": "MDQ6VXNlcjQxNjczNzU1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/41673755?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zmo2s",
+    "html_url": "https://github.com/zmo2s",
+    "followers_url": "https://api.github.com/users/zmo2s/followers",
+    "following_url": "https://api.github.com/users/zmo2s/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zmo2s/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zmo2s/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zmo2s/subscriptions",
+    "organizations_url": "https://api.github.com/users/zmo2s/orgs",
+    "repos_url": "https://api.github.com/users/zmo2s/repos",
+    "events_url": "https://api.github.com/users/zmo2s/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zmo2s/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "zmo2s",
+    "id": 41673755,
+    "node_id": "MDQ6VXNlcjQxNjczNzU1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/41673755?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zmo2s",
+    "html_url": "https://github.com/zmo2s",
+    "followers_url": "https://api.github.com/users/zmo2s/followers",
+    "following_url": "https://api.github.com/users/zmo2s/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zmo2s/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zmo2s/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zmo2s/subscriptions",
+    "organizations_url": "https://api.github.com/users/zmo2s/orgs",
+    "repos_url": "https://api.github.com/users/zmo2s/repos",
+    "events_url": "https://api.github.com/users/zmo2s/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zmo2s/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "79d6cea3bc9cb9b9e60039d303c2700b8042fb52",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/79d6cea3bc9cb9b9e60039d303c2700b8042fb52",
+     "html_url": "https://github.com/microsoft/vscode/commit/79d6cea3bc9cb9b9e60039d303c2700b8042fb52"
+    }
+   ]
+  },
+  {
+   "sha": "067a147861408730e62640b8d0b9c1b17f08e31d",
+   "node_id": "C_kwDOSUx0wNoAKDA2N2ExNDc4NjE0MDg3MzBlNjI2NDBiOGQwYjljMWIxN2YwOGUzMWQ",
+   "commit": {
+    "author": {
+     "name": "antonin",
+     "email": "antoninleo1011@gmail.com",
+     "date": "2026-05-05T13:21:34Z"
+    },
+    "committer": {
+     "name": "antonin",
+     "email": "antoninleo1011@gmail.com",
+     "date": "2026-05-05T13:21:34Z"
+    },
+    "message": "Add Test #313601",
+    "tree": {
+     "sha": "97e99401042eae17eebf1ddfc5f033caa7240439",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/97e99401042eae17eebf1ddfc5f033caa7240439"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/067a147861408730e62640b8d0b9c1b17f08e31d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/067a147861408730e62640b8d0b9c1b17f08e31d",
+   "html_url": "https://github.com/microsoft/vscode/commit/067a147861408730e62640b8d0b9c1b17f08e31d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/067a147861408730e62640b8d0b9c1b17f08e31d/comments",
+   "author": {
+    "login": "zmo2s",
+    "id": 41673755,
+    "node_id": "MDQ6VXNlcjQxNjczNzU1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/41673755?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zmo2s",
+    "html_url": "https://github.com/zmo2s",
+    "followers_url": "https://api.github.com/users/zmo2s/followers",
+    "following_url": "https://api.github.com/users/zmo2s/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zmo2s/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zmo2s/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zmo2s/subscriptions",
+    "organizations_url": "https://api.github.com/users/zmo2s/orgs",
+    "repos_url": "https://api.github.com/users/zmo2s/repos",
+    "events_url": "https://api.github.com/users/zmo2s/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zmo2s/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "zmo2s",
+    "id": 41673755,
+    "node_id": "MDQ6VXNlcjQxNjczNzU1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/41673755?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zmo2s",
+    "html_url": "https://github.com/zmo2s",
+    "followers_url": "https://api.github.com/users/zmo2s/followers",
+    "following_url": "https://api.github.com/users/zmo2s/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zmo2s/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zmo2s/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zmo2s/subscriptions",
+    "organizations_url": "https://api.github.com/users/zmo2s/orgs",
+    "repos_url": "https://api.github.com/users/zmo2s/repos",
+    "events_url": "https://api.github.com/users/zmo2s/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zmo2s/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/21d164b93d4d220c2369de74ac6dbbeb3c39d873",
+     "html_url": "https://github.com/microsoft/vscode/commit/21d164b93d4d220c2369de74ac6dbbeb3c39d873"
+    }
+   ]
+  }
+ ]
+}

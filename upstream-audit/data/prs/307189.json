@@ -1,0 +1,703 @@
+{
+ "fetchedAt": "2026-11-01T00:53:11.751Z",
+ "pr": {
+  "number": 307189,
+  "title": "Add guidance to prevent unsafe AsyncIterableObject usage",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-01T16:18:36Z",
+  "updated_at": "2026-08-11T07:41:10Z",
+  "user": "Mr-Nilarnab",
+  "author_association": "CONTRIBUTOR",
+  "additions": 8,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 7,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "main",
+   "sha": "1581d52e136b634d4e7d9c67ba470e7989c1032d",
+   "repo": "Mr-Nilarnab/vscode",
+   "label": "Mr-Nilarnab:main"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "f30e3f3600f472ec8f4f08f7444300475fd25a2a"
+  },
+  "body": "This PR adds documentation clarifying when AsyncIterableObject should be\r\nused versus AsyncIterableProducer.\r\n\r\nThis aligns with the conclusions of issue #256854 and helps prevent\r\nfuture memory issues or incorrect migrations.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "054e4160d14cfa2badfda4eedc52d0b6af07f9b4",
+   "filename": "src/vs/base/common/async.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 0,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1581d52e136b634d4e7d9c67ba470e7989c1032d/src%2Fvs%2Fbase%2Fcommon%2Fasync.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1581d52e136b634d4e7d9c67ba470e7989c1032d/src%2Fvs%2Fbase%2Fcommon%2Fasync.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fcommon%2Fasync.ts?ref=1581d52e136b634d4e7d9c67ba470e7989c1032d",
+   "patch": "@@ -2270,6 +2270,14 @@ export class AsyncIterableObject<T> implements AsyncIterable<T> {\n \t}\n }\n \n+// GUIDELINE:\n+// AsyncIterableObject should only be used when multiple iterations\n+// over the same iterable are required.\n+//\n+// For single-consumption or streaming scenarios, AsyncIterableProducer\n+// is preferred to avoid retaining emitted values and potential memory leaks.\n+//\n+// See issue #256854 for background and migration rationale.\n \n export function createCancelableAsyncIterableProducer<T>(callback: (token: CancellationToken) => AsyncIterable<T>): CancelableAsyncIterableProducer<T> {\n \tconst source = new CancellationTokenSource();"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4257420395,
+   "node_id": "PRR_kwDOAn8RLM79wxRr",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR adds inline documentation in `src/vs/base/common/async.ts` clarifying when `AsyncIterableObject` is appropriate (multi-iteration) versus when `AsyncIterableProducer` should be preferred (single-consumption/streaming) to avoid retaining emitted values.\n\n**Changes:**\n- Add a guideline comment near `AsyncIterableObject` describing safe usage patterns.\n- Point readers to the background discussion/migration rationale from issue #256854.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/307189#pullrequestreview-4257420395",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/307189",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/307189#pullrequestreview-4257420395"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/307189"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-09T08:22:16Z",
+   "commit_id": "2b8399fa8a998f0e14ade71ca8a1c57ea33efedf"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+   "node_id": "C_kwDOR3Fmw9oAKDljYTBkZjViMTFiMWEyNjdhYzAwYmE3YmNjZWQ0MjFhODU4NDY3M2Y",
+   "commit": {
+    "author": {
+     "name": "Mr-Nilarnab",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-04-01T16:16:16Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-04-01T16:16:16Z"
+    },
+    "message": "docs: add guidance for AsyncIterableObject vs AsyncIterableProducer\n\nClarifies correct usage to prevent memory leaks and unsafe migrations.",
+    "tree": {
+     "sha": "9511a3bb37eecfe97bd494570bb82619abdc1a78",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9511a3bb37eecfe97bd494570bb82619abdc1a78"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpzUTRCRC1aQ7uu5UhlAAAth0QAAM0hVSNJBdYXeaEHrINdHMJ\nmVWcP624ZNQdOqfM+G2BuRdfFqXxiLLB3WW8+bhNdMmbdppOzwy+zSu3gz8BuCAK\nxn3v8uu5HjlpcaPUpPvGU7T7X5FdaQA5NAhxYOKd0H6d7WuTeFvnKdquw5MghIyt\n6RYaL+PrAabKWFZd4Qtv0FpIjcr6j36jLBXzzM00VoZ++3vIpB6P+c2+t+6kGr0A\nIXmWKobqpFCPdWcsuhnimzdWHwWu/+j+qenYiVQspk9/DEJm2HypGraR0TfzaWMh\nbiJ2/927Dj4HW9j9fXCW5jKnoeaWciwisl6nH+8a/E5yKEiM/idMSj1riBaUFLG8\nvQVoC//MVTfTwI1Okd03XiR2gocMXSxHCeQ1ZGsUMLzA9L6re0gFCuOeUsxgPoRY\noLe0aQq1Y5swFaDfQpkrFtxlQ94ybkk+5OooD1tqNpqz7Z2+DiP8zW36NfWX6e3k\n65McSZiQh5+b9MT2Jm+zvW8FZpdloXTPi/DB6HDb3wzqLYNN3LfOR06nBsc8gy6B\nUl3gXGtTJYub0nxZprJ2S7A19BNJaHMl+c04F4P6L41jbKxtb/yGRuf0OczqPa8N\nQzf1p36u/7tXCOHEqhIELFia7rqEYIny8aqNMI+b3MzvYDZElgzUbPU12BytmU4K\n4W85Z3PPpxGK2j87weHX\n=S4Pi\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9511a3bb37eecfe97bd494570bb82619abdc1a78\nparent 0bb51dde6d32c1f1e7cd32f2a21176d5e8cfec24\nauthor Mr-Nilarnab <iammrsigmamale@gmail.com> 1775060176 +0530\ncommitter GitHub <noreply@github.com> 1775060176 +0530\n\ndocs: add guidance for AsyncIterableObject vs AsyncIterableProducer\n\nClarifies correct usage to prevent memory leaks and unsafe migrations.",
+     "verified_at": "2026-04-01T16:16:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+   "html_url": "https://github.com/microsoft/vscode/commit/9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9ca0df5b11b1a267ac00ba7bcced421a8584673f/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0bb51dde6d32c1f1e7cd32f2a21176d5e8cfec24",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0bb51dde6d32c1f1e7cd32f2a21176d5e8cfec24",
+     "html_url": "https://github.com/microsoft/vscode/commit/0bb51dde6d32c1f1e7cd32f2a21176d5e8cfec24"
+    }
+   ]
+  },
+  {
+   "sha": "e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+   "node_id": "C_kwDOR3Fmw9oAKGUwNmZjMDE1Mjc4ODNkYTFmNTJkY2FmZGU4YTY2ZTlhZTQyNWJkOGM",
+   "commit": {
+    "author": {
+     "name": "Mr-Nilarnab",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-04-01T16:31:24Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-04-01T16:31:24Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "2aceb1faf993a725b5f98fde290099ce02965ca0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2aceb1faf993a725b5f98fde290099ce02965ca0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpzUhcCRC1aQ7uu5UhlAAAqHoQAFksdFgT5z5J6FjC+/WaxW1P\nlBOTCS7JuK36lxUdIs7HMEbXKnr84553oXCD+JypVAEwo8QHYdW/n75iuyFlqzdA\nKF6DMAOfv54I36JMaR1pai01Vz0NRtVn14IRw8sSW8J4DOlQV2jO16a4mv4gYOM4\nL4g4dse+qolWLeYNxvyMVbIwiIJkNPsSq9HDoGlbZBPjwMUFFJ6p0lZ51GRUGqAz\nBeXe7VSWhJaz1ZBwhGoe4OMmGXAwr0hiVwcWVnGKxTwhCbcyrGk/PoLxOhdpvW5F\n39WPJ7+7Xc8ATewP4DbgLAqsqYeeLEZzXny8P5M9UbUxvcY4eR39beSSs/WAivA6\nxo6Gvzvs/YeARXKt9LB62FcQe90ji2VQKFCyWhVWCnhzOVJszq/hgzJ6UlBpfjP6\nKN1OBaM5cY8SJ5kKST7qE5RZ9sjghZVE2+ZevFJJkK70T/quBMwJyXRtwK78jrKf\nDhmDH4Rn/Rj/o1bv/Bex4LIxCR9GoCOni8L7W8tgsrmbtT7hUfF4g81TEAAE9I3k\nZyLIDOb9dFp8XJuSrk/YN8/Caw17mbLvFdlKtpy93zM54Ov6+ViGYOrj2Y/v+isE\nY/N129GnqCTYb2UGAAsoEabTwpZGPELLgbIsLjRsNC/vyJI3L9BdJ4tvEDg4189g\nJDJ64zGk74Q0ArtNabhk\n=feqo\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2aceb1faf993a725b5f98fde290099ce02965ca0\nparent 9ca0df5b11b1a267ac00ba7bcced421a8584673f\nparent 40a2f79f6d383e36cc7fbf710e9c413c1de09cd3\nauthor Mr-Nilarnab <iammrsigmamale@gmail.com> 1775061084 +0530\ncommitter GitHub <noreply@github.com> 1775061084 +0530\n\nMerge branch 'main' into main",
+     "verified_at": "2026-04-01T16:31:25Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+   "html_url": "https://github.com/microsoft/vscode/commit/e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e06fc01527883da1f52dcafde8a66e9ae425bd8c/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9ca0df5b11b1a267ac00ba7bcced421a8584673f",
+     "html_url": "https://github.com/microsoft/vscode/commit/9ca0df5b11b1a267ac00ba7bcced421a8584673f"
+    },
+    {
+     "sha": "40a2f79f6d383e36cc7fbf710e9c413c1de09cd3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/40a2f79f6d383e36cc7fbf710e9c413c1de09cd3",
+     "html_url": "https://github.com/microsoft/vscode/commit/40a2f79f6d383e36cc7fbf710e9c413c1de09cd3"
+    }
+   ]
+  },
+  {
+   "sha": "0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+   "node_id": "C_kwDOR3Fmw9oAKDBhOGYyZTI2M2VlYjk0YjA3ZmY0MTJhZTg3M2NmNjhiOTlmNjU1OWM",
+   "commit": {
+    "author": {
+     "name": "Mr-Nilarnab",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-04-02T04:03:09Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-04-02T04:03:09Z"
+    },
+    "message": "Merge branch 'microsoft:main' into main",
+    "tree": {
+     "sha": "78c0f49b0a90e5b7c108460da5cb9718f7661957",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/78c0f49b0a90e5b7c108460da5cb9718f7661957"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpzep9CRC1aQ7uu5UhlAAAL3IQAB+I6IsJDBVYVv45M5A2Uvqq\nwxivPIFcgWITWRhflGY2Bv+Mg4aBSBA+FmOaZAO7b5752n7up1sd0WGxdtiR80Df\nhIj74bMin3WrWztdh/1Frt01FZPRtULBGiiUge/54idiz2boU5cu2KkOG1mORVbJ\n3iORe0cBOjIMmYmkokeO6CTFXiZ2hmrDg7hUXuTSE8SW/tYDJucQ2TK4jYioqauq\nxUgj3T7IdxE30NO4CpXfzwWdm/6KQXLagyMFfRgewsakA31+4xYE+LHDhKIPsGEN\nGR1btXoHmrroUz3oi3hTFEaHgjpHuAkkcGDpq+kFewaLnt4XFtKJHJfC9JIatB8D\n47iFMFdXWhSJO9DcYbyIslJqJ7rMeP9aODRc4/pUOkjtufgI9VPzvEStvNsDX4Zf\nOg6Baz4iFbtVWXmqtmVuHaO1joukkVx8Zjv5WD1jFy6skDOGL8P+tunNLNM4+E0d\nnpgAt/WFGSM5PkUuO5WUyxzrZP9+esfdawe8Px8ngypIEaox1gKd4n3O3EcX5SHz\n0Sbh2iw7X0N745a0Cuu/R3NPFNMeERa5M5yy+0XqWcN7XnwLI3rbUCgfLn/731H3\n2+Nqa8xatwcaJDVJbs7iveJcRX0uQADaEQO45o4Fy9GXnvoVC71tqA7L+Fd11bar\nI0B9sSP7hsNJS6OqC/FJ\n=s2A3\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 78c0f49b0a90e5b7c108460da5cb9718f7661957\nparent e06fc01527883da1f52dcafde8a66e9ae425bd8c\nparent 559cb3e74d075670b9a03f84751e8fdcd3c52443\nauthor Mr-Nilarnab <iammrsigmamale@gmail.com> 1775102589 +0530\ncommitter GitHub <noreply@github.com> 1775102589 +0530\n\nMerge branch 'microsoft:main' into main\n",
+     "verified_at": "2026-04-02T04:03:24Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+   "html_url": "https://github.com/microsoft/vscode/commit/0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0a8f2e263eeb94b07ff412ae873cf68b99f6559c/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e06fc01527883da1f52dcafde8a66e9ae425bd8c",
+     "html_url": "https://github.com/microsoft/vscode/commit/e06fc01527883da1f52dcafde8a66e9ae425bd8c"
+    },
+    {
+     "sha": "559cb3e74d075670b9a03f84751e8fdcd3c52443",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/559cb3e74d075670b9a03f84751e8fdcd3c52443",
+     "html_url": "https://github.com/microsoft/vscode/commit/559cb3e74d075670b9a03f84751e8fdcd3c52443"
+    }
+   ]
+  },
+  {
+   "sha": "2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+   "node_id": "C_kwDOR3Fmw9oAKDJiODM5OWZhOGE5OThmMGUxNGFkZTcxY2E4YTFjNTdlYTMzZWZlZGY",
+   "commit": {
+    "author": {
+     "name": "NILARNAB",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-05-09T08:18:58Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-09T08:18:58Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "570a52526191f9780a74d998e6ab0c0246eed8dc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/570a52526191f9780a74d998e6ab0c0246eed8dc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp/u3yCRC1aQ7uu5UhlAAAWC4QAI5EM38HKnGV6EjH86l5RuaG\nvA2p/khEn4CSIkMGlc5Bo/CxYiHGyIU2bMjEkZZN4Zy2R1DID80cRKZExftBEQ5Y\nLY+JimMzLQZSnc8Ht0tiB32MGQWxfCrebvkqA4/TqToRZaPn8yPdmxDjl5s+OBB3\nOaKc6Rr+6V7bQzDGgtY4UNo+bUYNv8sJvd5vM/7uXD8bw1Ppu4E9UUM9vZYgTXNN\n6/lXm/apcajoU09P1Cqy3PmgGtl+YiuDQfMOZMKG9fulGiTyW+IPD/CBvlf8FWuN\nxF7eudXOhoz0Ron9ZZcxrEaI/bK1QPfTA2Xfhdp0S3vSDG6KyijCQqNC2BDuE5cE\nHLNbrYWYGhGuCo07RUrqAXZZQ1RVBC56zR+PSrd1jhus/BOwyIT4+3sJVciR0zCr\n8S5QZU4r9YoYlpbeFZF6jx3CrxtnODf3nEheWtJPeYAkWUB6/m4dYaqYo3yhhIhb\nUs6I++rxIv8BoN2UW5F0WW0byEa+bcwm5h3NSCnfQ8H5NWKQNv3nyrwn6Z2JScNO\nFl9aWXIBvf4m8thEujHXcRj3cEBwlRU3iOOd2psTJMr8h8DgYE5qd5tsQ19R+YGF\nflrZK4veimUc/pFJTF0MrGItbbxrnbw+wcdkLCBtwwdckQOK+dosX1zUx8Cc7uLc\n+Ly2VBPqMvBFxcPLBWSt\n=fjZs\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 570a52526191f9780a74d998e6ab0c0246eed8dc\nparent 0a8f2e263eeb94b07ff412ae873cf68b99f6559c\nparent 60b6f06891c6ba66430f8ac6f560814ced801a12\nauthor NILARNAB <iammrsigmamale@gmail.com> 1778314738 +0530\ncommitter GitHub <noreply@github.com> 1778314738 +0530\n\nMerge branch 'main' into main",
+     "verified_at": "2026-05-09T08:18:58Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+   "html_url": "https://github.com/microsoft/vscode/commit/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0a8f2e263eeb94b07ff412ae873cf68b99f6559c",
+     "html_url": "https://github.com/microsoft/vscode/commit/0a8f2e263eeb94b07ff412ae873cf68b99f6559c"
+    },
+    {
+     "sha": "60b6f06891c6ba66430f8ac6f560814ced801a12",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/60b6f06891c6ba66430f8ac6f560814ced801a12",
+     "html_url": "https://github.com/microsoft/vscode/commit/60b6f06891c6ba66430f8ac6f560814ced801a12"
+    }
+   ]
+  },
+  {
+   "sha": "0d4649a63fa6c0e1ff562debaf002d105448de37",
+   "node_id": "C_kwDOR3Fmw9oAKDBkNDY0OWE2M2ZhNmMwZTFmZjU2MmRlYmFmMDAyZDEwNTQ0OGRlMzc",
+   "commit": {
+    "author": {
+     "name": "NILARNAB",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-07-08T17:56:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-08T17:56:46Z"
+    },
+    "message": "Merge branch 'microsoft:main' into main",
+    "tree": {
+     "sha": "3c7ad89b7b96ed5a3ecb43d9bb093b4662067ebb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3c7ad89b7b96ed5a3ecb43d9bb093b4662067ebb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0d4649a63fa6c0e1ff562debaf002d105448de37",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqTo9eCRC1aQ7uu5UhlAAAbwAQADhLmy+GAP4d/kMybZH0m0aV\ncyVsUirkslcZcUvV2VCt4iA86BE9qXCcYuRcN1Wy8dQI/kZwezgRvywa+38FhvZb\nRMDsoDatKTIOwLPkcBoi8+HYhw7ET3j/QUZzHVShlY5rmAKEOUoZGEnO5lb/NAa2\n9Kv+GAsPMbHPOMzah2YFoDlPwl8zy0N+iFMI0M61orsk4zsJTYq+pPUqvxgO29fb\nMdrlCZdBGrfHHnodmd4tUrpGdD3JP8NEOmuI26E3Z9daEB07Rs3VkXD8nncvvzQW\n1q5+LFbwChT9EfFEu/dfUkZJXpjOsZlWgQ3qFI8AziWqGyTObwlQSVqezVWgTFIn\nQhjZDTsKdhJOMf5nuaPzajOJwLSJIyIsxZDY8Nd84np5eYqJ7OMomYYNQsUpYAnQ\nuE3RSSZ8FQS2vOvMQ6fJBgu7eYApFCeds8excGmVGvgOzlD8+scpPaSoXEaEzr/5\nQ/gPhbyVJNAqHscYjdsxoUJZXbqUQcQBYXUqlrJcX4kwxJX52eZEXvIxpssv4OeG\n1s6HxE4JCRQYtDTiHyu3KirKHbG2nIpr1KmsCgGs3RAkxqvE3XqZRKcLpvb+FRmG\nt1tEbTDQpDxc8XE+WQqcYqjPoYRqSy0dzHrDQebMCmg8cyk7pxuyzSq0XV5yeViP\nVY+IZZEXMgqyE0gfgGA8\n=pdBj\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3c7ad89b7b96ed5a3ecb43d9bb093b4662067ebb\nparent 2b8399fa8a998f0e14ade71ca8a1c57ea33efedf\nparent 35b37d94c98d8a9c199cd4124ea940b4bfb53a0a\nauthor NILARNAB <iammrsigmamale@gmail.com> 1783533406 +0530\ncommitter GitHub <noreply@github.com> 1783533406 +0530\n\nMerge branch 'microsoft:main' into main\n",
+     "verified_at": "2026-07-08T17:56:52Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0d4649a63fa6c0e1ff562debaf002d105448de37",
+   "html_url": "https://github.com/microsoft/vscode/commit/0d4649a63fa6c0e1ff562debaf002d105448de37",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0d4649a63fa6c0e1ff562debaf002d105448de37/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf",
+     "html_url": "https://github.com/microsoft/vscode/commit/2b8399fa8a998f0e14ade71ca8a1c57ea33efedf"
+    },
+    {
+     "sha": "35b37d94c98d8a9c199cd4124ea940b4bfb53a0a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/35b37d94c98d8a9c199cd4124ea940b4bfb53a0a",
+     "html_url": "https://github.com/microsoft/vscode/commit/35b37d94c98d8a9c199cd4124ea940b4bfb53a0a"
+    }
+   ]
+  },
+  {
+   "sha": "44cb5d8b9addd635e55642b43549603e2ecd2603",
+   "node_id": "C_kwDOR3Fmw9oAKDQ0Y2I1ZDhiOWFkZGQ2MzVlNTU2NDJiNDM1NDk2MDNlMmVjZDI2MDM",
+   "commit": {
+    "author": {
+     "name": "NILARNAB",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-07-09T04:41:43Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-09T04:41:43Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "fa6ab81f9f23d7a9105b3a41d5a2d25fb80c2405",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fa6ab81f9f23d7a9105b3a41d5a2d25fb80c2405"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/44cb5d8b9addd635e55642b43549603e2ecd2603",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqTyaHCRC1aQ7uu5UhlAAAR/EQAKhJiizVFV1tFUiQNva6y2vZ\nNU7qv3KC9m1nNtb3bs3TTB7KLg9/vNFgVCxuokTHTBmr4WMTnD1wCRrwsITVX8JP\nbI8X218DUbR6mDzL8tkns1PZAsPPd2edbc0vreeXgIeWqKlcrTjSS/GVNexYSJJJ\nqEWd31HL7ukZ/TDnnJhqxumAQ9bnRnqyBfTyIOGfhMOnUIN2lbM2//NMGAlLPLWu\nzMXIHWlEDJ6GuLFLgzd2e+ZuHpfXcWuPVU8+5Pi+U502UJIrq8hyLvibZo2/rP9B\n22IS8hSgw6adzLJxKC2hilc00Fhr+IylNEYPVrQX5CbZU6szyaCS7n/Rgan+EHJv\n6d7L7HzAjkzTC7yUAlg/ebPoIKPN1pZe+sWcsOl5LINdLGcbQzpoyUydOg/0Rve/\n+OB4f8ZrjpNN4tgMfBX5KFwTrQU94QUEbX7iQv7TZ7Uxo4UrZl3SgHYGkMLCzfau\ncUHNKEnaDf2vp36uvBXTGLwo5OQ9f82p8NDe0WhFyE7p8B8o9bpsqWxG8e/KcseU\n+P45VvRDOvuyjwBFadsQgkf3TkbUOFH4BDrvdMNSgzYaY9+4r//sAcool0+hE1XT\nRc0F4CTgt2VoPWsiExpPOgKRalM+s4HTSXVS9La9mcQzkQu0wyWZKC1lZc04UvzN\nF2biYfbTkjQ/+cc0irz3\n=vDcR\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree fa6ab81f9f23d7a9105b3a41d5a2d25fb80c2405\nparent 0d4649a63fa6c0e1ff562debaf002d105448de37\nparent bc9ab02681fa12d2a26f42bb8703a73802ecf166\nauthor NILARNAB <iammrsigmamale@gmail.com> 1783572103 +0530\ncommitter GitHub <noreply@github.com> 1783572103 +0530\n\nMerge branch 'main' into main",
+     "verified_at": "2026-07-09T04:41:44Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/44cb5d8b9addd635e55642b43549603e2ecd2603",
+   "html_url": "https://github.com/microsoft/vscode/commit/44cb5d8b9addd635e55642b43549603e2ecd2603",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/44cb5d8b9addd635e55642b43549603e2ecd2603/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0d4649a63fa6c0e1ff562debaf002d105448de37",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0d4649a63fa6c0e1ff562debaf002d105448de37",
+     "html_url": "https://github.com/microsoft/vscode/commit/0d4649a63fa6c0e1ff562debaf002d105448de37"
+    },
+    {
+     "sha": "bc9ab02681fa12d2a26f42bb8703a73802ecf166",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bc9ab02681fa12d2a26f42bb8703a73802ecf166",
+     "html_url": "https://github.com/microsoft/vscode/commit/bc9ab02681fa12d2a26f42bb8703a73802ecf166"
+    }
+   ]
+  },
+  {
+   "sha": "1581d52e136b634d4e7d9c67ba470e7989c1032d",
+   "node_id": "C_kwDOR3Fmw9oAKDE1ODFkNTJlMTM2YjYzNGQ0ZTdkOWM2N2JhNDcwZTc5ODljMTAzMmQ",
+   "commit": {
+    "author": {
+     "name": "MR NILARNAB GITHUB",
+     "email": "iammrsigmamale@gmail.com",
+     "date": "2026-08-11T07:41:08Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-11T07:41:08Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "4f41c66641cc746e07d5353a4fb9fda23dd33379",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4f41c66641cc746e07d5353a4fb9fda23dd33379"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1581d52e136b634d4e7d9c67ba470e7989c1032d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqetIUCRC1aQ7uu5UhlAAA148QAIMjE8nAEP0Dxy9DNYaI+Ztc\nfbkJcuA3awU0T/D/J/6AbLgm5HL+l4nzH7Irm936eAlZr8KYozjLGza1/725ChOj\nURnE928rKgRjIxBrELCHERwWyDjnjXNcEguu6gmZHCHGIT45JZMNPWgfrP3Ucrnq\nT2/goEZXq1k6U4aKWlVugGSEgFxosBpPWW58hgVKartx4IiXvOQ0RxnIo9nLpzFr\nxLZgYu5Dg6rPGloCFNudhF3MI7OdfNGKnCX6SuliCDEjumkNH+Wvaod1Jz5q0VgX\ncAcihS/F308rR8Nv+0Bf3z9322VcUJ4/JQQ7MxIpgeKFy64Isa/Qmlc85yopaiyd\nxp93WpWP2BhHETs6INQ+75Rtrus9xscVevtHsBzvlaGkwr9gFW9tvfdiuT2EIotH\nWumk6XghH8OdykPM/+FBcTv+4yfvSctVfFJfZ5CY/EUyX/oZHcJgFXQxyWHe0HrN\nf1fBwK3o/iv6OAzIoumEaevIKAAuZedByKpxyEiuBZT2Ck/Q4iL4gQMoecGolVfm\nnQEY2i7/CdUvaW7sGtGjd97bl0grypHiwXtn3/D5sXuCH+nz3vjYCfxbdQhUUG+R\nvWHFZVzyoFk4RDdmEnrytPdtJHmwXZ1/5Pbg7xxVWOsboo2jNVSLkZQ/f+NzGFq6\nE6fzx9i0HpmnPvi4snVN\n=mrR1\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4f41c66641cc746e07d5353a4fb9fda23dd33379\nparent 44cb5d8b9addd635e55642b43549603e2ecd2603\nparent f30e3f3600f472ec8f4f08f7444300475fd25a2a\nauthor MR NILARNAB GITHUB <iammrsigmamale@gmail.com> 1786434068 +0530\ncommitter GitHub <noreply@github.com> 1786434068 +0530\n\nMerge branch 'main' into main",
+     "verified_at": "2026-08-11T07:41:13Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1581d52e136b634d4e7d9c67ba470e7989c1032d",
+   "html_url": "https://github.com/microsoft/vscode/commit/1581d52e136b634d4e7d9c67ba470e7989c1032d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1581d52e136b634d4e7d9c67ba470e7989c1032d/comments",
+   "author": {
+    "login": "Mr-Nilarnab",
+    "id": 242097953,
+    "node_id": "U_kgDODm4fIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/242097953?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Mr-Nilarnab",
+    "html_url": "https://github.com/Mr-Nilarnab",
+    "followers_url": "https://api.github.com/users/Mr-Nilarnab/followers",
+    "following_url": "https://api.github.com/users/Mr-Nilarnab/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Mr-Nilarnab/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Mr-Nilarnab/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Mr-Nilarnab/subscriptions",
+    "organizations_url": "https://api.github.com/users/Mr-Nilarnab/orgs",
+    "repos_url": "https://api.github.com/users/Mr-Nilarnab/repos",
+    "events_url": "https://api.github.com/users/Mr-Nilarnab/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Mr-Nilarnab/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "44cb5d8b9addd635e55642b43549603e2ecd2603",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/44cb5d8b9addd635e55642b43549603e2ecd2603",
+     "html_url": "https://github.com/microsoft/vscode/commit/44cb5d8b9addd635e55642b43549603e2ecd2603"
+    },
+    {
+     "sha": "f30e3f3600f472ec8f4f08f7444300475fd25a2a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f30e3f3600f472ec8f4f08f7444300475fd25a2a",
+     "html_url": "https://github.com/microsoft/vscode/commit/f30e3f3600f472ec8f4f08f7444300475fd25a2a"
+    }
+   ]
+  }
+ ]
+}

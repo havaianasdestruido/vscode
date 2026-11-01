@@ -1,0 +1,364 @@
+{
+ "fetchedAt": "2026-11-01T00:55:03.746Z",
+ "pr": {
+  "number": 334988,
+  "title": "fix: separate PosixShellType.Sh case with POSIX-safe single-quote escaping",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-07T22:57:49Z",
+  "updated_at": "2026-10-04T21:22:58Z",
+  "user": "VirajMishra1",
+  "author_association": "NONE",
+  "additions": 27,
+  "deletions": 8,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-terminal-sh-quoting",
+   "sha": "58869697949d8c2f02fbf56e2413d4f70b258499",
+   "repo": "VirajMishra1/vscode",
+   "label": "VirajMishra1:fix-terminal-sh-quoting"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "53df301065ee468f65325603a084d1a1c25019f1"
+  },
+  "body": "#### What does this implement/fix?\n\nPOSIX `sh` does not support ANSI-C `$'...'` quoting. In `escapeNonWindowsPath`, `PosixShellType.Sh` was grouped with `Bash` and `Zsh`, and unknown shells used the same `$'...'` form for paths that contain both a single and a double quote. In `/bin/sh` (dash, for example) that is a syntax error.\n\n`PosixShellType.Sh` now has its own case, and the default case uses the same quoting. Both use the POSIX close/escape/reopen idiom, so each `'` becomes `'\\''`. Bash, Zsh and Git Bash keep `$'...'` for the both-quotes case.\n\nThis also changes `collapseTildePath` to check `startsWith(normalizedUserHome + '/')` (or equality) instead of `includes`, so `/home/user2` is not collapsed when home is `/home/user`, and `/tmp/backup/home/user/file` is not collapsed either.\n\n#### Tests\n\n- Separate `sh` test covering a single quote, a double quote and both.\n- Updated Bash, Zsh, Git Bash and default-shell expectations.\n- Two `collapseTildePath` cases for the substring and shared-prefix collisions.\n\nI could not run the full suite locally. I checked every `escapeNonWindowsPath` expectation in the test file against the real function output (25 of 25 match).\n\n#### AI usage disclosure\n\nI used AI assistance for:\n- Research and understanding\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "9c27c8c7f08fa77055721e708479f0562705afb1",
+   "filename": "src/vs/platform/terminal/common/terminalEnvironment.ts",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 4,
+   "changes": 15,
+   "blob_url": "https://github.com/microsoft/vscode/blob/58869697949d8c2f02fbf56e2413d4f70b258499/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FterminalEnvironment.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/58869697949d8c2f02fbf56e2413d4f70b258499/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FterminalEnvironment.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FterminalEnvironment.ts?ref=58869697949d8c2f02fbf56e2413d4f70b258499",
+   "patch": "@@ -29,8 +29,15 @@ export function escapeNonWindowsPath(path: string, shellType?: TerminalShellType\n \n \tlet escapeConfig: ShellEscapeConfig;\n \tswitch (shellType) {\n-\t\tcase PosixShellType.Bash:\n \t\tcase PosixShellType.Sh:\n+\t\t\t// POSIX sh does not support $'...' ANSI-C quoting; use close/escape/reopen\n+\t\t\tescapeConfig = {\n+\t\t\t\tbothQuotes: (path) => `'${path.replace(/'/g, `'\\\\''`)}'`,\n+\t\t\t\tsingleQuotes: (path) => `'${path.replace(/'/g, `'\\\\''`)}'`,\n+\t\t\t\tnoSingleQuotes: (path) => `'${path}'`\n+\t\t\t};\n+\t\t\tbreak;\n+\t\tcase PosixShellType.Bash:\n \t\tcase PosixShellType.Zsh:\n \t\tcase WindowsShellType.GitBash:\n \t\t\tescapeConfig = {\n@@ -57,9 +64,9 @@ export function escapeNonWindowsPath(path: string, shellType?: TerminalShellType\n \t\t\t};\n \t\t\tbreak;\n \t\tdefault:\n-\t\t\t// Default to POSIX shell escaping for unknown shells\n+\t\t\t// Default to POSIX-compatible quoting for unknown shells\n \t\t\tescapeConfig = {\n-\t\t\t\tbothQuotes: (path) => `$'${path.replace(/'/g, '\\\\\\'')}'`,\n+\t\t\t\tbothQuotes: (path) => `'${path.replace(/'/g, `'\\\\''`)}'`,\n \t\t\t\tsingleQuotes: (path) => `'${path.replace(/'/g, '\\'\\\\\\'\\'')}'`,\n \t\t\t\tnoSingleQuotes: (path) => `'${path}'`\n \t\t\t};\n@@ -97,7 +104,7 @@ export function collapseTildePath(path: string | undefined, userHome: string | u\n \t}\n \tconst normalizedPath = path.replace(/\\\\/g, '/').toLowerCase();\n \tconst normalizedUserHome = userHome.replace(/\\\\/g, '/').toLowerCase();\n-\tif (!normalizedPath.includes(normalizedUserHome)) {\n+\tif (normalizedPath !== normalizedUserHome && !normalizedPath.startsWith(normalizedUserHome + '/')) {\n \t\treturn path;\n \t}\n \treturn `~${separator}${path.slice(userHome.length + 1)}`;"
+  },
+  {
+   "sha": "2523d59401282f9b262a0954da550f22852f799a",
+   "filename": "src/vs/platform/terminal/test/common/terminalEnvironment.test.ts",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 4,
+   "changes": 20,
+   "blob_url": "https://github.com/microsoft/vscode/blob/58869697949d8c2f02fbf56e2413d4f70b258499/src%2Fvs%2Fplatform%2Fterminal%2Ftest%2Fcommon%2FterminalEnvironment.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/58869697949d8c2f02fbf56e2413d4f70b258499/src%2Fvs%2Fplatform%2Fterminal%2Ftest%2Fcommon%2FterminalEnvironment.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fterminal%2Ftest%2Fcommon%2FterminalEnvironment.test.ts?ref=58869697949d8c2f02fbf56e2413d4f70b258499",
+   "patch": "@@ -41,6 +41,12 @@ suite('terminalEnvironment', () => {\n \t\t\tstrictEqual(collapseTildePath('/foo/bar/baz', '/foo', '/'), '~/bar/baz');\n \t\t\tstrictEqual(collapseTildePath('/foo/bar/baz', '/foo/', '/'), '~/bar/baz');\n \t\t});\n+\t\ttest('should not collapse when home path appears as substring of a different segment', () => {\n+\t\t\tstrictEqual(collapseTildePath('/tmp/backup/home/user/file', '/home/user', '/'), '/tmp/backup/home/user/file');\n+\t\t});\n+\t\ttest('should not collapse when path only shares a prefix with home', () => {\n+\t\t\tstrictEqual(collapseTildePath('/home/user2/file', '/home/user', '/'), '/home/user2/file');\n+\t\t});\n \t});\n \tsuite('sanitizeCwd', () => {\n \t\tif (OS === OperatingSystem.Windows) {\n@@ -55,17 +61,23 @@ suite('terminalEnvironment', () => {\n \t});\n \n \tsuite('escapeNonWindowsPath', () => {\n-\t\ttest('should escape for bash/sh/zsh shells', () => {\n+\t\ttest('should escape for bash/zsh shells', () => {\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar', PosixShellType.Bash), '\\'/foo/bar\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz', PosixShellType.Bash), '\\'/foo/bar\\'\\\\\\'\\'baz\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\"baz', PosixShellType.Bash), '\\'/foo/bar\"baz\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz\"qux', PosixShellType.Bash), '$\\'/foo/bar\\\\\\'baz\"qux\\'');\n-\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar', PosixShellType.Sh), '\\'/foo/bar\\'');\n-\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz', PosixShellType.Sh), '\\'/foo/bar\\'\\\\\\'\\'baz\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar', PosixShellType.Zsh), '\\'/foo/bar\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz', PosixShellType.Zsh), '\\'/foo/bar\\'\\\\\\'\\'baz\\'');\n \t\t});\n \n+\t\ttest('should escape for sh shell using POSIX close/escape/reopen quoting', () => {\n+\t\t\t// POSIX sh does not support $'...' ANSI-C quoting\n+\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar', PosixShellType.Sh), '\\'/foo/bar\\'');\n+\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz', PosixShellType.Sh), \"'/foo/bar'\\\\''baz'\");\n+\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\"baz', PosixShellType.Sh), '\\'/foo/bar\"baz\\'');\n+\t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz\"qux', PosixShellType.Sh), \"'/foo/bar'\\\\''baz\\\"qux'\");\n+\t\t});\n+\n \t\ttest('should escape for git bash', () => {\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar', WindowsShellType.GitBash), '\\'/foo/bar\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz', WindowsShellType.GitBash), '\\'/foo/bar\\'\\\\\\'\\'baz\\'');\n@@ -86,7 +98,7 @@ suite('terminalEnvironment', () => {\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz\"qux', GeneralShellType.PowerShell), '\"/foo/bar\\'baz`\"qux\"');\n \t\t});\n \n-\t\ttest('should default to POSIX escaping for unknown shells', () => {\n+\t\ttest('should default to POSIX close/escape/reopen quoting for unknown shells', () => {\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar'), '\\'/foo/bar\\'');\n \t\t\tstrictEqual(escapeNonWindowsPath('/foo/bar\\'baz'), '\\'/foo/bar\\'\\\\\\'\\'baz\\'');\n \t\t});"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5135660301,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMhv1DQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟡 Changes recommended\n\nCritical test expectation failures and missing quote-combination coverage must be addressed.\n\n*Once you've addressed the issues Copilot identified, you can request another Copilot review.*\n\n<details>\n<summary>Pull request overview</summary>\n\nSeparates POSIX `sh` escaping and tightens home-path collapsing.\n\n**Changes:**\n- Adds POSIX-safe single-quote escaping.\n- Prevents false tilde-path collapses.\n- Adds path-boundary regression tests.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Review |\r\n| --- | --- |\r\n| `src/vs/platform/terminal/test/common/terminalEnvironment.test.ts` | Adds tilde-collapse tests, but shell-escaping expectations and `bothQuotes` coverage require updates. |\r\n| `src/vs/platform/terminal/common/terminalEnvironment.ts` | Updates shell escaping and home-path matching; current changes conflict with existing Bash, Zsh, Git Bash, and `sh` assertions. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n### Suppressed comments (1)\n\n**src/vs/platform/terminal/common/terminalEnvironment.ts:69**\n* The default branch now returns `'/foo/bar'\\''baz'`, but `terminalEnvironment.test.ts:97` still asserts the previous `'/foo/bar\\'baz'` output. This leaves the unit suite failing; update the default-shell expectation to the new POSIX form.\n```\n\t\t\t\tbothQuotes: (path) => `'${path.replace(/'/g, `'\\\\''`)}'`,\n\t\t\t\tsingleQuotes: (path) => `'${path.replace(/'/g, `'\\\\''`)}'`,\n```\n\n- **Files reviewed:** 2/2 changed files\n- **Comments generated:** 2\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/334988#pullrequestreview-5135660301",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/334988",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/334988#pullrequestreview-5135660301"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/334988"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-07T23:02:19Z",
+   "commit_id": "6b51d558b80675575312cfa292115cde17e5e0ff"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5576438381",
+   "html_url": "https://github.com/microsoft/vscode/pull/334988#issuecomment-5576438381",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/334988",
+   "id": 5576438381,
+   "node_id": "IC_kwDOAn8RLM8AAAABTGGybQ",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-07T22:58:51Z",
+   "updated_at": "2026-10-04T21:22:58Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @anthonykim1\n\nMatched files:\n- `src/vs/platform/terminal/common/terminalEnvironment.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5576438381/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+   "node_id": "C_kwDOUNO-8doAKDhkNWY1MmVhOGJlNDY0N2Y1ZmI0NzBjYjc1Zjc0NzY0YzJiZmYyOWE",
+   "commit": {
+    "author": {
+     "name": "VirajMishra1",
+     "email": "viraj.mishra.81@gmail.com",
+     "date": "2026-09-07T22:57:35Z"
+    },
+    "committer": {
+     "name": "VirajMishra1",
+     "email": "viraj.mishra.81@gmail.com",
+     "date": "2026-10-04T21:17:01Z"
+    },
+    "message": "fix: separate PosixShellType.Sh case with POSIX-safe single-quote escaping\n\nPOSIX sh does not support ANSI-C $'...' quoting. When a path contains\na single quote, the existing code fell through to the Bash case and\nemitted $'...\\\\'...' which sh rejects.\n\nFix: give PosixShellType.Sh its own case using close-quote/escaped-quote/\nreopen-quote: path.replace(/'/g, \"'\\\\''\"). Also tighten collapseTildePath\nto check startsWith(home + separator) so /home/user2 is not collapsed when\nhome is /home/user.\n\nAdd regression tests for both cases.",
+    "tree": {
+     "sha": "10079ae927f31fc1ec182be95c8ae678dd4e9b99",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/10079ae927f31fc1ec182be95c8ae678dd4e9b99"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+   "html_url": "https://github.com/microsoft/vscode/commit/8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8d5f52ea8be4647f5fb470cb75f74764c2bff29a/comments",
+   "author": {
+    "login": "VirajMishra1",
+    "id": 193495331,
+    "node_id": "U_kgDOC4iBIw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193495331?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/VirajMishra1",
+    "html_url": "https://github.com/VirajMishra1",
+    "followers_url": "https://api.github.com/users/VirajMishra1/followers",
+    "following_url": "https://api.github.com/users/VirajMishra1/following{/other_user}",
+    "gists_url": "https://api.github.com/users/VirajMishra1/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/VirajMishra1/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/VirajMishra1/subscriptions",
+    "organizations_url": "https://api.github.com/users/VirajMishra1/orgs",
+    "repos_url": "https://api.github.com/users/VirajMishra1/repos",
+    "events_url": "https://api.github.com/users/VirajMishra1/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/VirajMishra1/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "VirajMishra1",
+    "id": 193495331,
+    "node_id": "U_kgDOC4iBIw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193495331?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/VirajMishra1",
+    "html_url": "https://github.com/VirajMishra1",
+    "followers_url": "https://api.github.com/users/VirajMishra1/followers",
+    "following_url": "https://api.github.com/users/VirajMishra1/following{/other_user}",
+    "gists_url": "https://api.github.com/users/VirajMishra1/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/VirajMishra1/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/VirajMishra1/subscriptions",
+    "organizations_url": "https://api.github.com/users/VirajMishra1/orgs",
+    "repos_url": "https://api.github.com/users/VirajMishra1/repos",
+    "events_url": "https://api.github.com/users/VirajMishra1/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/VirajMishra1/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "53df301065ee468f65325603a084d1a1c25019f1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/53df301065ee468f65325603a084d1a1c25019f1",
+     "html_url": "https://github.com/microsoft/vscode/commit/53df301065ee468f65325603a084d1a1c25019f1"
+    }
+   ]
+  },
+  {
+   "sha": "58869697949d8c2f02fbf56e2413d4f70b258499",
+   "node_id": "C_kwDOUNO-8doAKDU4ODY5Njk3OTQ5ZDhjMmYwMmZiZjU2ZTI0MTNkNGY3MGIyNTg0OTk",
+   "commit": {
+    "author": {
+     "name": "VirajMishra1",
+     "email": "viraj.mishra.81@gmail.com",
+     "date": "2026-09-10T02:20:19Z"
+    },
+    "committer": {
+     "name": "VirajMishra1",
+     "email": "viraj.mishra.81@gmail.com",
+     "date": "2026-10-04T21:17:01Z"
+    },
+    "message": "test: update shell-escaping assertions to match new quoting strategies\n\n- Bash/Zsh/GitBash now use ANSI-C $'...' quoting for single-quote paths\n- PosixShellType.Sh and unknown shells use POSIX close/escape/reopen\n- Split bash/sh/zsh test into two suites (different output formats)\n- Add Sh bothQuotes coverage for paths with both single and double quotes\n- Update default-shell test to expect POSIX form",
+    "tree": {
+     "sha": "34145be0dffc2c0f0180e2846265b9f1375d785b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/34145be0dffc2c0f0180e2846265b9f1375d785b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/58869697949d8c2f02fbf56e2413d4f70b258499",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/58869697949d8c2f02fbf56e2413d4f70b258499",
+   "html_url": "https://github.com/microsoft/vscode/commit/58869697949d8c2f02fbf56e2413d4f70b258499",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/58869697949d8c2f02fbf56e2413d4f70b258499/comments",
+   "author": {
+    "login": "VirajMishra1",
+    "id": 193495331,
+    "node_id": "U_kgDOC4iBIw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193495331?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/VirajMishra1",
+    "html_url": "https://github.com/VirajMishra1",
+    "followers_url": "https://api.github.com/users/VirajMishra1/followers",
+    "following_url": "https://api.github.com/users/VirajMishra1/following{/other_user}",
+    "gists_url": "https://api.github.com/users/VirajMishra1/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/VirajMishra1/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/VirajMishra1/subscriptions",
+    "organizations_url": "https://api.github.com/users/VirajMishra1/orgs",
+    "repos_url": "https://api.github.com/users/VirajMishra1/repos",
+    "events_url": "https://api.github.com/users/VirajMishra1/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/VirajMishra1/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "VirajMishra1",
+    "id": 193495331,
+    "node_id": "U_kgDOC4iBIw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193495331?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/VirajMishra1",
+    "html_url": "https://github.com/VirajMishra1",
+    "followers_url": "https://api.github.com/users/VirajMishra1/followers",
+    "following_url": "https://api.github.com/users/VirajMishra1/following{/other_user}",
+    "gists_url": "https://api.github.com/users/VirajMishra1/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/VirajMishra1/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/VirajMishra1/subscriptions",
+    "organizations_url": "https://api.github.com/users/VirajMishra1/orgs",
+    "repos_url": "https://api.github.com/users/VirajMishra1/repos",
+    "events_url": "https://api.github.com/users/VirajMishra1/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/VirajMishra1/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8d5f52ea8be4647f5fb470cb75f74764c2bff29a",
+     "html_url": "https://github.com/microsoft/vscode/commit/8d5f52ea8be4647f5fb470cb75f74764c2bff29a"
+    }
+   ]
+  }
+ ]
+}

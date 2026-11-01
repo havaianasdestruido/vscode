@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:52:39.166Z",
+ "pr": {
+  "number": 269567,
+  "title": "Fix inconsistent syntax highlighting in inline suggest preview",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-10-02T16:51:37Z",
+  "updated_at": "2026-01-20T10:13:43Z",
+  "user": "magliocchetti",
+  "author_association": "CONTRIBUTOR",
+  "additions": 33,
+  "deletions": 5,
+  "changed_files": 1,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "234963-fix-inline-suggest-syntax-highlighting",
+   "sha": "86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+   "repo": "magliocchetti/vscode",
+   "label": "magliocchetti:234963-fix-inline-suggest-syntax-highlighting"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Fixes #234963\r\n\r\n### Problem\r\n\r\nSyntax highlighting for inline suggestions (ghost text) was randomly breaking when scrolling through completion options. Users reported several issues:\r\n\r\n1. **Inconsistent highlighting** - Different suggestions of the same type would highlight differently\r\n2. **Quote position shifting** - The position of string delimiters appeared to move around\r\n3. **State-dependent behavior** - Holding Shift or other keys would change the highlighting\r\n4. **Context sensitivity** - Particularly problematic when cursor was inside string literals or special language constructs\r\n\r\n**Example scenario:** In a JSON file with cursor inside empty quotes `\"\"`, scrolling through suggestions like `\"captures\"` vs `\"beginCaptures\"` would produce different syntax highlighting, even though both should be highlighted identically as string content.\r\n\r\n### Root Cause\r\n\r\nThe tokenization logic in `ghostTextView.ts` was tokenizing the **entire modified line** (original text + ghost text combined):\r\n\r\n```typescript\r\n// OLD APPROACH - Tokenized full modified line\r\nconst edit = new StringEdit(inlineTexts.map(t => StringReplacement.insert(t.column - 1, t.text)));\r\nconst tokens = textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, [edit.apply(currentLine), ...]);\r\nconst inlineTextsWithTokens = inlineTexts.map((t, idx) => ({ ...t, tokens: tokens?.[0]?.getTokensInRange(newRanges[idx]) }));\r\n```\r\n\r\nThis meant:\r\n- Different ghost text content created different complete lines\r\n- The tokenizer would see these different lines and tokenize them differently\r\n- When extracting tokens for just the inserted ranges, the context was already \"polluted\"\r\n\r\n### Solution\r\n\r\nThe fix tokenizes each ghost text segment **independently**, preserving the tokenization context at the insertion point:\r\n\r\n```typescript\r\n// NEW APPROACH - Tokenize each segment with proper prefix context\r\nconst inlineTextsWithTokens = inlineTexts.map(t => {\r\n    const prefix = currentLine.substring(0, t.column - 1);\r\n    const lineToTokenize = prefix + t.text;\r\n    const tokenized = textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, [lineToTokenize]);\r\n    const insertedRange = new OffsetRange(prefix.length, lineToTokenize.length);\r\n    return { ...t, tokens: tokenized[0].getTokensInRange(insertedRange) };\r\n});\r\n```\r\n\r\n**Key improvements:**\r\n1. Each inline text is tokenized independently → prevents cross-contamination\r\n2. Prefix context is preserved → tokenizer sees actual context up to insertion point\r\n3. Only inserted text tokens are extracted → clean separation\r\n4. Consistent across all suggestions → same prefix = same context = same highlighting\r\n\r\n### Changes\r\n\r\n**Modified files:**\r\n- `src/vs/editor/contrib/inlineCompletions/browser/view/ghostText/ghostTextView.ts`\r\n  - Rewrote inline text tokenization logic (lines ~113-133)\r\n  - Updated multi-line tokenization to maintain proper state flow (lines ~135-158)\r\n  - Added `OffsetRange` import\r\n  - Added comprehensive comments explaining the approach\r\n\r\n**Impact:**\r\n- ✅ Consistent syntax highlighting for all inline suggestions\r\n- ✅ No visual glitches when scrolling through suggestions\r\n- ✅ Works correctly in all language modes\r\n- ✅ Multi-line completions handled properly\r\n- ✅ No performance impact (same number of tokenization calls)\r\n- ✅ No breaking changes\r\n\r\n### Testing\r\n\r\n**To test this fix:**\r\n\r\n1. Enable settings:\r\n   ```json\r\n   {\r\n     \"editor.suggest.preview\": true,\r\n     \"editor.inlineSuggest.syntaxHighlightingEnabled\": true\r\n   }\r\n   ```\r\n\r\n2. Create a JSON file with this content:\r\n   ```json\r\n   {\r\n       \"$schema\": \"https://raw.githubusercontent.com/RedCMD/TmLanguage-Syntax-Highlighter/main/vscode.tmLanguage.schema.json\",\r\n       \"patterns\": [\r\n           {\r\n               \"\"\r\n           }\r\n       ]\r\n   }\r\n   ```\r\n\r\n3. Place cursor inside the empty quotes (between `\"\"`)\r\n4. Press `Ctrl+Space` to open suggestions\r\n5. Scroll through suggestions like `\"captures\"`, `\"beginCaptures\"`, etc.\r\n\r\n**Expected behavior (with fix):**\r\n- ✅ Syntax highlighting remains consistent across all suggestions\r\n- ✅ Quote positions stay fixed\r\n- ✅ Holding Shift doesn't change highlighting\r\n- ✅ All suggestions are highlighted the same way\r\n\r\n**Previous behavior (bug):**\r\n- ❌ Highlighting would break randomly\r\n- ❌ Quote positions appeared to move\r\n- ❌ Different suggestions had inconsistent highlighting\r\n- ❌ Keyboard modifiers changed highlighting\r\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "9fee84fe4c56ea71e0c2bad45a65ffca9174eeaa",
+   "filename": "src/vs/editor/contrib/inlineCompletions/browser/view/ghostText/ghostTextView.ts",
+   "status": "modified",
+   "additions": 33,
+   "deletions": 5,
+   "changes": 38,
+   "blob_url": "https://github.com/microsoft/vscode/blob/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd/src%2Fvs%2Feditor%2Fcontrib%2FinlineCompletions%2Fbrowser%2Fview%2FghostText%2FghostTextView.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd/src%2Fvs%2Feditor%2Fcontrib%2FinlineCompletions%2Fbrowser%2Fview%2FghostText%2FghostTextView.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2FinlineCompletions%2Fbrowser%2Fview%2FghostText%2FghostTextView.ts?ref=86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+   "patch": "@@ -28,6 +28,7 @@ import { RenderLineInput, renderViewLine } from '../../../../../common/viewLayou\n import { GhostText, GhostTextReplacement, IGhostTextLine } from '../../model/ghostText.js';\n import { RangeSingleLine } from '../../../../../common/core/ranges/rangeSingleLine.js';\n import { ColumnRange } from '../../../../../common/core/ranges/columnRange.js';\n+import { OffsetRange } from '../../../../../common/core/ranges/offsetRange.js';\n import { addDisposableListener, getWindow, isHTMLElement, n } from '../../../../../../base/browser/dom.js';\n import './ghostTextView.css';\n import { IMouseEvent, StandardMouseEvent } from '../../../../../../base/browser/mouseEvent.js';\n@@ -108,13 +109,40 @@ export class GhostTextView extends Disposable {\n \t\t\tconst { inlineTexts, additionalLines, hiddenRange, additionalLinesOriginalSuffix } = computeGhostTextViewData(ghostText, textModel, GHOST_TEXT_CLASS_NAME + extraClassNames);\n \n \t\t\tconst currentLine = textModel.getLineContent(ghostText.lineNumber);\n-\t\t\tconst edit = new StringEdit(inlineTexts.map(t => StringReplacement.insert(t.column - 1, t.text)));\n-\t\t\tconst tokens = syntaxHighlightingEnabled ? textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, [edit.apply(currentLine), ...additionalLines.map(l => l.content)]) : undefined;\n-\t\t\tconst newRanges = edit.getNewRanges();\n-\t\t\tconst inlineTextsWithTokens = inlineTexts.map((t, idx) => ({ ...t, tokens: tokens?.[0]?.getTokensInRange(newRanges[idx]) }));\n+\t\t\t\n+\t\t\t// For consistent syntax highlighting, tokenize each inline text segment independently\n+\t\t\t// using the context at its insertion point, rather than tokenizing the full modified line.\n+\t\t\t// This prevents the tokenization from changing based on the content/length of the ghost text.\n+\t\t\tconst inlineTextsWithTokens = inlineTexts.map(t => {\n+\t\t\t\tif (!syntaxHighlightingEnabled) {\n+\t\t\t\t\treturn { ...t, tokens: undefined };\n+\t\t\t\t}\n+\t\t\t\t\n+\t\t\t\t// Build a line with the text inserted at the correct position\n+\t\t\t\t// This provides proper tokenization context from the prefix\n+\t\t\t\tconst prefix = currentLine.substring(0, t.column - 1);\n+\t\t\t\tconst lineToTokenize = prefix + t.text;\n+\t\t\t\t\n+\t\t\t\t// Tokenize the constructed line\n+\t\t\t\tconst tokenized = textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, [lineToTokenize]);\n+\t\t\t\tif (!tokenized?.[0]) {\n+\t\t\t\t\treturn { ...t, tokens: undefined };\n+\t\t\t\t}\n+\t\t\t\t\n+\t\t\t\t// Extract only the tokens for the inserted text portion\n+\t\t\t\tconst insertedRange = new OffsetRange(prefix.length, lineToTokenize.length);\n+\t\t\t\treturn { ...t, tokens: tokenized[0].getTokensInRange(insertedRange) };\n+\t\t\t});\n \n+\t\t\t// Tokenize additional lines (multi-line ghost text)\n+\t\t\t// Tokenize all additional lines\n+\t\t\tconst allAdditionalLinesTokens = syntaxHighlightingEnabled && additionalLines.length > 0\n+\t\t\t\t? textModel.tokenization.tokenizeLinesAt(ghostText.lineNumber, additionalLines.map(l => l.content))\n+\t\t\t\t: null;\n+\t\t\t\n \t\t\tconst tokenizedAdditionalLines: LineData[] = additionalLines.map((l, idx) => {\n-\t\t\t\tlet content = tokens?.[idx + 1] ?? LineTokens.createEmpty(l.content, this._languageService.languageIdCodec);\n+\t\t\t\tlet content = allAdditionalLinesTokens?.[idx] ?? LineTokens.createEmpty(l.content, this._languageService.languageIdCodec);\n+\t\t\t\t\n \t\t\t\tif (idx === additionalLines.length - 1 && additionalLinesOriginalSuffix) {\n \t\t\t\t\tconst t = TokenWithTextArray.fromLineTokens(textModel.tokenization.getLineTokens(additionalLinesOriginalSuffix.lineNumber));\n \t\t\t\t\tconst existingContent = t.slice(additionalLinesOriginalSuffix.columnRange.toZeroBasedOffsetRange());"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3295500819,
+   "node_id": "PRR_kwDOAn8RLM7EbVoT",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull Request Overview\n\nThis PR fixes inconsistent syntax highlighting in inline suggestion previews (ghost text) by changing how the tokenization is performed. Previously, ghost text segments were tokenized as part of a complete modified line, causing different suggestions to be highlighted inconsistently based on their content.\n\n- Rewrote tokenization logic to process each inline text segment independently with proper prefix context\n- Fixed multi-line ghost text tokenization to maintain proper state flow\n- Added comprehensive comments explaining the new approach\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/269567#pullrequestreview-3295500819",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/269567",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/269567#pullrequestreview-3295500819"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/269567"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-10-02T16:52:07Z",
+   "commit_id": "b8fa4cdca11b468c174faa5752edde3aa7dcc879"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+   "node_id": "C_kwDOP6pyQNoAKGI4ZmE0Y2RjYTExYjQ2OGMxNzRmYWE1NzUyZWRkZTNhYTdkY2M4Nzk",
+   "commit": {
+    "author": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T16:48:05Z"
+    },
+    "committer": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T16:48:05Z"
+    },
+    "message": "Fix inconsistent syntax highlighting in inline suggest preview\n\nFixes #234963\n\nThe syntax highlighting for inline suggestions (ghost text) was inconsistent\nwhen scrolling through different completion options. This was particularly\nnoticeable when the cursor was inside string literals or when suggestions\nhad different lengths (e.g., \"captures\" vs \"beginCaptures\").\n\nThe root cause was that tokenization was performed on the entire modified\nline (original text + ghost text combined), causing different ghost text\ncontent to produce different tokenization results. When tokens were extracted\nfor just the inserted ranges, the context was already inconsistent.\n\nThis change modifies the tokenization approach in ghostTextView.ts to:\n- Tokenize each inline text segment independently with proper prefix context\n- Extract only the tokens for the inserted text portion\n- Maintain proper tokenization state flow for multi-line completions\n\nThis ensures consistent syntax highlighting regardless of the ghost text\ncontent, as the tokenization context at the insertion point remains stable.\n\nSigned-off-by: Giovanni Magliocchetti <giovimag123@gmail.com>",
+    "tree": {
+     "sha": "a7cea9e0a3ee6414100f62fa5b77a9c41fb2c55d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a7cea9e0a3ee6414100f62fa5b77a9c41fb2c55d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+   "html_url": "https://github.com/microsoft/vscode/commit/b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b8fa4cdca11b468c174faa5752edde3aa7dcc879/comments",
+   "author": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "df95260cef839919f15a03a752055c62c86d4ca8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df95260cef839919f15a03a752055c62c86d4ca8",
+     "html_url": "https://github.com/microsoft/vscode/commit/df95260cef839919f15a03a752055c62c86d4ca8"
+    }
+   ]
+  },
+  {
+   "sha": "86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+   "node_id": "C_kwDOP6pyQNoAKDg2YTNlMDEwZmFiMWMzNWM0NzJjYjJlM2QzZTc3YzZhODA4NGEzY2Q",
+   "commit": {
+    "author": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T18:15:53Z"
+    },
+    "committer": {
+     "name": "Giovanni Magliocchetti",
+     "email": "giovimag123@gmail.com",
+     "date": "2025-10-02T18:15:53Z"
+    },
+    "message": "Refactor tokenization of additional lines in GhostTextView\n\nSigned-off-by: Giovanni Magliocchetti <giovimag123@gmail.com>",
+    "tree": {
+     "sha": "f9e79cb8bfe94efa34d5677da14cd1df2e100e13",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f9e79cb8bfe94efa34d5677da14cd1df2e100e13"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+   "html_url": "https://github.com/microsoft/vscode/commit/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/86a3e010fab1c35c472cb2e3d3e77c6a8084a3cd/comments",
+   "author": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "magliocchetti",
+    "id": 62136803,
+    "node_id": "MDQ6VXNlcjYyMTM2ODAz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62136803?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/magliocchetti",
+    "html_url": "https://github.com/magliocchetti",
+    "followers_url": "https://api.github.com/users/magliocchetti/followers",
+    "following_url": "https://api.github.com/users/magliocchetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/magliocchetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/magliocchetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/magliocchetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/magliocchetti/orgs",
+    "repos_url": "https://api.github.com/users/magliocchetti/repos",
+    "events_url": "https://api.github.com/users/magliocchetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/magliocchetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b8fa4cdca11b468c174faa5752edde3aa7dcc879",
+     "html_url": "https://github.com/microsoft/vscode/commit/b8fa4cdca11b468c174faa5752edde3aa7dcc879"
+    }
+   ]
+  }
+ ]
+}

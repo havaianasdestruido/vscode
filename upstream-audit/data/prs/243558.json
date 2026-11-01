@@ -1,0 +1,2025 @@
+{
+ "fetchedAt": "2026-11-01T00:52:14.926Z",
+ "pr": {
+  "number": 243558,
+  "title": "Views should collapse downwards (fix #126523)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-03-14T12:54:07Z",
+  "updated_at": "2026-10-10T07:54:42Z",
+  "user": "gjsjohnmurray",
+  "author_association": "CONTRIBUTOR",
+  "additions": 6,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 10,
+  "review_comments": 3,
+  "commits_count": 15,
+  "labels": [],
+  "milestone": "Backlog",
+  "requested_reviewers": [
+   "benibenj"
+  ],
+  "head": {
+   "ref": "fix-126523",
+   "sha": "1f6257b7e8c71448c895bd8acdef805ea06afca6",
+   "repo": "gjsjohnmurray/vscode",
+   "label": "gjsjohnmurray:fix-126523"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "959031245ebb1fe077e0d512e1397c0ae82006e4"
+  },
+  "body": "This PR fixes #126523\r\n\r\n![image](https://github.com/user-attachments/assets/8d56d955-d559-4561-a38a-802b3aea4842)\r\n\r\n![junk](https://github.com/user-attachments/assets/c6eae7d9-fbb4-48a9-a725-2bfe038c4d87)\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "4ff95788ac5d693f00eb140765554cc96e8c2733",
+   "filename": "src/vs/base/browser/ui/splitview/splitview.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 0,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1f6257b7e8c71448c895bd8acdef805ea06afca6/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Fsplitview%2Fsplitview.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1f6257b7e8c71448c895bd8acdef805ea06afca6/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Fsplitview%2Fsplitview.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Fsplitview%2Fsplitview.ts?ref=1f6257b7e8c71448c895bd8acdef805ea06afca6",
+   "patch": "@@ -1006,6 +1006,7 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo\n \t\t\treturn;\n \t\t}\n \n+\t\tconst collapsing = typeof size === 'undefined';\n \t\tsize = typeof size === 'number' ? size : item.size;\n \t\tsize = clamp(size, item.minimumSize, item.maximumSize);\n \n@@ -1015,6 +1016,11 @@ export class SplitView<TLayoutContext = undefined, TView extends IView<TLayoutCo\n \t\t\tthis.resize(index - 1, Math.floor((item.size - size) / 2));\n \t\t\tthis.distributeEmptySpace();\n \t\t\tthis.layoutViews();\n+\t\t} else if (collapsing && index > 0) {\n+\t\t\t// Collapse downwards / rightwards\n+\t\t\tthis.resize(index - 1, item.size - size);\n+\t\t\tthis.distributeEmptySpace();\n+\t\t\tthis.layoutViews();\n \t\t} else {\n \t\t\titem.size = size;\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2689916929,
+   "node_id": "PRR_kwDOAn8RLM6gVOAB",
+   "user": {
+    "login": "benibenj",
+    "id": 44439583,
+    "node_id": "MDQ6VXNlcjQ0NDM5NTgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44439583?u=4b1f7b0c09ad0e3522fa41b1aa12f9cd47a54cd4&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/benibenj",
+    "html_url": "https://github.com/benibenj",
+    "followers_url": "https://api.github.com/users/benibenj/followers",
+    "following_url": "https://api.github.com/users/benibenj/following{/other_user}",
+    "gists_url": "https://api.github.com/users/benibenj/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/benibenj/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/benibenj/subscriptions",
+    "organizations_url": "https://api.github.com/users/benibenj/orgs",
+    "repos_url": "https://api.github.com/users/benibenj/repos",
+    "events_url": "https://api.github.com/users/benibenj/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/benibenj/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "I did not have a close look at the implementation yet, but I see there is a setting which is being added. I do not think we should add a setting for this. We should think about what the best possible behaviour is and make sure everyone uses that.",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-2689916929",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/243558",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-2689916929"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/243558"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-03-17T10:22:05Z",
+   "commit_id": "27ab22bba7358aafb335d62a66d3ef1d49d2aa96"
+  },
+  {
+   "id": 3360228709,
+   "node_id": "PRR_kwDOAn8RLM7ISQVl",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull Request Overview\n\nThis PR fixes issue #126523 by modifying the collapse behavior of views in the SplitView component. When a view collapses, the space is now distributed downwards/rightwards to the previous view instead of being distributed across all views.\n\n### Key Changes\n- Added logic to detect when a view is collapsing (size is undefined)\n- Modified collapse behavior to resize the previous view by the collapsed view's size when collapsing downwards/rightwards\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3360228709",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/243558",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3360228709"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/243558"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-10-21T12:00:31Z",
+   "commit_id": "d5c4435eb4f0d915e6a5f185d69d4187cc45fad2"
+  },
+  {
+   "id": 3604336896,
+   "node_id": "PRR_kwDOAn8RLM7W1dEA",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3604336896",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/243558",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3604336896"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/243558"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-12-22T14:40:41Z",
+   "commit_id": "c875be854d89b0ba8a903e75580e3b60ac5a9600"
+  },
+  {
+   "id": 3604375007,
+   "node_id": "PRR_kwDOAn8RLM7W1mXf",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nCopilot reviewed 1 out of 1 changed files in this pull request and generated 2 comments.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3604375007",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/243558",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/243558#pullrequestreview-3604375007"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/243558"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-12-22T14:52:05Z",
+   "commit_id": "c875be854d89b0ba8a903e75580e3b60ac5a9600"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2724619048",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2724619048",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2724619048,
+   "node_id": "IC_kwDOAn8RLM6iZmMo",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-14T13:00:52Z",
+   "updated_at": "2025-03-14T13:00:52Z",
+   "body": "/assign @benibenj who owns the issue this fixes.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2724619048/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2728973664",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2728973664",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2728973664,
+   "node_id": "IC_kwDOAn8RLM6iqNVg",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-17T10:25:08Z",
+   "updated_at": "2025-03-17T10:25:08Z",
+   "body": "I'm wary of the fallout that typically arises when behaviour changes without it being an optional change.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2728973664/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732049036",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2732049036",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2732049036,
+   "node_id": "IC_kwDOAn8RLM6i18KM",
+   "user": {
+    "login": "benibenj",
+    "id": 44439583,
+    "node_id": "MDQ6VXNlcjQ0NDM5NTgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44439583?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/benibenj",
+    "html_url": "https://github.com/benibenj",
+    "followers_url": "https://api.github.com/users/benibenj/followers",
+    "following_url": "https://api.github.com/users/benibenj/following{/other_user}",
+    "gists_url": "https://api.github.com/users/benibenj/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/benibenj/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/benibenj/subscriptions",
+    "organizations_url": "https://api.github.com/users/benibenj/orgs",
+    "repos_url": "https://api.github.com/users/benibenj/repos",
+    "events_url": "https://api.github.com/users/benibenj/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/benibenj/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-03-18T08:12:39Z",
+   "updated_at": "2025-03-18T08:12:39Z",
+   "body": "You are right, which is why we should only change the behaviour if we are actually improving it. But for smaller behavioural issues like this, we do not want to add a setting because these are very hard to discover and only a very small amount of users will benefit from it.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732049036/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732158310",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2732158310",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2732158310,
+   "node_id": "IC_kwDOAn8RLM6i2W1m",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-18T08:50:27Z",
+   "updated_at": "2025-03-18T08:50:27Z",
+   "body": "I've often wished that we could make a change to behaviour behind a setting that defaults to \"new way\" for new installs of VS Code and to \"old way\" for existing users. Or better still, produce a little notification the first time an existing user experiences the new behaviour after the update that introduced it, giving them a chance to opt out of the change. In this case, collapsing a view the first time might notify \"We now collapse views downward whenever possible. Do you want to revert to the old behavior of collapsing upwards?\"\r\n\r\nIn the absence of such a capability I'm OK to remove the setting on this change if doing that will increase its chances of being merged.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732158310/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732166197",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2732166197",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2732166197,
+   "node_id": "IC_kwDOAn8RLM6i2Yw1",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-18T08:53:16Z",
+   "updated_at": "2025-03-18T08:53:16Z",
+   "body": "I also wondered if Alt+click could offer the opposite behaviour. And maybe a tip on the button hinting at this.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2732166197/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2821757638",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2821757638",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2821757638,
+   "node_id": "IC_kwDOAn8RLM6oMJrG",
+   "user": {
+    "login": "benibenj",
+    "id": 44439583,
+    "node_id": "MDQ6VXNlcjQ0NDM5NTgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44439583?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/benibenj",
+    "html_url": "https://github.com/benibenj",
+    "followers_url": "https://api.github.com/users/benibenj/followers",
+    "following_url": "https://api.github.com/users/benibenj/following{/other_user}",
+    "gists_url": "https://api.github.com/users/benibenj/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/benibenj/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/benibenj/subscriptions",
+    "organizations_url": "https://api.github.com/users/benibenj/orgs",
+    "repos_url": "https://api.github.com/users/benibenj/repos",
+    "events_url": "https://api.github.com/users/benibenj/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/benibenj/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-04-22T15:48:27Z",
+   "updated_at": "2025-04-22T15:48:27Z",
+   "body": "I gave this a try but I doesn't really feel better. See how when collapsing a view, the header moves away from the cursor so it's not possible to expand easily again. Also I think it should notice when the user resizes a view to not change the size of that view. I'm not sure how this could be solved without a overcomplicated solution.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2821757638/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826835967",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2826835967",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2826835967,
+   "node_id": "IC_kwDOAn8RLM6ofhf_",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-24T08:46:29Z",
+   "updated_at": "2025-04-24T08:46:29Z",
+   "body": "> See how when collapsing a view, the header moves away from the cursor so it's not possible to expand easily again.\r\n\r\nA similar thing already happens when expanding a view after having resized the one above it.\r\n\r\n![junk](https://github.com/user-attachments/assets/2a3b259b-de0c-43eb-8ad8-4eb55af3b828)\r\n\r\nAnd after I **do** move the mouse to reverse the expansion action it collapses upwards, so I have to drag the split downward again in order to reinstate the larger area of the view above (Explorer in this case).\r\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826835967/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826880944",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2826880944",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2826880944,
+   "node_id": "IC_kwDOAn8RLM6ofsew",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-24T08:57:59Z",
+   "updated_at": "2025-04-24T08:57:59Z",
+   "body": "Also currently happens on **collapse** of the last view:\r\n\r\n![junk](https://github.com/user-attachments/assets/a79e84c0-17c9-4889-ad2c-6fa4286d30c3)\r\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826880944/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826886465",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-2826886465",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 2826886465,
+   "node_id": "IC_kwDOAn8RLM6oft1B",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-24T09:00:03Z",
+   "updated_at": "2025-04-24T09:00:03Z",
+   "body": "All cases mitigated by being able to use left-arrow key to collapse and right-arrow to expand instead of moving the mouse.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2826886465/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3426244222",
+   "html_url": "https://github.com/microsoft/vscode/pull/243558#issuecomment-3426244222",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/243558",
+   "id": 3426244222,
+   "node_id": "IC_kwDOAn8RLM7MOFZ-",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-10-21T12:00:42Z",
+   "updated_at": "2026-05-22T06:24:03Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @joaomoreno\n\nMatched files:\n- `src/vs/base/browser/ui/splitview/splitview.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3426244222/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+   "node_id": "C_kwDODAwv2NoAKDZmZWQ2ZjgzMGNmOWFmYTZiNjU3YjhjOTE1YzFlMDIzZmE4OTVhNTY",
+   "commit": {
+    "author": {
+     "name": "gjsjohnmurray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-14T12:52:58Z"
+    },
+    "committer": {
+     "name": "gjsjohnmurray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-14T12:52:58Z"
+    },
+    "message": "Add `workbench.view.collapseDownwards` setting (fix #126523)",
+    "tree": {
+     "sha": "e7df6143eb397a336b4e5433cbafe9edd38f52b2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e7df6143eb397a336b4e5433cbafe9edd38f52b2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+   "html_url": "https://github.com/microsoft/vscode/commit/6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6fed6f830cf9afa6b657b8c915c1e023fa895a56/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ec682f62efb07e4934fd7b2aac9254fdfb61986a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ec682f62efb07e4934fd7b2aac9254fdfb61986a",
+     "html_url": "https://github.com/microsoft/vscode/commit/ec682f62efb07e4934fd7b2aac9254fdfb61986a"
+    }
+   ]
+  },
+  {
+   "sha": "27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+   "node_id": "C_kwDODAwv2NoAKDI3YWIyMmJiYTczNThhYWZiMzM1ZDYyYTY2ZDNlZjFkNDlkMmFhOTY",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-17T10:16:10Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-03-17T10:16:10Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "b4e8a9e323a0edae381225ed3b5a9dcda5872469",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b4e8a9e323a0edae381225ed3b5a9dcda5872469"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJn1/ZqCRC1aQ7uu5UhlAAAsa8QABmZtGJl2+4gtWBlK04DFwY/\n94xFlscnofkMB7FEdvw2vDMBwAD8wB0T42iVoCBYzZFlFUqJgEV++IWxf6rwIToB\npTzBtB7ipI8V+WreDcYUUdllmwnsyDFTsY+CDWI3YGtGnJ/+GVqDmho94YLruver\nFJbMqhLSveMUHI+0fM3tMbABzx0QnsvgVfS0WCzP4usAbbOcV8qgh/Wac2O0l8v3\ny7BuTvYlCpZJh9ncwXm7YPhZKqQTM+cjQKY+R8Du4ULIcDcTR4VtxI77cac+joLE\nVv6Mh6rTGE4tT+nIcNPrjh4zVotq5Zsfn4fmkX9/tp/1MKQfMdaeMeShGPT3djhT\ndXn3LSewvbtCI1pi15CT6N18h9n6w/LPV3yDs4+9psuTVFUxquTqN15vfqyXDEu3\nIxDW4xRZowif7Gyy5iE+sc+qjSUSvgUKnZ8Hg7HzZnlH6dKORPOYMOyxdjxhnHjR\neQ05vFgRzzGO8dqUZDRdr5SOhRzUpTkPJyqIcmLvqogUt5lHjMIECxwBsWANXa1L\nmlZkaeNDcQeLHCrEmVAi0S8rvPuwco91Z9RMSaj1kB81nZUxArzSOFS24OWAYp1e\n8IFfGOY+oHltWPl0KL9yz90iH0heE5LtoaWb5Nb2SJGNw6U1euCFvsBaXXKhRur5\nXRjBN6VdIaiPqoyZlQEx\n=LqND\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b4e8a9e323a0edae381225ed3b5a9dcda5872469\nparent 6fed6f830cf9afa6b657b8c915c1e023fa895a56\nparent c74829e0c7057452b6fc157d6507e0ee9f5d7c3a\nauthor John Murray <johnm@georgejames.com> 1742206570 +0000\ncommitter GitHub <noreply@github.com> 1742206570 +0000\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-03-17T10:16:15Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+   "html_url": "https://github.com/microsoft/vscode/commit/27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/27ab22bba7358aafb335d62a66d3ef1d49d2aa96/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6fed6f830cf9afa6b657b8c915c1e023fa895a56",
+     "html_url": "https://github.com/microsoft/vscode/commit/6fed6f830cf9afa6b657b8c915c1e023fa895a56"
+    },
+    {
+     "sha": "c74829e0c7057452b6fc157d6507e0ee9f5d7c3a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c74829e0c7057452b6fc157d6507e0ee9f5d7c3a",
+     "html_url": "https://github.com/microsoft/vscode/commit/c74829e0c7057452b6fc157d6507e0ee9f5d7c3a"
+    }
+   ]
+  },
+  {
+   "sha": "173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+   "node_id": "C_kwDODAwv2NoAKDE3M2EwYmQ1NjI4MmY3MDUwZWYxNWE5NGViY2VlZDRlZWU3YmZiNDY",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-18T15:46:50Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-03-18T15:46:50Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "ab420c29e9a4bd7ecce7d3a58af1ddc380cd679e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ab420c29e9a4bd7ecce7d3a58af1ddc380cd679e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJn2ZVqCRC1aQ7uu5UhlAAAU3sQADIUGRAINWtNHdoAhyCyDGwE\nfCcFPvMzjaTS3YW4Yr+1utJ597eYa2/Rugn6XjOjeqp3pCDdP1aB+5uUo/kXapb8\n5uosSjnEKrwOu5YLqtQZPBMIqJwDH1H6MDabNDjVpbdAWkouFBoyyk3+mGqJ+o1j\nvvbDzDysN75n1/DTa4tDmZS4fTALdOZcUP/W33joaKPI2iryWc9xT567YwMqOXZJ\ng5hTuZtUIhP/j/29xvQJwXsjDxqgAJlA00BvX08R02cp1J7Azw0cKQ3AUQZS3gAu\niQizo/kLXdscMUL64bskmBgyEQ+gKL4eCY76MLEGJBsJqV/OSfZ2o/S9jaKDNgIY\nVigcD4dW4gsROojmQYhl2iFQpXFYbmQNgIuKMk3RUINVcWFRzOYRbffBEBFDj2bw\nMyXPSHEEpbFkGpKbwx5mtK3Xj2V2PBP1bkIOKPriV8L2FbF8Eu2P9LmpKRPgHA5Q\nRCEb+QRi9X7LOQghGn/vh33GOzzOxFZc3NueKoE94kZzhu9m5SZ5l2jrkjOJdJJU\noQPF98y301kdAizt7hoq9gcl5qnotGXSexZeWPv2rr+L20Xtq/p/RsMd3mNVhwpq\noDPs/vfdv8yPSy5MzkyNR6EDjKY9EVcIMjX0mmil18uEXcROv87sQlrje1kD97vu\njcqla45qcfi2t01m+usD\n=RDYV\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ab420c29e9a4bd7ecce7d3a58af1ddc380cd679e\nparent 27ab22bba7358aafb335d62a66d3ef1d49d2aa96\nparent 6cccef932b814734c93bc1fc71c8c733cf1816d5\nauthor John Murray <johnm@georgejames.com> 1742312810 +0000\ncommitter GitHub <noreply@github.com> 1742312810 +0000\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-03-18T15:46:54Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+   "html_url": "https://github.com/microsoft/vscode/commit/173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/173a0bd56282f7050ef15a94ebceed4eee7bfb46/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/27ab22bba7358aafb335d62a66d3ef1d49d2aa96",
+     "html_url": "https://github.com/microsoft/vscode/commit/27ab22bba7358aafb335d62a66d3ef1d49d2aa96"
+    },
+    {
+     "sha": "6cccef932b814734c93bc1fc71c8c733cf1816d5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6cccef932b814734c93bc1fc71c8c733cf1816d5",
+     "html_url": "https://github.com/microsoft/vscode/commit/6cccef932b814734c93bc1fc71c8c733cf1816d5"
+    }
+   ]
+  },
+  {
+   "sha": "39f00480262174efec8a3b6157a9da888cc6fe4d",
+   "node_id": "C_kwDODAwv2NoAKDM5ZjAwNDgwMjYyMTc0ZWZlYzhhM2I2MTU3YTlkYTg4OGNjNmZlNGQ",
+   "commit": {
+    "author": {
+     "name": "gjsjohnmurray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-18T15:52:59Z"
+    },
+    "committer": {
+     "name": "gjsjohnmurray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-03-18T15:52:59Z"
+    },
+    "message": "Remove setting controlling the change",
+    "tree": {
+     "sha": "bc0c69abf563b50699f3098d81b7f2eb749e723b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/bc0c69abf563b50699f3098d81b7f2eb749e723b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/39f00480262174efec8a3b6157a9da888cc6fe4d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/39f00480262174efec8a3b6157a9da888cc6fe4d",
+   "html_url": "https://github.com/microsoft/vscode/commit/39f00480262174efec8a3b6157a9da888cc6fe4d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/39f00480262174efec8a3b6157a9da888cc6fe4d/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/173a0bd56282f7050ef15a94ebceed4eee7bfb46",
+     "html_url": "https://github.com/microsoft/vscode/commit/173a0bd56282f7050ef15a94ebceed4eee7bfb46"
+    }
+   ]
+  },
+  {
+   "sha": "b8b35256779627661994b210d91b04b34fefb163",
+   "node_id": "C_kwDODAwv2NoAKGI4YjM1MjU2Nzc5NjI3NjYxOTk0YjIxMGQ5MWIwNGIzNGZlZmIxNjM",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-04-04T15:36:59Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-04-04T15:36:59Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "0f5f86cf49c48437aa7c5b6e95912bac3e7cda28",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0f5f86cf49c48437aa7c5b6e95912bac3e7cda28"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b8b35256779627661994b210d91b04b34fefb163",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJn7/ybCRC1aQ7uu5UhlAAAwMgQAAX7NctPmvf/CX4XZCHvQpFd\nH9c0Nybi9NdgR7WmMMwQVR1Spu4QdTZbzw626JcdTn6DylYcVW9RYcX7x6ct2J+e\nXaQVpZR6CBLyFcXq3MDMm1WisdIy0AZ69KlaUkuNv3FdZiEdWx1c0QXsu3sYKnJQ\n6V2JnNDGOctgmeUOY+7E8ZcTV1I55+21IWNiL8abD+wPL5yAUyu3Sf/cAbu1K2TU\nfNBkeWQru3wYJ8MXXuRcBpeb39gLbJEAD5ZKkajwTcikR7B1y0wzeX5TyAPC0U+h\n7ih6s+N5zWwGSwZlSUPi5xllLdDocz4vyxnGfo4rgGmOJ7BAFGv+0qh5t7w2X2sL\nvbiG7mIC5lOejtea10e1dQg4vmdmjyUVeM7M/Q13Gb43jSB3As3/DTsEXk0z/37c\nJi6FgjG92Ph84EbEAQ8uuNOvHszRLxN+mU3RW9wtsfQ/l+VvFz/XjWBL/phe9lX0\nBWKHzxP/DioU7tE9pMh0DIChvvmv6Wnm5WetEejkWk5qvSybRCWhFKH9Aj+rDjnK\nDHGk7L5BDlNH677pXflaODrZ4y+PVNbHuWf3F1GEfDBJee9vDUmuul5vTFE9YAaM\ntNVbxyaPkuT8POE+HnpvBN0ARXqzTgS/ah+DVbezRINWRhJaux4MJQyoSeqAha2/\nv7BaRjspRRfZyU/+t+mI\n=ewYY\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0f5f86cf49c48437aa7c5b6e95912bac3e7cda28\nparent 39f00480262174efec8a3b6157a9da888cc6fe4d\nparent 36ea9e072687aae40e2abccfe0d9bbffa4ddc093\nauthor John Murray <johnm@georgejames.com> 1743781019 +0100\ncommitter GitHub <noreply@github.com> 1743781019 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-04-04T15:37:04Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b8b35256779627661994b210d91b04b34fefb163",
+   "html_url": "https://github.com/microsoft/vscode/commit/b8b35256779627661994b210d91b04b34fefb163",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b8b35256779627661994b210d91b04b34fefb163/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "39f00480262174efec8a3b6157a9da888cc6fe4d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/39f00480262174efec8a3b6157a9da888cc6fe4d",
+     "html_url": "https://github.com/microsoft/vscode/commit/39f00480262174efec8a3b6157a9da888cc6fe4d"
+    },
+    {
+     "sha": "36ea9e072687aae40e2abccfe0d9bbffa4ddc093",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/36ea9e072687aae40e2abccfe0d9bbffa4ddc093",
+     "html_url": "https://github.com/microsoft/vscode/commit/36ea9e072687aae40e2abccfe0d9bbffa4ddc093"
+    }
+   ]
+  },
+  {
+   "sha": "f1f1c6028df69cee5966df1919c1b3c463a39961",
+   "node_id": "C_kwDODAwv2NoAKGYxZjFjNjAyOGRmNjljZWU1OTY2ZGYxOTE5YzFiM2M0NjNhMzk5NjE",
+   "commit": {
+    "author": {
+     "name": "Benjamin Christopher Simmonds",
+     "email": "44439583+benibenj@users.noreply.github.com",
+     "date": "2025-04-07T07:11:03Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-04-07T07:11:03Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "995feb30188f2653bd5409f46c5917cb27da4f18",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/995feb30188f2653bd5409f46c5917cb27da4f18"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f1f1c6028df69cee5966df1919c1b3c463a39961",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJn83qHCRC1aQ7uu5UhlAAAMpUQAAq4SZLgArrIUudI9ubeG+ky\n+2oO/V10qb8LG2MSp3WJrRqv02hMSwBn4AJJmqK4uSQgP8sothgkFnjnhZla5n6+\nTyXsR1/0f9DqbCN8Y2ZKhkey7Dj0Akopj+JcUYqSx8UXcttf1C9PRIqzeZzuwrYA\nMiira+6cOa0742TEj1PsFcIeCOQ5bMwGnvxQZkfS+Vjdhvg+kLLGYn52WXJ4MKaZ\nZTaM8yozBR36+0SdCGEYuBcSPs9eIAJkFdWj9r7EkwhXG/3MXvLccoWAN7hJodR+\n/Cm8EDEW1QGrWo4CF1q9JFlzI166ToBNj6/NiyGkQieWnoSCv3HwCXYPQewf/KhQ\naDOmdEnTcZiCJYODDr5AeDd8mCxIZ12S06qh/pfxbrWQlK0+FOyBNGjN0wVeq43b\nrrh2ielZPbuKZ3mcST7Gm6ghDPipAykInBlg9PSSkbLPzZew715RcI7ED4mhGHMQ\n+jMSkLpPgyAn4vSTuDUKzs1XTuxQNtVSAt9wANmOE0RIvz7LKIR73eICA0fxN7Ly\nhAxiHgtqhaIZ3DbrR6LeJTYYE+Wv43n5rkaCNrCv5BLYDxsgpJ/w7fD8vQyBwWEX\nuNcyAVz4RvcCHx7afKnKeaJ/najgmea3Bji+iH98mqsCf63T2N940OspsMtCkGOH\nzsk5YsAUf1kwOHK9MICF\n=WzXW\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 995feb30188f2653bd5409f46c5917cb27da4f18\nparent b8b35256779627661994b210d91b04b34fefb163\nparent e63704717fe53ede9f030aa744a0ca350fb4b75e\nauthor Benjamin Christopher Simmonds <44439583+benibenj@users.noreply.github.com> 1744009863 +0200\ncommitter GitHub <noreply@github.com> 1744009863 +0200\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-04-07T07:11:06Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f1f1c6028df69cee5966df1919c1b3c463a39961",
+   "html_url": "https://github.com/microsoft/vscode/commit/f1f1c6028df69cee5966df1919c1b3c463a39961",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f1f1c6028df69cee5966df1919c1b3c463a39961/comments",
+   "author": {
+    "login": "benibenj",
+    "id": 44439583,
+    "node_id": "MDQ6VXNlcjQ0NDM5NTgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44439583?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/benibenj",
+    "html_url": "https://github.com/benibenj",
+    "followers_url": "https://api.github.com/users/benibenj/followers",
+    "following_url": "https://api.github.com/users/benibenj/following{/other_user}",
+    "gists_url": "https://api.github.com/users/benibenj/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/benibenj/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/benibenj/subscriptions",
+    "organizations_url": "https://api.github.com/users/benibenj/orgs",
+    "repos_url": "https://api.github.com/users/benibenj/repos",
+    "events_url": "https://api.github.com/users/benibenj/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/benibenj/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b8b35256779627661994b210d91b04b34fefb163",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b8b35256779627661994b210d91b04b34fefb163",
+     "html_url": "https://github.com/microsoft/vscode/commit/b8b35256779627661994b210d91b04b34fefb163"
+    },
+    {
+     "sha": "e63704717fe53ede9f030aa744a0ca350fb4b75e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e63704717fe53ede9f030aa744a0ca350fb4b75e",
+     "html_url": "https://github.com/microsoft/vscode/commit/e63704717fe53ede9f030aa744a0ca350fb4b75e"
+    }
+   ]
+  },
+  {
+   "sha": "52f031fafa72d975cc0e3fb5940f86f916429944",
+   "node_id": "C_kwDODAwv2NoAKDUyZjAzMWZhZmE3MmQ5NzVjYzBlM2ZiNTk0MGY4NmY5MTY0Mjk5NDQ",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-04-24T04:03:39Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-04-24T04:03:39Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "cee6461416a94663e6a8c151b550bc6da967251a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/cee6461416a94663e6a8c151b550bc6da967251a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/52f031fafa72d975cc0e3fb5940f86f916429944",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoCbgcCRC1aQ7uu5UhlAAANSEQAGBVLtpxU1QMwpIuzQIYg5+h\ntD1PkTFie3cun6VROhfWIieb0xbryJtfVl/XQ/aulQM15xB5729+79VSNS9UFeWr\n7OuuWsQJOiJkh/XBEKpLdvWIfNiUN4i2pCvGkAUU1SBbBusMue/Q7EVdOqShD1Av\nqIo7S1nBUwdL8S6JaLlbP5v5vj6tOwkZoKSNtdbj60O2FUPHHkRGamjkEHyGbnIG\n3YZkFYrDioSDxQH7TZEfDGvE0ho/xWpx/4FNFNK6U2NBlBzqIT6TCUqxCXw1kAwe\nULijPt3T7JBoyRu0hfMcvoI99aGNytv2YPRoHa7DOcdJnjMsiAnhcSjyWItAroGc\nplDVUEIgxUAZPpfPrc68C2HtKZXKggavafJ+xD6kpcRfCVWzrL1Rx7tMMkC79P/a\nZuTfTCa00ZLBgNg8gnOghBMza8Bb1w43wjlNX4WeBBjDvIN+AGfxf4ABvmBYyV2p\n/tqOzBqkKyBqMfke8KF+2E8fktYQmj5B+723Db0hcnbslyxjHzs+pbn/po0odlAv\nm0bdckUBRCezjSmFCrAxE9NeAodSWO5mLG46bZgGLdWMtVO4N+/d73cwidAer51h\nRjsfVyBe3JQPy+t3LRjc5ph7O0Vl6xsdtD2usETxa3+8droc7gDKvyG776aM5a0s\nXOzh9JKnxByEYSXfVHnI\n=8azZ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree cee6461416a94663e6a8c151b550bc6da967251a\nparent f1f1c6028df69cee5966df1919c1b3c463a39961\nparent 2d59f85dfc0b2c33925964640d830a206dcfa5b4\nauthor John Murray <johnm@georgejames.com> 1745467419 +0100\ncommitter GitHub <noreply@github.com> 1745467419 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-04-24T04:03:43Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/52f031fafa72d975cc0e3fb5940f86f916429944",
+   "html_url": "https://github.com/microsoft/vscode/commit/52f031fafa72d975cc0e3fb5940f86f916429944",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/52f031fafa72d975cc0e3fb5940f86f916429944/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f1f1c6028df69cee5966df1919c1b3c463a39961",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f1f1c6028df69cee5966df1919c1b3c463a39961",
+     "html_url": "https://github.com/microsoft/vscode/commit/f1f1c6028df69cee5966df1919c1b3c463a39961"
+    },
+    {
+     "sha": "2d59f85dfc0b2c33925964640d830a206dcfa5b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2d59f85dfc0b2c33925964640d830a206dcfa5b4",
+     "html_url": "https://github.com/microsoft/vscode/commit/2d59f85dfc0b2c33925964640d830a206dcfa5b4"
+    }
+   ]
+  },
+  {
+   "sha": "d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+   "node_id": "C_kwDODAwv2NoAKGQ1YzQ0MzVlYjRmMGQ5MTVlNmE1ZjE4NWQ2OWQ0MTg3Y2M0NWZhZDI",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-10-21T12:00:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-10-21T12:00:02Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "a95da60c88076c4e34663119c891abb18c69efe2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a95da60c88076c4e34663119c891abb18c69efe2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo93XDCRC1aQ7uu5UhlAAABRgQACri9JGUbb5wOpvInxvdVtyt\nnthHZBNSjp0TGX+ISF2jYMZzUA17mH/1VME9hde35d98XD3lncQnsR2zsAtiAfko\nCbZcdyMKLty9gj9LuwO/Qsiz5gZwHOajYabnurZsffkHrSfV2zJT6fRq9XetNjzl\nvE4QJDl3HNeQIA+/udcpeGf3m8DHQr2wBt0YeXHtWTyPp5DNczw0OLKcrML47dvF\nal5at9L5j1MLBLwoEWmUr84zyBQWqcT2yG8texS6qM/qMCxpimeck5VkjBKI2ViV\n2syDBR9n+cwDy8gTLorEyWnElrjiD7ZTHe4XTdgrAoW53Ft9Yv6Tnv1w0nC1Idau\nFf9mm0+reDJccUTLAC9nfAnWWqCMfKY1+nF7VJBn34BrTwzXi9H0PBf9Ta569KaL\njDNWb89LLbzmvf7V6I2Me/FrntoNxg/AziJNIoM8Ft4Fy4tR0iTrl/FVUsLwEL4L\nthc+vpnPB9eTAFl4/qPMO3BkY4EImfRY22+4RuM1MjYObLnAWFxMAyaYOwRhcZiN\n18nletx6NpF6NdzO3J6RbnhGK5GvszjvjwF4ttb1SC9XTbR0t0frjWKHoIWOfxt7\ndR7n5tQxKsYWPIDvbeoedmZHgA8C94qNKiwJg/RxV+6PAj571OX0u61z5Lvgv1+q\nxvQNiq0JPL59n0Q1XbI9\n=SIYN\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a95da60c88076c4e34663119c891abb18c69efe2\nparent 52f031fafa72d975cc0e3fb5940f86f916429944\nparent 2fed6d5f1da1f070fdeb6671ea3dfa7ef166662e\nauthor John Murray <johnm@georgejames.com> 1761048002 +0100\ncommitter GitHub <noreply@github.com> 1761048002 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-10-21T12:00:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+   "html_url": "https://github.com/microsoft/vscode/commit/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "52f031fafa72d975cc0e3fb5940f86f916429944",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/52f031fafa72d975cc0e3fb5940f86f916429944",
+     "html_url": "https://github.com/microsoft/vscode/commit/52f031fafa72d975cc0e3fb5940f86f916429944"
+    },
+    {
+     "sha": "2fed6d5f1da1f070fdeb6671ea3dfa7ef166662e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2fed6d5f1da1f070fdeb6671ea3dfa7ef166662e",
+     "html_url": "https://github.com/microsoft/vscode/commit/2fed6d5f1da1f070fdeb6671ea3dfa7ef166662e"
+    }
+   ]
+  },
+  {
+   "sha": "3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+   "node_id": "C_kwDODAwv2NoAKDNkNWVhOTFlY2YwNGNmOGY5YWMzNzNmMTY4Mzc5YmY1YThjMjEwNGQ",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-11-14T22:48:21Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-11-14T22:48:21Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "b0b4c3c24119f4b5965795c5046b6903737dffc3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b0b4c3c24119f4b5965795c5046b6903737dffc3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpF7G1CRC1aQ7uu5UhlAAAiTUQAIq6q4NxJswytZn/C6/xouKE\nwE/GmzwnKANaB9c6zAvB0Qz+nOAvJf0FynHUjuxtdCsoNo48MVGzCiap08IjaNUc\nJZ4sGZjg9knonhr/XB+XjkCXFY1+eNmjBPnIcTI7AgUQmtE/XDnC5Vk4LnayC26c\nGEN9Hqs7wBhaput8dH/WQANxMRxVp4gQnSdKLEItnEMiOwFNfTUm1lihGLV7YmvO\nWexkDAYatAd4CccJVaiJrqbiQoVhYA/X+cxHdN/NV3kuvyfThyBpbMX7SkbA13gn\n/uU4q6ew1wSXnatrD6IMElBBWd216DY6F7pNYyfHtGEuwZHbwOFxCkEhPoswbK0e\nu6VOS0sar5ivlmjx4ruW3kh34DHXNLPVNqc71lDZlm11OfT1WdxSTcngO/tpeg9R\n0zIF2xChbDzvOzfPEA5ameC5BM1mFXc1XfYRHC62OOz9xIf1uiDgAb9+4TyL9CpS\n2dIhxcnuyDfEu1AnJyzUpch6vHJqofHHnwYj6sIg1K+NJ96r9APoYICDgPLP0LGS\nKuMnoFd/2WzXQhYkLPda6QB/l4Nd8lf0VS5mFJn9TXjWGPgppEDQafy873Kx8X29\ngdGOY+jZarUJaZQ3V4jCL52EAlVutR8LU6jFGKsan2IHGQUR50U3vpIVjFlipqCV\ngDSSY7Hwu8UFUDfsGieO\n=S/rM\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b0b4c3c24119f4b5965795c5046b6903737dffc3\nparent d5c4435eb4f0d915e6a5f185d69d4187cc45fad2\nparent 3990ed172b80aaf37f1840a4911163089f7121c0\nauthor John Murray <johnm@georgejames.com> 1763160501 +0000\ncommitter GitHub <noreply@github.com> 1763160501 +0000\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-11-14T22:48:21Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+   "html_url": "https://github.com/microsoft/vscode/commit/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2",
+     "html_url": "https://github.com/microsoft/vscode/commit/d5c4435eb4f0d915e6a5f185d69d4187cc45fad2"
+    },
+    {
+     "sha": "3990ed172b80aaf37f1840a4911163089f7121c0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3990ed172b80aaf37f1840a4911163089f7121c0",
+     "html_url": "https://github.com/microsoft/vscode/commit/3990ed172b80aaf37f1840a4911163089f7121c0"
+    }
+   ]
+  },
+  {
+   "sha": "c875be854d89b0ba8a903e75580e3b60ac5a9600",
+   "node_id": "C_kwDODAwv2NoAKGM4NzViZTg1NGQ4OWIwYmE4YTkwM2U3NTU4MGUzYjYwYWM1YTk2MDA",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2025-12-22T13:35:39Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-12-22T13:35:39Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "800f8f7f8f54531f26c1e932bfc85c00e27d1925",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/800f8f7f8f54531f26c1e932bfc85c00e27d1925"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c875be854d89b0ba8a903e75580e3b60ac5a9600",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpSUkrCRC1aQ7uu5UhlAAADGgQAIuwLdyQVQhhotypcEmbNimb\n+9fkQ/vFIHUI6GaHyj9nyJgh/0EPKUeVCiErajbsFqff4M3k+XvdX3FxpvoLwPEn\nbOeIHknqJoB9u7IIhvVKZG1hg4tiXlj+BIlXkNVxRKgqPxi8TfCN4hky0XJszLZY\nooxtQ7B84HdltBH2BLAYBji7JxUXizrijDQUxv0i+X3QXQZeDHNKzmnmTqoGGd5n\nPXwg5kUj/GMzY/Lo3h24g7kOsL3UMiJacyNcIvel6AyYUV/vDQD7+SDKoXGOhxOi\nEtu33+0kqdf+e81JwzF+X1ziWjV4BfnvQFvQlogKPrDazursisX26Dylz3E6Hysp\nFaJLecv98PlGr0GopSsAGgU8S3nO6drCUjMqyCCrYu2EEMWKpAbtiAOIsDmCD8fW\nUMuSi8/giGIAy3W+h6evm0hzO+101Vh6t0cGch4cV0mLyCprX0sDrZGH4Pwhlxxf\njD3rRb6oJ9wFtaDYHRuqm6QYU5OjzVBcet3tCnn//vUwFNd712Nzpz1SeBdg/Pw3\nEMBrERpxcDRo1VlTafZjgAql1mrXcEXL+JHHLh6Ud1oPalyFJZevmW/AvpfNIu+R\nf1n0OAvpoFz5vK5TmKJieo5+q4RiwGJBv8v5F4fBYsPs03q2ND+ZxZOoyE1UFafa\nal/tz6UhTgkiqI+wzbU2\n=HRuQ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 800f8f7f8f54531f26c1e932bfc85c00e27d1925\nparent 3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d\nparent a4451f532b1053a1a4bf4b371ae7b7054db93d9b\nauthor John Murray <johnm@georgejames.com> 1766410539 +0000\ncommitter GitHub <noreply@github.com> 1766410539 +0000\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2025-12-22T13:35:40Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c875be854d89b0ba8a903e75580e3b60ac5a9600",
+   "html_url": "https://github.com/microsoft/vscode/commit/c875be854d89b0ba8a903e75580e3b60ac5a9600",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c875be854d89b0ba8a903e75580e3b60ac5a9600/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d",
+     "html_url": "https://github.com/microsoft/vscode/commit/3d5ea91ecf04cf8f9ac373f168379bf5a8c2104d"
+    },
+    {
+     "sha": "a4451f532b1053a1a4bf4b371ae7b7054db93d9b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a4451f532b1053a1a4bf4b371ae7b7054db93d9b",
+     "html_url": "https://github.com/microsoft/vscode/commit/a4451f532b1053a1a4bf4b371ae7b7054db93d9b"
+    }
+   ]
+  },
+  {
+   "sha": "f3303853f8771f84fd25bc07cd476022b77d66b1",
+   "node_id": "C_kwDODAwv2NoAKGYzMzAzODUzZjg3NzFmODRmZDI1YmMwN2NkNDc2MDIyYjc3ZDY2YjE",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2026-05-22T06:21:37Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-22T06:21:37Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "30ff58d76fd718167ce3b9b7ff00545411221646",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/30ff58d76fd718167ce3b9b7ff00545411221646"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f3303853f8771f84fd25bc07cd476022b77d66b1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqD/XxCRC1aQ7uu5UhlAAAE04QAAzR7alhIrS5hPpo4eB81G6U\nc9N5MV0CmPAKumvgjxHGTzbVv2gWnfuY2qLcGk/sV/jV4K8Zo/zulwkQ3fWCTy4m\n+za4+aiMT9kJ2cMfnBDmRDsBH5SwySKu98Z6MNuuRezVQtEdjGyTzIn7hnHMgMoD\nJRi4L60H40MkflyTMZJ3AIWSLaJuudVf9/dhAe9g/GB6zxaJSan1ziO++W4zDaLE\nJYZOKoCLw2ivhZxZf2nQO0Qaq0J8pXpd7qSQhLNEKn8M63Px+hD7BMxN61jO+G74\nPBGVO93/W2bSfc6ntqV+8Vsap2JGVNOIRnz7Drotfa4lySfpU4aBOg8YPcfDHYq+\n5K8f7Jq9OuorMIRPWrZhi1GEC68H5j5vVcI5HXn0GoNxzueCNPJEBxyHjWIwqchi\nRVMc10n5eiTbr4bhWZq1oHmxXCgm7eEFn4PgdEHC81L5HILGqw62v4DFSmx48Exj\nhMEykk/P1TI4M2KOf36gmEQCtOB0L1/F4w8iIWdpM0Zf4pwCaJoCGUkEfn44brPL\nJds7CQ3tf8w7t3j3dCYJZNEBYvmta89a7vQukistd996ND6VhiB+vzfwUNkvcCEz\nPWi/AGSDNzWRsFZ2g0mjla0Q0n2tGl1KXMpFrybGzlAK+UjamBOeF6OAMiz+SEJL\nPZPw1/rq6xsOB3wmXfld\n=hjoN\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 30ff58d76fd718167ce3b9b7ff00545411221646\nparent c875be854d89b0ba8a903e75580e3b60ac5a9600\nparent 5d8b31703319549b03f5c5bb42765cb1a3c013da\nauthor John Murray <johnm@georgejames.com> 1779430897 +0100\ncommitter GitHub <noreply@github.com> 1779430897 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2026-05-22T06:21:38Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f3303853f8771f84fd25bc07cd476022b77d66b1",
+   "html_url": "https://github.com/microsoft/vscode/commit/f3303853f8771f84fd25bc07cd476022b77d66b1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f3303853f8771f84fd25bc07cd476022b77d66b1/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c875be854d89b0ba8a903e75580e3b60ac5a9600",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c875be854d89b0ba8a903e75580e3b60ac5a9600",
+     "html_url": "https://github.com/microsoft/vscode/commit/c875be854d89b0ba8a903e75580e3b60ac5a9600"
+    },
+    {
+     "sha": "5d8b31703319549b03f5c5bb42765cb1a3c013da",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5d8b31703319549b03f5c5bb42765cb1a3c013da",
+     "html_url": "https://github.com/microsoft/vscode/commit/5d8b31703319549b03f5c5bb42765cb1a3c013da"
+    }
+   ]
+  },
+  {
+   "sha": "62c4db1def3560ee1c8387dd0741fe806760f440",
+   "node_id": "C_kwDODAwv2NoAKDYyYzRkYjFkZWYzNTYwZWUxYzgzODdkZDA3NDFmZTgwNjc2MGY0NDA",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2026-06-30T09:59:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-30T09:59:25Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "4cccb4bdb10d814d951c1180eac998f88d2b6435",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4cccb4bdb10d814d951c1180eac998f88d2b6435"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/62c4db1def3560ee1c8387dd0741fe806760f440",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqQ5N+CRC1aQ7uu5UhlAAAVdMQAD8JQBjeYxENlYb/XUrb5QPS\nV4quAH0KV+3gZFVEjnEtCG7o8CqI/fqgwNJSfPnk1t7JxTwlKgkxt2XQF1dcKq/0\ndQH52+HpKPfgY1G0vxdrS891AOHYbFohgpO33Uo5fIfDTdig2B98mhIgX8+kolbz\n0TnJAx5eOdDFHxiCy+Snb8pTfQcGoOE3qUCSD5eiMxKGb5WU5Na9WWCci1v4zyDe\nkfd3yfdn0DTXQBmrxPquLEkXa3xAhdrXd9i9bDvCbSW5CXRgGaXIG8K4DHqJCULS\ny5OPYxmIstxcKft1XczpStm5LGOSomSs51xUhaSM0leC+jtEh/SJhOzP+hpE7sF+\nDymjIWOc41KK0tAWvno1tNFarDoDP9EX8Cyaoo0BKupmMfTQc90gw4mjt7qJTdZy\nC3jnSOrp72dPQdl3La8As6SK0JFQv+J8QvDYZO3NP3Qv09BT9Fvs/ibEU7wB4wg3\nZTXJyvW+IjoH8nn2/+6IfUchqq8/l97IghyCS3Ytf0dj/LYTg+UsEyZ611HU5tqm\ng5NCDQPI1vLiErXU4z9zWtUvvpE+jthcPVZoFNUTzaQJL3++Rybl3iiR4QxGLBGP\nC5NTwwViI7/+Jj7K+H5AmDSegGHEij+84IN2v/VGeJDqDbvYYWr/B7u1bdugMOeM\nIDzvrc3CWHsh4eQ7EeTf\n=Lu4E\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4cccb4bdb10d814d951c1180eac998f88d2b6435\nparent f3303853f8771f84fd25bc07cd476022b77d66b1\nparent 5a56ea1ac132247587fe508903a4b6227895b65d\nauthor John Murray <johnm@georgejames.com> 1782813565 +0100\ncommitter GitHub <noreply@github.com> 1782813565 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2026-06-30T09:59:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/62c4db1def3560ee1c8387dd0741fe806760f440",
+   "html_url": "https://github.com/microsoft/vscode/commit/62c4db1def3560ee1c8387dd0741fe806760f440",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/62c4db1def3560ee1c8387dd0741fe806760f440/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f3303853f8771f84fd25bc07cd476022b77d66b1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f3303853f8771f84fd25bc07cd476022b77d66b1",
+     "html_url": "https://github.com/microsoft/vscode/commit/f3303853f8771f84fd25bc07cd476022b77d66b1"
+    },
+    {
+     "sha": "5a56ea1ac132247587fe508903a4b6227895b65d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5a56ea1ac132247587fe508903a4b6227895b65d",
+     "html_url": "https://github.com/microsoft/vscode/commit/5a56ea1ac132247587fe508903a4b6227895b65d"
+    }
+   ]
+  },
+  {
+   "sha": "2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+   "node_id": "C_kwDODAwv2NoAKDJlZWI4MTZmZTFkN2RkOWVjOGM0YzdmYjQ3OWExZjRiOWEzYzVjYjI",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2026-07-31T02:28:35Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-31T02:28:35Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "b302006a54ecf225b83d91ad16847d2fcc6f92b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b302006a54ecf225b83d91ad16847d2fcc6f92b4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqbAhTCRC1aQ7uu5UhlAAAxJYQAJGjPfZGpuBamUNsKyzQZYdZ\nOJLyLY3eH+wAFEk6NaCXvgoUOcfoWcmEvBDYYNCmRijhDKEImtCTZ0u7/EgiiJUJ\nAqXDf+YIJwE5qCE5LXnA6/4p2w0TsfsYWPG/jaCuNx12p+mBbfxkuzmGpGxldqfQ\nJcRdgDz8tua+fwWcbfwzxqpI1u7q/twzByvTgQgt3UlepDu68sssvw6Km0ISg4C0\n9CQN78AXfMDEiJhm9hz6njQiYvn3TINu88v1wc93nDOmrxy/9c/kDOhtiqkTn3Q8\nBcpudZsdvyvL06xRRrXJAmjXlorJGra5FsDq6PNJmEjj8EvyD0alBCiucxmMsvGI\nIeA4657XVap8pwKbWi7/nrtHTUNMK0D5Hn/v7ffk1korA1rhtY40ZspndlxEAybU\np/SWHy9Iz/tzORCJATpd3Ds2JZVPMwiaLGAZqY6FNAzRCmq4w8Gd4r02/SjPNIVt\n8/wUOZyftTVlkg6UsMajAjPA8aqizMmrA7Ldl20kjd5gpp6povQhaWNae0FrOOq3\nmzuQ7oDiXznGzFYSC9GddvGVlQS+3W9L5F9AeIiOgMbQPMJOTU+MQKp8K2SyrST5\nw+FWUo07Xti3odWaiHNJBbwYQyt2fj9Kjxp45pWybEbF4BlDpbdHH/kyYqfMDovW\nQpmKRus0h2ru341mxdMl\n=K7bz\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b302006a54ecf225b83d91ad16847d2fcc6f92b4\nparent 62c4db1def3560ee1c8387dd0741fe806760f440\nparent b9b1422f1276a1d6cd6309edc866f8086103ac2d\nauthor John Murray <johnm@georgejames.com> 1785464915 +0100\ncommitter GitHub <noreply@github.com> 1785464915 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2026-07-31T02:28:36Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+   "html_url": "https://github.com/microsoft/vscode/commit/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "62c4db1def3560ee1c8387dd0741fe806760f440",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/62c4db1def3560ee1c8387dd0741fe806760f440",
+     "html_url": "https://github.com/microsoft/vscode/commit/62c4db1def3560ee1c8387dd0741fe806760f440"
+    },
+    {
+     "sha": "b9b1422f1276a1d6cd6309edc866f8086103ac2d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b9b1422f1276a1d6cd6309edc866f8086103ac2d",
+     "html_url": "https://github.com/microsoft/vscode/commit/b9b1422f1276a1d6cd6309edc866f8086103ac2d"
+    }
+   ]
+  },
+  {
+   "sha": "a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+   "node_id": "C_kwDODAwv2NoAKGE0NjlkOTRkYjVhMTA3ZGM4NjU3YWZkODkxZTllYTBkYTk1YmYyZTU",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2026-09-10T05:15:22Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-10T05:15:22Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "145cafd342df023fc829f89e6e0cd9b90ca8fcd3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/145cafd342df023fc829f89e6e0cd9b90ca8fcd3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqojzqCRC1aQ7uu5UhlAAALY4QAAL8FXWF+8wmFiEevifG+diY\ncyOEWoGToHO/hj7GkHMddlcMWjCXaqsXJYksP1P3NoNhp4SALhua3RaZMwmFFadZ\nJczPgvYYFRYF7+0LecmqC+5ZMBYCKtqo0ovndTXvSspDp2o3TpmHn77ABD9Ewh12\nOhS+oBRNs1A1ALrw1j0g7hnkxQGaWilP+wf9/TJFVoN9F4+QfTX3jihhEd4EaJVg\nhm3dQRVyLFIyouXlpy2mJ/NuTdrEFRu0zI+oOlNQUXOsEsk1Xg1zscxgGA23qt4j\nwCow8KufMSbSarb4VENmHZx82FA7XvIry5rGDXCdpYK1nNFM34+RyIax6iSPzxt2\nGQ96yXkh0pxApmqZN9ib6uvJbCqbDrzQoDa8kZ0fIW4UH3L+YWIFW9yxmMDoBnPY\nnhwxByGmKPoCoVGRrjkhHMzPJrZoFuzBhhoZyO/yFnDKJrKwNJ5dCUf7UujhjQ/9\necaHTQ2rv+WvjZ4mdzd5chnYP9IRQ7FAKTDG1mEH+LSH993CgLf+NqpmOBPxa+XH\nfj8AUryeJLKv4D5CLi4UdsFR161RT/l439OSYL9Tz5JHcEhGvjl19jADnLLtuJMs\nuLBz1b/xDBmD0ta0NF4vaL2sq+FzuLvTHIh5PN83HCUEDcOuMDHEd3B2kuL3mxqy\nebOqPIQNFV1j+GMXf4VA\n=NAxx\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 145cafd342df023fc829f89e6e0cd9b90ca8fcd3\nparent 2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2\nparent a0a429cd4ac624c0add568597f00b052c225ae56\nauthor John Murray <johnm@georgejames.com> 1789017322 +0100\ncommitter GitHub <noreply@github.com> 1789017322 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2026-09-10T05:15:23Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+   "html_url": "https://github.com/microsoft/vscode/commit/a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a469d94db5a107dc8657afd891e9ea0da95bf2e5/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2",
+     "html_url": "https://github.com/microsoft/vscode/commit/2eeb816fe1d7dd9ec8c4c7fb479a1f4b9a3c5cb2"
+    },
+    {
+     "sha": "a0a429cd4ac624c0add568597f00b052c225ae56",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a0a429cd4ac624c0add568597f00b052c225ae56",
+     "html_url": "https://github.com/microsoft/vscode/commit/a0a429cd4ac624c0add568597f00b052c225ae56"
+    }
+   ]
+  },
+  {
+   "sha": "1f6257b7e8c71448c895bd8acdef805ea06afca6",
+   "node_id": "C_kwDODAwv2NoAKDFmNjI1N2I3ZThjNzE0NDhjODk1YmQ4YWNkZWY4MDVlYTA2YWZjYTY",
+   "commit": {
+    "author": {
+     "name": "John Murray",
+     "email": "johnm@georgejames.com",
+     "date": "2026-10-10T07:54:39Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-10T07:54:39Z"
+    },
+    "message": "Merge branch 'main' into fix-126523",
+    "tree": {
+     "sha": "b0be5990605905095651119b72ae4870a617c32f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b0be5990605905095651119b72ae4870a617c32f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1f6257b7e8c71448c895bd8acdef805ea06afca6",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqye8/CRC1aQ7uu5UhlAAAli4QAHKtjRwf3Ssb+agocFley3zy\ni79uQDMbWtsILDK0HNK+QZAYDVe7Q/MeTqc9zKZMujWCB5/tsBbhJz+Wnr9pfngO\nWOUrFVQaWlVo3sv/4QtU/rwLCH1dfyc0juqPiPN/1dJY4alFssLXzvaEFMm0QLeb\n2diGadOFpXDjiL17O9aGE3TGp5FExyhjcmr7VCFV6H6Wjs0Zfp2ODDb+WqTpfCpZ\n6zM71YESGp7V6mQ6gnBRYHdoh1nt5FdktsUjcQMgxCFgeqTUesMeLuI03EvkOau+\nkCiC/LwBnTsRBJEMqgHbRnTpihgs93jx/Ciux5PDau6XkVTm9QaWWSGZlOycOIHL\nxSNqAip3NaWWZ93+cPFCTBGmA/eR7g3qFXGy+qgEhUHyGcDNbQGTjsaQyoX17Mjq\n2TkAfvXVoW/53mUXxOldq3OCd3/FOQX96t4w6qVlXD/lNIpOU3es64ffqTVGGMHO\n1/erF/8Juyp8/prWsvb4KA8cAGhXKwGMgGvbpjpaFVw9C8yFLwfsJyHOO0zXl5if\nj6Eadg7L/LPdUxHI3YxigNy+USgXONPg3TqMR5uWrqGgC/JLXx/cGwASHRcKAM9o\nmuiF2VPFuONf1YWfbJgQGS9Bo+ode59AaUEaFpwW3K2zzCYmshjsHw9ptT68Bfrb\n/kuzT7KwGDQAeU4lVP92\n=BVX2\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b0be5990605905095651119b72ae4870a617c32f\nparent a469d94db5a107dc8657afd891e9ea0da95bf2e5\nparent 959031245ebb1fe077e0d512e1397c0ae82006e4\nauthor John Murray <johnm@georgejames.com> 1791618879 +0100\ncommitter GitHub <noreply@github.com> 1791618879 +0100\n\nMerge branch 'main' into fix-126523",
+     "verified_at": "2026-10-10T07:54:40Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1f6257b7e8c71448c895bd8acdef805ea06afca6",
+   "html_url": "https://github.com/microsoft/vscode/commit/1f6257b7e8c71448c895bd8acdef805ea06afca6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1f6257b7e8c71448c895bd8acdef805ea06afca6/comments",
+   "author": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a469d94db5a107dc8657afd891e9ea0da95bf2e5",
+     "html_url": "https://github.com/microsoft/vscode/commit/a469d94db5a107dc8657afd891e9ea0da95bf2e5"
+    },
+    {
+     "sha": "959031245ebb1fe077e0d512e1397c0ae82006e4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/959031245ebb1fe077e0d512e1397c0ae82006e4",
+     "html_url": "https://github.com/microsoft/vscode/commit/959031245ebb1fe077e0d512e1397c0ae82006e4"
+    }
+   ]
+  }
+ ]
+}

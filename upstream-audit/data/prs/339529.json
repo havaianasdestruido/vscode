@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:55:37.481Z",
+ "pr": {
+  "number": 339529,
+  "title": "test(copilot): add test for rejected promise handling in reviewCommand",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-04T00:30:19Z",
+  "updated_at": "2026-10-04T03:04:35Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 11,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-52",
+   "sha": "6dd211f23b87f4ec833631235b8b0f09adc60283",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-52"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "5983cda0c8126417e5a9cdf33d0be2f4000d3f04"
+  },
+  "body": "Resolves #339528\r\n\r\n- Add test coverage for rejected promise-based suggestions in reviewCommand.spec.ts.\r\n- Ensure robust error handling for asynchronous evaluation failures.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "77c4f978e9e7e0f022a8dbe8e84b7e6770e28e88",
+   "filename": "extensions/copilot/src/extension/review/node/test/reviewCommand.spec.ts",
+   "status": "modified",
+   "additions": 11,
+   "deletions": 0,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6dd211f23b87f4ec833631235b8b0f09adc60283/extensions%2Fcopilot%2Fsrc%2Fextension%2Freview%2Fnode%2Ftest%2FreviewCommand.spec.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6dd211f23b87f4ec833631235b8b0f09adc60283/extensions%2Fcopilot%2Fsrc%2Fextension%2Freview%2Fnode%2Ftest%2FreviewCommand.spec.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fextension%2Freview%2Fnode%2Ftest%2FreviewCommand.spec.ts?ref=6dd211f23b87f4ec833631235b8b0f09adc60283",
+   "patch": "@@ -159,6 +159,17 @@ suite('reviewCommand', () => {\n \t\t\tassert.strictEqual(s.edits[0].newText, 'new\\n');\n \t\t});\n \n+\t\ttest('handles rejected promise-based suggestion gracefully', async () => {\n+\t\t\tconst comment = createTestComment({ suggestion: Promise.reject(new Error('Failed to resolve suggestion')) });\n+\n+\t\t\tawait assert.rejects(\n+\t\t\t\tasync () => {\n+\t\t\t\t\tawait toCodeReviewResult([comment]);\n+\t\t\t\t},\n+\t\t\t\t/Failed to resolve suggestion/\n+\t\t\t);\n+\t\t});\n+\n \t\ttest('maps multiple comments', async () => {\n \t\t\tconst comments = [\n \t\t\t\tcreateTestComment({ body: 'first', kind: 'bug' }),"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5403604347,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQhR1ew",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe focused test correctly validates the existing asynchronous failure path.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nAdds regression coverage for rejected asynchronous suggestions in code review result conversion.\n\n**Changes:**\n- Verifies rejection errors propagate with the expected message.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `extensions/​copilot/​src/​extension/​review/​node/​test/​reviewCommand.spec.ts` | Tests rejected promise-based suggestions. |\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339529#pullrequestreview-5403604347",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339529",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339529#pullrequestreview-5403604347"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339529"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-04T00:33:33Z",
+   "commit_id": "6dd211f23b87f4ec833631235b8b0f09adc60283"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "6dd211f23b87f4ec833631235b8b0f09adc60283",
+   "node_id": "C_kwDOTk4kkdoAKDZkZDIxMWYyM2I4N2Y0ZWM4MzM2MzEyMzViOGIwZjA5YWRjNjAyODM",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-04T00:29:32Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-04T00:29:32Z"
+    },
+    "message": "test(copilot): add test for rejected promise handling in reviewCommand\n\n- Add test coverage for rejected promise-based suggestions in reviewCommand.spec.ts.\r\n- Ensure robust error handling for asynchronous evaluation failures.",
+    "tree": {
+     "sha": "42cee136746c77f1122757a142485010f52b380d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/42cee136746c77f1122757a142485010f52b380d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6dd211f23b87f4ec833631235b8b0f09adc60283",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqwZ3tCRC1aQ7uu5UhlAAA3H4QAF9HRyRtATyVkB/+gNcXju3q\n+urtCCjkpdzD929Em6HwD410gWXoYkSZupt2DXtX1M6bQniQXgi9/B+JueO3f562\nWjgjy/9C4Of3SydWDJtXLJZEZWAbkF7f434xnN37Nk700xnWWkpL100PKI9V8uDJ\nwQ1wEjMMsnJ0CZmwj5Llkg9yXSjhLJrRtVJknvwY++JZmCZwUTSjqm6jiyge1i1V\nUJdB0/HoAauuTjG8bfCl717Xbdu7I+lV300ahOYew0z6quKUzT6tVxk9+WwMw4FJ\n9ha3LmvdXiz06xdxWHB0SRqdSF/L6gvRf8QDcN+ywKQnWXRTAfQH+5WCV5HQdR81\n+VL+Z2oEIRiJm+eVs8BcYnhO2Gmx+7Y7pus+HPgNnCxzQ/iqefU5rbsA5/7X8SjK\ntxf7DGsQ5fT1dti3DYKqAwADDV0d3W8F1G87QwPVN/gn7aPlnkCHSvDqjEbmtbdy\nU2f4GEhfQyMQdTdA2WOtzVvc9I0R9oTdLEzXRdGSFMBNvunVu6OrXqCWPjybybep\nz047ajZ/7TLGaMdAa4s83C6wYWDf8AIHUyNG7lqR9He0q8kz3j/IAcDD1MA0RTUm\nMIbTUvqX6JKfZClOQqMj4MqPGysWL/9hlao6HzTF48bcDcrPRIYxovk7v8mA+euG\nnJNw4oAAS8mbP6Jnu6ul\n=VJ0K\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 42cee136746c77f1122757a142485010f52b380d\nparent 5983cda0c8126417e5a9cdf33d0be2f4000d3f04\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1791073772 +0300\ncommitter GitHub <noreply@github.com> 1791073772 +0300\n\ntest(copilot): add test for rejected promise handling in reviewCommand\n\n- Add test coverage for rejected promise-based suggestions in reviewCommand.spec.ts.\r\n- Ensure robust error handling for asynchronous evaluation failures.",
+     "verified_at": "2026-10-04T00:29:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6dd211f23b87f4ec833631235b8b0f09adc60283",
+   "html_url": "https://github.com/microsoft/vscode/commit/6dd211f23b87f4ec833631235b8b0f09adc60283",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6dd211f23b87f4ec833631235b8b0f09adc60283/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5983cda0c8126417e5a9cdf33d0be2f4000d3f04",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5983cda0c8126417e5a9cdf33d0be2f4000d3f04",
+     "html_url": "https://github.com/microsoft/vscode/commit/5983cda0c8126417e5a9cdf33d0be2f4000d3f04"
+    }
+   ]
+  }
+ ]
+}

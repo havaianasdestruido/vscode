@@ -1,0 +1,556 @@
+{
+ "fetchedAt": "2026-11-01T00:55:21.147Z",
+ "pr": {
+  "number": 337887,
+  "title": "Claude agent host: keep WebSearch available on the native transport",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-25T04:25:33Z",
+  "updated_at": "2026-10-08T15:14:10Z",
+  "user": "romanrokon",
+  "author_association": "NONE",
+  "additions": 14,
+  "deletions": 3,
+  "changed_files": 3,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "claude-native-websearch",
+   "sha": "82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "repo": "romanrokon/vscode",
+   "label": "romanrokon:claude-native-websearch"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "6b9f4b2daf34707878aaa19cd2d5bb7abfd81d56"
+  },
+  "body": "Fixes #337886\n\n## What\n\n`buildOptions` passed `disallowedTools: ['WebSearch']` for every Claude session. The reason, per `roadmap.md`, is that CAPI doesn't support WebSearch, which only applies when the SDK is routed through the Copilot proxy. Native (Anthropic-auth) sessions talk to Anthropic directly, where WebSearch works, so they were losing web search for no reason.\n\nThe block now applies only when `transport.kind === 'proxy'`, using the `isProxy` flag `buildOptions` already computes for the other transport-specific options. The two roadmap lines describing the setting are updated to match.\n\n## How to test\n\n- Unit tests added in `claudeSdkOptions.test.ts`: the proxy transport still sets `disallowedTools: ['WebSearch']`; the native transport leaves it unset.\n- Manually: in a Claude session authenticated with `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, ask for a web search. Before the change the model has no WebSearch tool; after it, the search runs and returns results. Copilot-routed sessions are unchanged.\n\nI tested the native behaviour by applying the same change to the built 1.139.0 `agentHostMain.js`; I haven't run the unit tests locally.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_015wqjvswfjKqx3aDMsuMiBG\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "7af2f6bfda43a6a28d2f2571aab8a03bb3dec382",
+   "filename": "src/vs/platform/agentHost/node/claude/claudeSdkOptions.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 1,
+   "changes": 3,
+   "blob_url": "https://github.com/microsoft/vscode/blob/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2FclaudeSdkOptions.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2FclaudeSdkOptions.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2FclaudeSdkOptions.ts?ref=82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "patch": "@@ -180,7 +180,8 @@ export async function buildOptions(\n \t\tallowDangerouslySkipPermissions: true,\n \t\tcanUseTool: input.canUseTool,\n \t\tonElicitation: input.onElicitation,\n-\t\tdisallowedTools: ['WebSearch'],\n+\t\t// The Copilot proxy (CAPI) doesn't support WebSearch; native Anthropic sessions do.\n+\t\t...(isProxy ? { disallowedTools: ['WebSearch'] } : {}),\n \t\tincludePartialMessages: true,\n \t\tforwardSubagentText: true,\n \t\tenableFileCheckpointing: true,"
+  },
+  {
+   "sha": "9b0940b0db1f0b69cdeb950ba870ccce3c036080",
+   "filename": "src/vs/platform/agentHost/node/claude/roadmap.md",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2Froadmap.md",
+   "raw_url": "https://github.com/microsoft/vscode/raw/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2Froadmap.md",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FagentHost%2Fnode%2Fclaude%2Froadmap.md?ref=82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "patch": "@@ -317,7 +317,7 @@ see why it's required.\n | `settings.env.ANTHROPIC_BASE_URL` | `http://localhost:${proxy.port}` | Routes all CAPI traffic through our proxy. **Note:** under `settings.env`, NOT top-level `Options.env`. | `claudeCodeAgent.ts` line 454 |\n | `settings.env.ANTHROPIC_AUTH_TOKEN` | `${proxy.nonce}.${sessionId}` | Per-session bearer; proxy splits at `.` to recover session id. | `claudeCodeAgent.ts` line 455 |\n | `settings.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | `'1'` | Disables Anthropic-direct telemetry/feature flags. Required for our leak-tightness guarantees. | `claudeCodeAgent.ts` line 456 |\n-| `disallowedTools` | `['WebSearch']` | CAPI doesn't support WebSearch; the SDK will error if invoked. | `claudeCodeAgent.ts` line 440 |\n+| `disallowedTools` | `['WebSearch']` (proxy transport only) | CAPI doesn't support WebSearch; the SDK will error if invoked. Native sessions keep WebSearch. | `claudeCodeAgent.ts` line 440 |\n | `stderr` | wire to `ILogService.error` | Without it, SDK errors are invisible. | `claudeCodeAgent.ts` line 487 |\n \n #### Deferred to later phases\n@@ -556,7 +556,7 @@ SDK options pinned in this phase (matching the reference):\n   Tells the SDK which Node binary to use when forking its subprocess.\n   Without it the SDK must locate Node on its own, which is undefined inside\n   the utility process.\n-- **`disallowedTools: ['WebSearch']`** — **required** (`claudeCodeAgent.ts:438–440`).\n+- **`disallowedTools: ['WebSearch']`** — **required on the proxy transport** (`claudeCodeAgent.ts:438–440`).\n   CAPI does not yet support the WebSearch tool. Without this the SDK may\n   invoke it and the upstream CAPI call will fail mid-session.\n - **`abortController: this._abortController`** — wire the abort controller"
+  },
+  {
+   "sha": "121705ec3ef73842e7815a2d0aeb752efd74140e",
+   "filename": "src/vs/platform/agentHost/test/node/claudeSdkOptions.test.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Ftest%2Fnode%2FclaudeSdkOptions.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/82f1ebc0b690f6cab54d23aab931316ed7693399/src%2Fvs%2Fplatform%2FagentHost%2Ftest%2Fnode%2FclaudeSdkOptions.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FagentHost%2Ftest%2Fnode%2FclaudeSdkOptions.test.ts?ref=82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "patch": "@@ -372,6 +372,16 @@ suite('claudeSdkOptions / buildOptions plugins projection', () => {\n \t\t\tnonessential: '1',\n \t\t});\n \t});\n+\n+\ttest('proxy transport disallows WebSearch (CAPI does not support it)', async () => {\n+\t\tconst opts = await buildOptions(input(undefined), proxyTransport, () => { });\n+\t\tassert.deepStrictEqual(opts.disallowedTools, ['WebSearch']);\n+\t});\n+\n+\ttest('native transport leaves WebSearch available', async () => {\n+\t\tconst opts = await buildOptions(input(undefined), { kind: 'native' }, () => { });\n+\t\tassert.strictEqual(opts.disallowedTools, undefined);\n+\t});\n });\n \n suite('claudeSdkOptions / buildOptions resumeSessionAt projection', () => {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5313378007,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPLO21w",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe behavior matches the transport capabilities and has focused regression coverage; the remaining comment-style issue is non-blocking.\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Condense method-body comment to one line](#discussion_r4101090106) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nScopes Claude WebSearch blocking to Copilot-proxy sessions while preserving it for native Anthropic sessions.\n\n**Changes:**\n- Applies `disallowedTools` only to proxy transport.\n- Adds proxy/native regression tests.\n- Updates roadmap documentation.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `claudeSdkOptions.ts` | Makes WebSearch blocking transport-specific. |\r\n| `claudeSdkOptions.test.ts` | Tests proxy and native behavior. |\r\n| `roadmap.md` | Documents the transport distinction. |\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#pullrequestreview-5313378007",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/337887",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/337887#pullrequestreview-5313378007"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/337887"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-25T04:28:48Z",
+   "commit_id": "4d50e978bbf96f0ed35d33bba702ac651ef92070"
+  },
+  {
+   "id": 5374990932,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQF_aVA",
+   "user": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?u=1573e64f374207e5eb5489bc0036f1de5006b82e&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#pullrequestreview-5374990932",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/337887",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/337887#pullrequestreview-5374990932"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/337887"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-01T04:29:33Z",
+   "commit_id": "82f1ebc0b690f6cab54d23aab931316ed7693399"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5826712425",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#issuecomment-5826712425",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337887",
+   "id": 5826712425,
+   "node_id": "IC_kwDOAn8RLM8AAAABW0yTaQ",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T04:26:31Z",
+   "updated_at": "2026-10-01T04:30:16Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @TylerLeonhardt\n\nMatched files:\n- `src/vs/platform/agentHost/node/claude/claudeSdkOptions.ts`\n- `src/vs/platform/agentHost/node/claude/roadmap.md`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5826712425/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5827198502",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#issuecomment-5827198502",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337887",
+   "id": 5827198502,
+   "node_id": "IC_kwDOAn8RLM8AAAABW1P-Jg",
+   "user": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T05:15:51Z",
+   "updated_at": "2026-09-25T05:15:51Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5827198502/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5828956727",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#issuecomment-5828956727",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337887",
+   "id": 5828956727,
+   "node_id": "IC_kwDOAn8RLM8AAAABW27SNw",
+   "user": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T07:56:08Z",
+   "updated_at": "2026-09-25T07:56:08Z",
+   "body": "@TylerLeonhardt since you wrote the native transport (#323037): the WebSearch block's documented reason in `roadmap.md` is that CAPI doesn't support the tool, so this limits `disallowedTools: ['WebSearch']` to the proxy transport and leaves native sessions able to search. Happy to adjust if there's another reason to keep it on for native.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5828956727/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6062988004",
+   "html_url": "https://github.com/microsoft/vscode/pull/337887#issuecomment-6062988004",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337887",
+   "id": 6062988004,
+   "node_id": "IC_kwDOAn8RLM8AAAABaWHa5A",
+   "user": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-08T15:14:09Z",
+   "updated_at": "2026-10-08T15:14:09Z",
+   "body": "@TylerLeonhardt friendly ping. This is a one-line change in `claudeSdkOptions.ts` that keeps `WebSearch` available on the native (BYO-Anthropic) transport. It fixes #337886. Copilot's review comment is addressed, and the branch still matches `main` in that spot.\n\nI also checked it at runtime: with SDK 0.3.281 on native subscription auth and `WebSearch` not disallowed, the tool returns results and the turn ends with `success`. The proxy transport keeps `disallowedTools: ['WebSearch']`, and a unit test covers each transport. Happy to adjust if you'd prefer a different approach.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6062988004/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "4d50e978bbf96f0ed35d33bba702ac651ef92070",
+   "node_id": "C_kwDOUqgbRdoAKDRkNTBlOTc4YmJmOTZmMGVkMzVkMzNiYmE3MDJhYzY1MWVmOTIwNzA",
+   "commit": {
+    "author": {
+     "name": "Roman Rokon",
+     "email": "roman.rokn@gmail.com",
+     "date": "2026-09-25T04:25:11Z"
+    },
+    "committer": {
+     "name": "Roman Rokon",
+     "email": "roman.rokn@gmail.com",
+     "date": "2026-09-25T04:25:11Z"
+    },
+    "message": "Claude agent host: keep WebSearch available on the native transport\n\nThe WebSearch block exists because CAPI does not support the tool, which\nonly applies when the SDK is routed through the Copilot proxy. Native\n(Anthropic-auth) sessions talk to Anthropic directly, where WebSearch\nworks, so only disallow it for the proxy transport.\n\nFixes #337886",
+    "tree": {
+     "sha": "4afc3199b0399d3f93cee74d0c6ba15d90ad1ff0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4afc3199b0399d3f93cee74d0c6ba15d90ad1ff0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4d50e978bbf96f0ed35d33bba702ac651ef92070",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4d50e978bbf96f0ed35d33bba702ac651ef92070",
+   "html_url": "https://github.com/microsoft/vscode/commit/4d50e978bbf96f0ed35d33bba702ac651ef92070",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4d50e978bbf96f0ed35d33bba702ac651ef92070/comments",
+   "author": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6b9f4b2daf34707878aaa19cd2d5bb7abfd81d56",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6b9f4b2daf34707878aaa19cd2d5bb7abfd81d56",
+     "html_url": "https://github.com/microsoft/vscode/commit/6b9f4b2daf34707878aaa19cd2d5bb7abfd81d56"
+    }
+   ]
+  },
+  {
+   "sha": "82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "node_id": "C_kwDOUqgbRdoAKDgyZjFlYmMwYjY5MGY2Y2FiNTRkMjNhYWI5MzEzMTZlZDc2OTMzOTk",
+   "commit": {
+    "author": {
+     "name": "Roman Rokon",
+     "email": "roman.rokn@gmail.com",
+     "date": "2026-10-01T04:29:28Z"
+    },
+    "committer": {
+     "name": "Roman Rokon",
+     "email": "roman.rokn@gmail.com",
+     "date": "2026-10-01T04:29:28Z"
+    },
+    "message": "Condense WebSearch comment to one line",
+    "tree": {
+     "sha": "371c43d5dfb4a780a9a0aeb3cd4db0a1238276fc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/371c43d5dfb4a780a9a0aeb3cd4db0a1238276fc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/82f1ebc0b690f6cab54d23aab931316ed7693399",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "html_url": "https://github.com/microsoft/vscode/commit/82f1ebc0b690f6cab54d23aab931316ed7693399",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/82f1ebc0b690f6cab54d23aab931316ed7693399/comments",
+   "author": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "romanrokon",
+    "id": 36927037,
+    "node_id": "MDQ6VXNlcjM2OTI3MDM3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36927037?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/romanrokon",
+    "html_url": "https://github.com/romanrokon",
+    "followers_url": "https://api.github.com/users/romanrokon/followers",
+    "following_url": "https://api.github.com/users/romanrokon/following{/other_user}",
+    "gists_url": "https://api.github.com/users/romanrokon/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/romanrokon/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/romanrokon/subscriptions",
+    "organizations_url": "https://api.github.com/users/romanrokon/orgs",
+    "repos_url": "https://api.github.com/users/romanrokon/repos",
+    "events_url": "https://api.github.com/users/romanrokon/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/romanrokon/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4d50e978bbf96f0ed35d33bba702ac651ef92070",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4d50e978bbf96f0ed35d33bba702ac651ef92070",
+     "html_url": "https://github.com/microsoft/vscode/commit/4d50e978bbf96f0ed35d33bba702ac651ef92070"
+    }
+   ]
+  }
+ ]
+}

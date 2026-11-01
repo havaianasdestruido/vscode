@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:55:00.774Z",
+ "pr": {
+  "number": 334642,
+  "title": "Refactor Playwright chat input helper script to use a centralized con…",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-04T22:17:21Z",
+  "updated_at": "2026-09-04T22:25:00Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 12,
+  "deletions": 4,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-33",
+   "sha": "4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-33"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "9db4cf85bcf637555c0933f07d6acd2f876f4d49"
+  },
+  "body": "Closes #334640\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "1c1bf0be18b77450436971c983c24997049ac846",
+   "filename": ".agents/skills/launch/playwrightScripts/focus-chat-input.ts",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 4,
+   "changes": 16,
+   "blob_url": "https://github.com/microsoft/vscode/blob/4b3f08d6a445c12b964c9452372c5c21f36c5aed/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/4b3f08d6a445c12b964c9452372c5c21f36c5aed/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts?ref=4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+   "patch": "@@ -5,6 +5,13 @@\n \n /* eslint-disable local/code-no-unused-expressions, @stylistic/semi -- playwright-cli requires a bare, unterminated function expression. */\n async page => {\n+\tconst CONFIG = {\n+\t\tpollIntervalMs: 100,\n+\t\tmaxVisibleAttempts: 10,\n+\t\tpaletteTimeoutMs: 1000,\n+\t\tmaxPaletteWaitAttempts: 50\n+\t};\n+\n \tconst selectors = [\n \t\t'.session-view.is-active .new-chat-input-area :is(.native-edit-context, textarea.inputarea)',\n \t\t'.session-view.is-active .sessions-chat-editor :is(.native-edit-context, textarea.inputarea)',\n@@ -42,13 +49,14 @@ async page => {\n \t\t}\n \t\treturn true;\n \t};\n+\n \tconst waitForVisibleChatInput = async attempts => {\n \t\tfor (let attempt = 0; attempt < attempts; attempt++) {\n \t\t\tconst match = await findVisibleChatInput();\n \t\t\tif (match) {\n \t\t\t\treturn match;\n \t\t\t}\n-\t\t\tawait page.waitForTimeout(100);\n+\t\t\tawait page.waitForTimeout(CONFIG.pollIntervalMs);\n \t\t}\n \t\treturn undefined;\n \t};\n@@ -62,7 +70,7 @@ async page => {\n \tconst platform = await page.evaluate(() => navigator.userAgentData?.platform ?? navigator.platform);\n \tconst shortcut = /^mac/i.test(platform) ? 'Control+Meta+i' : 'Control+Alt+i';\n \tawait page.keyboard.press(shortcut);\n-\tmatch = await waitForVisibleChatInput(10);\n+\tmatch = await waitForVisibleChatInput(CONFIG.maxVisibleAttempts);\n \n \tlet commandPaletteFallbackInvoked = false;\n \tif (!match) {\n@@ -72,13 +80,13 @@ async page => {\n \t\tawait page.keyboard.press('F1');\n \t\tconst commandPaletteInput = page.locator('.quick-input-widget .quick-input-box input');\n \t\ttry {\n-\t\t\tawait commandPaletteInput.waitFor({ state: 'visible', timeout: 1000 });\n+\t\t\tawait commandPaletteInput.waitFor({ state: 'visible', timeout: CONFIG.paletteTimeoutMs });\n \t\t} catch {\n \t\t\tthrow new Error('F1 did not open the Command Palette; check the cloned profile keybindings');\n \t\t}\n \t\tawait commandPaletteInput.fill(`>${commandId}`);\n \t\tawait page.keyboard.press('Enter');\n-\t\tmatch = await waitForVisibleChatInput(50);\n+\t\tmatch = await waitForVisibleChatInput(CONFIG.maxPaletteWaitAttempts);\n \t}\n \n \tif (!match) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5118276341,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMRKy9Q",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟢 Approval recommended\n\nThe refactor preserves behavior; only minor trailing whitespace remains.\n\n<details>\n<summary>Pull request overview</summary>\n\nCentralizes Playwright chat-input timing and retry values to simplify test tuning.\n\n**Changes:**\n- Adds a shared `CONFIG` object.\n- Replaces hardcoded timeout and retry values.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `.agents/skills/launch/playwrightScripts/focus-chat-input.ts` | Centralizes polling, visibility, and palette timing values. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 1\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/334642#pullrequestreview-5118276341",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/334642",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/334642#pullrequestreview-5118276341"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/334642"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-04T22:21:45Z",
+   "commit_id": "451f2eb2010a7c2cb33e22483ae2a1cdde58a90d"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+   "node_id": "C_kwDOTk4kkdoAKDQ1MWYyZWIyMDEwYTdjMmNiMzNlMjI0ODNhZTJhMWNkZGU1OGE5MGQ",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-04T22:16:26Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-04T22:16:26Z"
+    },
+    "message": "Refactor Playwright chat input helper script to use a centralized configuration object for timeouts and retry limits\n\n## Overview\r\nThe Playwright CLI chat input helper script currently relies on hardcoded magic numbers for polling intervals, visibility attempts, palette timeouts, and wait limits. This makes it rigid when adapting to different test environment latencies.\r\n\r\n## Proposed Solution\r\nIntroduce a centralized `CONFIG` object at the top of the script to manage timing parameters cleanly:\r\n- `pollIntervalMs`\r\n- `maxVisibleAttempts`\r\n- `paletteTimeoutMs`\r\n- `maxPaletteWaitAttempts`\r\n\r\n## Benefits\r\n- Eliminates hardcoded magic numbers.\r\n- Improves code maintainability and test reliability tuning.",
+    "tree": {
+     "sha": "460d395243bdc926a8083bcb8f5bda7605d442ac",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/460d395243bdc926a8083bcb8f5bda7605d442ac"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm0M6CRC1aQ7uu5UhlAAAx74QABi3zLmtyZYrQ2sLZ/wiwPGF\nxB8cUc2EkGvRuamImzRkRKLGUTqgvDkR9wYov7l3gbUN+bb7/hR92CwInE9dOHUQ\nMZMCiNo6BnT/x5Z2bxx9eQ7KyQugiGNyEW7+4ivrnivlw3n1+c6ju0VWfUQYgWZc\nr8Q7WzCI+9z5cuSBJkuhdgmzsnqKzRXXfI23OxwM8yDonzpsiR5jn1HiaKyuJras\nL55Ry+Xdk/Fp3ewCLxiqTs4ywf0ngS6YJTNrShiiKsF7kiJspI9yJMnDXqDXEByY\ngr1wFDe02Ndih0q8sQfSdefwyCh42Bh4MEcCIB81uj8Z31iTI27hA93nc0jPjaNb\nGCTQo2ba9+N0RohhA225TPop+vtax++Cqhr1QgikRFBQ/w9oORLTBl8/Bl1g0YeG\nQ9nZbhE5ZcwKO7xmHvYTel7In78GFFWEu4XMEW3paBKU3Vfk+ftfT/4q28Viy2o7\nnE1M07ZGkcoZX0hhGpZUrjYsO3X2/2oNNfnr4FPTuYZJswoCYTl94gjj9xp1ZyMn\nD3ZA8rjsldWywwKoH3aFVnq+4JQKNMD6D67eDuvi9LjRp9T0UnASEaV7v9MWeKPC\nCJsEVzPpobgKvHKEFhiTnGQu5HMYF99AEBHye8CLDYiVQfE9zNlLnfQO/A0SHkJZ\njJo/GYnvYCigS724Pr6k\n=FcXB\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 460d395243bdc926a8083bcb8f5bda7605d442ac\nparent 9db4cf85bcf637555c0933f07d6acd2f876f4d49\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788560186 +0300\ncommitter GitHub <noreply@github.com> 1788560186 +0300\n\nRefactor Playwright chat input helper script to use a centralized configuration object for timeouts and retry limits\n\n## Overview\r\nThe Playwright CLI chat input helper script currently relies on hardcoded magic numbers for polling intervals, visibility attempts, palette timeouts, and wait limits. This makes it rigid when adapting to different test environment latencies.\r\n\r\n## Proposed Solution\r\nIntroduce a centralized `CONFIG` object at the top of the script to manage timing parameters cleanly:\r\n- `pollIntervalMs`\r\n- `maxVisibleAttempts`\r\n- `paletteTimeoutMs`\r\n- `maxPaletteWaitAttempts`\r\n\r\n## Benefits\r\n- Eliminates hardcoded magic numbers.\r\n- Improves code maintainability and test reliability tuning.",
+     "verified_at": "2026-09-04T22:16:27Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+   "html_url": "https://github.com/microsoft/vscode/commit/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9db4cf85bcf637555c0933f07d6acd2f876f4d49",
+     "html_url": "https://github.com/microsoft/vscode/commit/9db4cf85bcf637555c0933f07d6acd2f876f4d49"
+    }
+   ]
+  },
+  {
+   "sha": "4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+   "node_id": "C_kwDOTk4kkdoAKDRiM2YwOGQ2YTQ0NWMxMmI5NjRjOTQ1MjM3MmM1YzIxZjM2YzVhZWQ",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-04T22:24:58Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-04T22:24:58Z"
+    },
+    "message": "Remove trailing whitespace to satisfy linter check\n\nCleaned up empty lines in focus-chat-input.ts to remove trailing whitespace flagged by Copilot review.",
+    "tree": {
+     "sha": "ed54ad7556a52c5d019025d5336c125f01d70ec1",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ed54ad7556a52c5d019025d5336c125f01d70ec1"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm0U6CRC1aQ7uu5UhlAAAKZoQAFsvGyMy4vVX4Pzrd4cD2XKe\nWXGloz2fXYhQa6BFeR0323LbMiUJfDlB3tEJyAMfhWmgkm2gu3Lxkhq6n+AeXJeR\nXrqZJLbePlzlE1l67PbCNF3BpzIIlFFMaP8cUHxKzPOjZNCMi5onzdX5a+it1sT+\n3LBkDBa9ciYjOhJBS48zeGkmT9WaxV5wHJIBjxAhMHBdzaclox3GIGDbqqawT8VN\nwaz3eCcEdILmd3b7RFinInthoFJQRPt+XOkdF/OaN0gbq20r3Mx0rfgjcX0TO9b6\nzZpQi3llFaueJ3hLXw+LuZwrz2jgabb+qKIATFgEoDg27vqsSstVDeIlSAWgwIzz\neLXc3xhBt+XPC7tWU9vSGDFHRMcKah4u/9mgBSGQGU9ES7dVAGBnGBV6vYcc923j\nAUcYRV6PK6wjYtjbaMTH1mkrdIOvkvz+AIAJKz9WYqctYWNeGhuk8gs7PdTJpa50\nXtXthNIEkurlYKdI4N5HVUrEY3Xgnh/xgHOp+xX8fNcDTwm/b4eBnCNTLUSvRacN\nj9qHLDhhgUklU93kG9J/KLIicc7SNyApQhnbipQrumRJ8yPvta55K8Izy0DINUx4\n4CwdU/o4GkFT9LBfh2mqalP1kf4CJXvKYnAf+sOYzn0C2Y7bVTKQuBinzsx0CwjY\nMLJ38G2OpFqlRzy5sQeM\n=FmuU\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ed54ad7556a52c5d019025d5336c125f01d70ec1\nparent 451f2eb2010a7c2cb33e22483ae2a1cdde58a90d\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788560698 +0300\ncommitter GitHub <noreply@github.com> 1788560698 +0300\n\nRemove trailing whitespace to satisfy linter check\n\nCleaned up empty lines in focus-chat-input.ts to remove trailing whitespace flagged by Copilot review.",
+     "verified_at": "2026-09-04T22:24:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+   "html_url": "https://github.com/microsoft/vscode/commit/4b3f08d6a445c12b964c9452372c5c21f36c5aed",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4b3f08d6a445c12b964c9452372c5c21f36c5aed/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d",
+     "html_url": "https://github.com/microsoft/vscode/commit/451f2eb2010a7c2cb33e22483ae2a1cdde58a90d"
+    }
+   ]
+  }
+ ]
+}

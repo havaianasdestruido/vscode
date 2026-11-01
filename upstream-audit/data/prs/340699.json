@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:55:43.016Z",
+ "pr": {
+  "number": 340699,
+  "title": "Refactor waitForVisibleChatInput to include interval and optimize can…",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-09T10:08:47Z",
+  "updated_at": "2026-10-09T11:18:11Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 7,
+  "deletions": 5,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-53",
+   "sha": "ecd574eea846f4f06373852d6eeed012450705cc",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-53"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "e9ed7ccc0d18f2475aba8cee12e0133a42b27142"
+  },
+  "body": "Fixes #340697\n\n- Cached `candidates.count()` outside the inner loops to prevent redundant DOM queries.\n- Updated `waitForVisibleChatInput` to accept an optional polling interval for flexible timing.\n- Improved overall stability when locating dynamic chat elements in VS Code/Copilot environments.\n-",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "fa5fa5aed07095683b376d8f3373e36de6c5dea0",
+   "filename": ".agents/skills/launch/playwrightScripts/focus-chat-input.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 5,
+   "changes": 12,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ecd574eea846f4f06373852d6eeed012450705cc/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ecd574eea846f4f06373852d6eeed012450705cc/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts?ref=ecd574eea846f4f06373852d6eeed012450705cc",
+   "patch": "@@ -16,7 +16,8 @@ async page => {\n \t\tlet firstVisible;\n \t\tfor (const selector of selectors) {\n \t\t\tconst candidates = page.locator(selector);\n-\t\t\tfor (let index = 0; index < await candidates.count(); index++) {\n+\t\t\tconst count = await candidates.count();\n+\t\t\tfor (let index = 0; index < count; index++) {\n \t\t\t\tconst candidate = candidates.nth(index);\n \t\t\t\tconst isExcluded = await candidate.evaluate(element => Boolean(element.closest('.inline-chat-widget, .automation-form-prompt-host')));\n \t\t\t\tif (await candidate.isVisible() && !isExcluded) {\n@@ -42,13 +43,14 @@ async page => {\n \t\t}\n \t\treturn true;\n \t};\n-\tconst waitForVisibleChatInput = async attempts => {\n+\n+\tconst waitForVisibleChatInput = async (attempts, interval = 100) => {\n \t\tfor (let attempt = 0; attempt < attempts; attempt++) {\n \t\t\tconst match = await findVisibleChatInput();\n \t\t\tif (match) {\n \t\t\t\treturn match;\n \t\t\t}\n-\t\t\tawait page.waitForTimeout(100);\n+\t\t\tawait page.waitForTimeout(interval);\n \t\t}\n \t\treturn undefined;\n \t};\n@@ -62,7 +64,7 @@ async page => {\n \tconst platform = await page.evaluate(() => navigator.userAgentData?.platform ?? navigator.platform);\n \tconst shortcut = /^mac/i.test(platform) ? 'Control+Meta+i' : 'Control+Alt+i';\n \tawait page.keyboard.press(shortcut);\n-\tmatch = await waitForVisibleChatInput(10);\n+\tmatch = await waitForVisibleChatInput(10, 100);\n \n \tlet commandPaletteFallbackInvoked = false;\n \tif (!match) {\n@@ -78,7 +80,7 @@ async page => {\n \t\t}\n \t\tawait commandPaletteInput.fill(`>${commandId}`);\n \t\tawait page.keyboard.press('Enter');\n-\t\tmatch = await waitForVisibleChatInput(50);\n+\t\tmatch = await waitForVisibleChatInput(50, 100);\n \t}\n \n \tif (!match) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5468695136,
+   "node_id": "PRR_kwDOAn8RLM8AAAABRfWqYA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n### 🟢 Approval recommended\n\nThe focused refactor preserves existing timing behavior while reducing redundant DOM queries.\n\n**0 open findings**\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nOptimizes chat-input discovery polling in the Playwright launch helper.\n\n**Changes:**\n- Caches locator candidate counts per polling attempt.\n- Adds a configurable polling interval.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `.agents/​skills/​launch/​playwrightScripts/​focus-chat-input.ts` | Optimizes candidate iteration and parameterizes polling delay. |\n</details>\n\n🧠 **Review effort:** Balanced\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/340699#pullrequestreview-5468695136",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/340699",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/340699#pullrequestreview-5468695136"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/340699"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-09T10:12:17Z",
+   "commit_id": "ecd574eea846f4f06373852d6eeed012450705cc"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "ecd574eea846f4f06373852d6eeed012450705cc",
+   "node_id": "C_kwDOTk4kkdoAKGVjZDU3NGVlYTg0NmY0ZjA2MzczODUyZDZlZWVkMDEyNDUwNzA1Y2M",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-09T10:07:38Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-09T10:07:38Z"
+    },
+    "message": "Refactor waitForVisibleChatInput to include interval and optimize candidate counts\n\n- Cached candidates count outside loops to reduce redundant DOM queries.\r\n- Updated waitForVisibleChatInput to accept an optional polling interval for flexible timing.\r\n-",
+    "tree": {
+     "sha": "77cbb6333794e2b718a1b001bad80c740ff17663",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/77cbb6333794e2b718a1b001bad80c740ff17663"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ecd574eea846f4f06373852d6eeed012450705cc",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqyLzqCRC1aQ7uu5UhlAAA0GsQAC/6Suc7W+AEaJUSNH1ulJBq\ngPuesefLGJeuSN/HmuZCKKoDuF5XQUvl066xb4UHWtQrNiPyu1ottH0IbEotPKYn\n5KwPFbtHUIWVHnaICwDOy5a8bzcYKITeK3OvfkoX8/4EAfwE470sGKIxwcKDYoI6\n7nJwZkw7AiDXsZBtVfXrm8xGrNp6tQ24k5V2npuwMpxSFgcMXZ2aBtUFiWWZoOlB\nHbU4eb1lrcZ9/IbqlBlvPd6AWTgM5cukD5Zz4tBzibI787VbO62qHS710p/lWzlz\nax+U0lxDynDjzxwXaEP7F7LctN/GijDRvFTJEbsoxFVOC23mksJOfbnIKsbokEYR\netLvXPsomQYXPafScF9HWhcMwxyxBOJAQirjSeTuvCHe4y+bP5xMu4hvyMiPGzhg\n5K40fZ6NM97amZEaC9VB6siv2UX/hyQmhZ+3S0aJzoQNvsDz9YwTmFv8ZBxGv5q8\nBYQZ9pU9ZRWg87OTOdLLuglUO55vLfZ8A7R9JSs2LOvPlA3M5KP5e5rY9P93FzvR\n4iufgjuDLu7AZ3igC/aYrCoCukqd2Yr41LL+Gk+nDSS3yVljVvt4Mm78CvjpX2T3\nhKHHlMING7kEzcJoz4kef7Qz3ijvG5eNjhfdXGi1rrIPRiYTfEuLAU6UOqcciI0k\nuw3eNLntj/BlSGc7GXFh\n=JXrg\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 77cbb6333794e2b718a1b001bad80c740ff17663\nparent e9ed7ccc0d18f2475aba8cee12e0133a42b27142\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1791540458 +0300\ncommitter GitHub <noreply@github.com> 1791540458 +0300\n\nRefactor waitForVisibleChatInput to include interval and optimize candidate counts\n\n- Cached candidates count outside loops to reduce redundant DOM queries.\r\n- Updated waitForVisibleChatInput to accept an optional polling interval for flexible timing.\r\n-",
+     "verified_at": "2026-10-09T10:07:39Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ecd574eea846f4f06373852d6eeed012450705cc",
+   "html_url": "https://github.com/microsoft/vscode/commit/ecd574eea846f4f06373852d6eeed012450705cc",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ecd574eea846f4f06373852d6eeed012450705cc/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e9ed7ccc0d18f2475aba8cee12e0133a42b27142",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e9ed7ccc0d18f2475aba8cee12e0133a42b27142",
+     "html_url": "https://github.com/microsoft/vscode/commit/e9ed7ccc0d18f2475aba8cee12e0133a42b27142"
+    }
+   ]
+  }
+ ]
+}

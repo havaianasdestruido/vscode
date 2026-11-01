@@ -19,18 +19,40 @@ import { scrollEditorToLine, StartingScrollFragment, StartingScrollLine, Startin
 import { getVisibleLine, LastScrollLocation, TopmostLineMonitor } from './topmostLineMonitor';
 import type { DiffScrollSyncData, FromWebviewMessage, MarkdownPreviewLineChanges, ToWebviewMessage } from '../../types/previewMessaging';
 
+/**
+ * Identifies a document instance without retaining it. Documents are not cleared when they are
+ * closed, so holding onto one would keep its full text alive for as long as the preview lives.
+ */
+const documentIdentities = new WeakMap<vscode.TextDocument, number>();
+let lastDocumentIdentity = 0;
+
+function getDocumentIdentity(document: vscode.TextDocument): number {
+	let identity = documentIdentities.get(document);
+	if (typeof identity === 'undefined') {
+		identity = ++lastDocumentIdentity;
+		documentIdentities.set(document, identity);
+	}
+	return identity;
+}
+
 export class PreviewDocumentVersion {
 
 	public readonly resource: vscode.Uri;
+	readonly #identity: number;
 	readonly #version: number;
 
 	public constructor(document: vscode.TextDocument) {
 		this.resource = document.uri;
+		this.#identity = getDocumentIdentity(document);
 		this.#version = document.version;
 	}
 
 	public equals(other: PreviewDocumentVersion): boolean {
-		return areUrisEqual(this.resource, other.resource)
+		// Compare document identity, not just the uri. Once a document has been closed,
+		// re-opening the file creates a new document whose version numbering restarts, so a
+		// version recorded from a different document object must never be allowed to suppress
+		// an update. Identity implies the uris match, so they are not compared separately.
+		return this.#identity === other.#identity
 			&& this.#version === other.#version;
 	}
 }
@@ -186,11 +208,16 @@ class MarkdownPreview extends Disposable implements WebviewResourceProvider {
 			const watcher = this._register(vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(resource, '*')));
 			this._register(watcher.onDidChange(uri => {
 				if (this.isPreviewOf(uri)) {
-					// Only use the file system event when VS Code does not already know about the file.
-					// This is needed to avoid duplicate refreshes
-					if (!vscode.workspace.textDocuments.some(doc => areUrisEqual(doc.uri, uri))) {
-						this.refresh();
-					}
+					// Always refresh on a file system change for the previewed resource. Previously this
+					// path was skipped when the resource was already open as a `TextDocument`, on the
+					// assumption that `onDidChangeTextDocument` would handle the refresh. That assumption
+					// does not always hold for external file overwrites (see #265277): the text document
+					// model reload can be skipped or delayed (e.g. etag/stat caching, remote/network FS
+					// timing, or content-equality short-circuits), leaving the preview showing stale
+					// content. Any genuine duplicate refresh that overlaps with `onDidChangeTextDocument`
+					// is already coalesced by the `#throttleTimer` debounce and version-equality check in
+					// `#updatePreview`, so unconditionally refreshing here is safe.
+					this.refresh();
 				}
 			}));
 		}

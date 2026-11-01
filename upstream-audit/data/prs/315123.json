@@ -1,0 +1,455 @@
+{
+ "fetchedAt": "2026-11-01T00:53:48.860Z",
+ "pr": {
+  "number": 315123,
+  "title": "chat: allow chat.pluginLocations in workspace settings",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-07T22:05:12Z",
+  "updated_at": "2026-09-09T02:23:25Z",
+  "user": "nalmiron",
+  "author_association": "NONE",
+  "additions": 6,
+  "deletions": 2,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/plugin-locations-workspace-scope",
+   "sha": "a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+   "repo": "nalmiron/vscode",
+   "label": "nalmiron:fix/plugin-locations-workspace-scope"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "ce386f1a861ac8ec0e54afa5d5b5bc9adcbca3db"
+  },
+  "body": "Changes the scope of `chat.pluginLocations` from `ConfigurationScope.MACHINE` to `ConfigurationScope.WINDOW`, allowing it to be set in workspace settings (`.vscode/settings.json`).\n\n`restricted: true` is preserved — workspace trust still gates the setting.\n\n## Motivation\n\n`chat.pluginLocations` is the only customization location setting restricted to user settings. The comparable settings are all workspace-scoped:\n\n| Setting | Scope |\n|---|---|\n| `chat.hookFilesLocations` | `WINDOW` |\n| `chat.agentSkillsLocations` | `WINDOW` |\n| `chat.agentFilesLocations` | `WINDOW` |\n| `chat.instructionsFilesLocations` | `WINDOW` |\n| **`chat.pluginLocations`** | **`MACHINE`** |\n\nA plugin bundles components (skills, agents, hooks, MCP servers) that are individually workspace-configurable. The bundle's scope should be consistent.\n\n## Validation\n\n- Build: 0 errors\n- Unit tests: 22,511 passing (1 pre-existing Kerberos failure, also fails on main)\n- Functional: workspace-relative path in `.vscode/settings.json` accepted, plugin discovered and skill visible in chat\n\n## Use case\n\nTeams maintaining workspace frameworks need to configure plugin directories in `.vscode/settings.json` so teammates get the same plugins on clone. Today this requires each developer to manually add entries to user settings, which doesn't scale.\n\nThe path resolution code (`_resolvePluginPath`) already handles workspace-relative paths — this change only unblocks the setting from being written to workspace settings.\n\nFixes #303853\nRelated: #307040, #308791",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "7aef42dc4214436206670b5b440d638671e919da",
+   "filename": "src/vs/workbench/contrib/chat/browser/chat.shared.contribution.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 2,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a52e5906c4d0d4f605e93942e3224235bc7f8c35/src%2Fvs%2Fworkbench%2Fcontrib%2Fchat%2Fbrowser%2Fchat.shared.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a52e5906c4d0d4f605e93942e3224235bc7f8c35/src%2Fvs%2Fworkbench%2Fcontrib%2Fchat%2Fbrowser%2Fchat.shared.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fchat%2Fbrowser%2Fchat.shared.contribution.ts?ref=a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+   "patch": "@@ -912,9 +912,13 @@ configurationRegistry.registerConfiguration({\n \t\t[ChatConfiguration.PluginLocations]: {\n \t\t\ttype: 'object',\n \t\t\tadditionalProperties: { type: 'boolean' },\n+\t\t\tpropertyNames: {\n+\t\t\t\tpattern: VALID_PROMPT_FOLDER_PATTERN,\n+\t\t\t\tpatternErrorMessage: nls.localize('chat.pluginLocations.invalidPath', \"Paths must be relative or start with '~/'. Absolute paths and '\\\\' separators are not supported.\"),\n+\t\t\t},\n \t\t\trestricted: true,\n-\t\t\tmarkdownDescription: nls.localize('chat.pluginLocations', \"Plugin directories to discover. Each key is a path that points directly to a plugin folder, and the value enables (`true`) or disables (`false`) it. Paths can be absolute, relative to the workspace root, or start with `~/` for the user's home directory.\"),\n-\t\t\tscope: ConfigurationScope.MACHINE,\n+\t\t\tmarkdownDescription: nls.localize('chat.pluginLocations', \"Plugin directories to discover. Each key is a path that points directly to a plugin folder, and the value enables (`true`) or disables (`false`) it. Relative paths are resolved from the root folder(s) of your workspace.\"),\n+\t\t\tscope: ConfigurationScope.WINDOW,\n \t\t\ttags: ['experimental'],\n \t\t},\n \t\t[ChatConfiguration.EnabledPlugins]: {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4248045506,
+   "node_id": "PRR_kwDOAn8RLM79NAfC",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nUpdates the configuration registration for `chat.pluginLocations` so it can be set at workspace/window scope (enabling `.vscode/settings.json` usage) while remaining gated by workspace trust (`restricted: true`).\n\n**Changes:**\n- Change `chat.pluginLocations` scope from `ConfigurationScope.MACHINE` to `ConfigurationScope.WINDOW`.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#pullrequestreview-4248045506",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/315123",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/315123#pullrequestreview-4248045506"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/315123"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-07T22:09:57Z",
+   "commit_id": "6273a60fd2ea1880ffc1e2356a03be46e9d4dd31"
+  },
+  {
+   "id": 4248330335,
+   "node_id": "PRR_kwDOAn8RLM79OGBf",
+   "user": {
+    "login": "nalmiron",
+    "id": 5623893,
+    "node_id": "MDQ6VXNlcjU2MjM4OTM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5623893?u=664ab9dabe19eddf509c38c3593aa4bc8535c89d&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nalmiron",
+    "html_url": "https://github.com/nalmiron",
+    "followers_url": "https://api.github.com/users/nalmiron/followers",
+    "following_url": "https://api.github.com/users/nalmiron/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nalmiron/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nalmiron/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nalmiron/subscriptions",
+    "organizations_url": "https://api.github.com/users/nalmiron/orgs",
+    "repos_url": "https://api.github.com/users/nalmiron/repos",
+    "events_url": "https://api.github.com/users/nalmiron/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nalmiron/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#pullrequestreview-4248330335",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/315123",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/315123#pullrequestreview-4248330335"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/315123"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-07T23:29:12Z",
+   "commit_id": "520abe4928b2ccf655a6b414437a48b78cb7284d"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4593626453",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#issuecomment-4593626453",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315123",
+   "id": 4593626453,
+   "node_id": "IC_kwDOAn8RLM8AAAABEc0tVQ",
+   "user": {
+    "login": "nalmiron",
+    "id": 5623893,
+    "node_id": "MDQ6VXNlcjU2MjM4OTM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5623893?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nalmiron",
+    "html_url": "https://github.com/nalmiron",
+    "followers_url": "https://api.github.com/users/nalmiron/followers",
+    "following_url": "https://api.github.com/users/nalmiron/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nalmiron/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nalmiron/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nalmiron/subscriptions",
+    "organizations_url": "https://api.github.com/users/nalmiron/orgs",
+    "repos_url": "https://api.github.com/users/nalmiron/repos",
+    "events_url": "https://api.github.com/users/nalmiron/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nalmiron/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-01T14:39:21Z",
+   "updated_at": "2026-06-01T14:39:21Z",
+   "body": "Force-pushed after `chat.pluginLocations` config moved from `chat.contribution.ts` to `chat.shared.contribution.ts` in main. Squashed the original 2 commits into 1 for cleaner review — net diff unchanged: same `MACHINE → WINDOW` scope change + `propertyNames` validation. Now mergeable.\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4593626453/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4775941449",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#issuecomment-4775941449",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315123",
+   "id": 4775941449,
+   "node_id": "IC_kwDOAn8RLM8AAAABHKsVSQ",
+   "user": {
+    "login": "saar-e-l",
+    "id": 252460995,
+    "node_id": "U_kgDODww_ww",
+    "avatar_url": "https://avatars.githubusercontent.com/u/252460995?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/saar-e-l",
+    "html_url": "https://github.com/saar-e-l",
+    "followers_url": "https://api.github.com/users/saar-e-l/followers",
+    "following_url": "https://api.github.com/users/saar-e-l/following{/other_user}",
+    "gists_url": "https://api.github.com/users/saar-e-l/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/saar-e-l/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/saar-e-l/subscriptions",
+    "organizations_url": "https://api.github.com/users/saar-e-l/orgs",
+    "repos_url": "https://api.github.com/users/saar-e-l/repos",
+    "events_url": "https://api.github.com/users/saar-e-l/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/saar-e-l/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-23T05:29:35Z",
+   "updated_at": "2026-06-23T05:29:35Z",
+   "body": "We need this as well",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4775941449/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4786724525",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#issuecomment-4786724525",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315123",
+   "id": 4786724525,
+   "node_id": "IC_kwDOAn8RLM8AAAABHU-erQ",
+   "user": {
+    "login": "nadavzoh",
+    "id": 170871963,
+    "node_id": "U_kgDOCi9Mmw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170871963?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nadavzoh",
+    "html_url": "https://github.com/nadavzoh",
+    "followers_url": "https://api.github.com/users/nadavzoh/followers",
+    "following_url": "https://api.github.com/users/nadavzoh/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nadavzoh/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nadavzoh/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nadavzoh/subscriptions",
+    "organizations_url": "https://api.github.com/users/nadavzoh/orgs",
+    "repos_url": "https://api.github.com/users/nadavzoh/repos",
+    "events_url": "https://api.github.com/users/nadavzoh/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nadavzoh/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-24T07:03:33Z",
+   "updated_at": "2026-06-24T07:03:33Z",
+   "body": "+1",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4786724525/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5594782256",
+   "html_url": "https://github.com/microsoft/vscode/pull/315123#issuecomment-5594782256",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315123",
+   "id": 5594782256,
+   "node_id": "IC_kwDOAn8RLM8AAAABTXmaMA",
+   "user": {
+    "login": "shivsant",
+    "id": 91111317,
+    "node_id": "MDQ6VXNlcjkxMTExMzE3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/91111317?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/shivsant",
+    "html_url": "https://github.com/shivsant",
+    "followers_url": "https://api.github.com/users/shivsant/followers",
+    "following_url": "https://api.github.com/users/shivsant/following{/other_user}",
+    "gists_url": "https://api.github.com/users/shivsant/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/shivsant/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/shivsant/subscriptions",
+    "organizations_url": "https://api.github.com/users/shivsant/orgs",
+    "repos_url": "https://api.github.com/users/shivsant/repos",
+    "events_url": "https://api.github.com/users/shivsant/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/shivsant/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-09T02:19:11Z",
+   "updated_at": "2026-09-09T02:23:25Z",
+   "body": "Any update on this? This is really  needed for a lot of us :) \r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5594782256/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+   "node_id": "C_kwDOSXPsYdoAKDgzY2I4ZjY0MjQwYWE0YTFhMDRiY2QyYjU4N2VmY2Q4Yjc4ZDJmNjQ",
+   "commit": {
+    "author": {
+     "name": "Nick Almiron",
+     "email": "nickalmiron@microsoft.com",
+     "date": "2026-06-01T14:35:53Z"
+    },
+    "committer": {
+     "name": "Nick Almiron",
+     "email": "nickalmiron@microsoft.com",
+     "date": "2026-06-01T14:40:38Z"
+    },
+    "message": "chat: allow chat.pluginLocations in workspace settings\n\nChange the scope of chat.pluginLocations from ConfigurationScope.MACHINE\nto ConfigurationScope.WINDOW, consistent with chat.agentSkillsLocations,\nchat.agentFilesLocations, chat.hookFilesLocations, and\nchat.instructionsFilesLocations.\n\nThe restricted: true flag is preserved, so workspace trust still gates\nthe setting. The path resolution code (_resolvePluginPath) already handles\nworkspace-relative paths correctly.\n\nAdd propertyNames validation using VALID_PROMPT_FOLDER_PATTERN, consistent\nwith the sibling location settings - rejects absolute paths and backslash\nseparators at the schema level.\n\nFixes #303853\nRelated: #307040, #308791",
+    "tree": {
+     "sha": "76f9bc539644ff2e84759d27ed357e3150fa3734",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/76f9bc539644ff2e84759d27ed357e3150fa3734"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+   "html_url": "https://github.com/microsoft/vscode/commit/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "700eceb3acff225f5053e0b15cbe31d367fb0dbd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/700eceb3acff225f5053e0b15cbe31d367fb0dbd",
+     "html_url": "https://github.com/microsoft/vscode/commit/700eceb3acff225f5053e0b15cbe31d367fb0dbd"
+    }
+   ]
+  },
+  {
+   "sha": "a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+   "node_id": "C_kwDOSXPsYdoAKGE1MmU1OTA2YzRkMGQ0ZjYwNWU5Mzk0MmUzMjI0MjM1YmM3ZjhjMzU",
+   "commit": {
+    "author": {
+     "name": "Nick Almiron",
+     "email": "nicholas.almiron@accompany.health",
+     "date": "2026-06-02T23:00:43Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-02T23:00:43Z"
+    },
+    "message": "Merge branch 'main' into fix/plugin-locations-workspace-scope",
+    "tree": {
+     "sha": "9493b38ce63228bfaf1b278b6b4b0800f2881761",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9493b38ce63228bfaf1b278b6b4b0800f2881761"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqH2CbCRC1aQ7uu5UhlAAAZokQAHC6p93gBD3qnGvyQGYPCfm2\neZd7srj2oAWNHT3olkQSfm6Tsnhru3rAqI/dNXjmF8yoZWDoPUmx2nzAb7TJyTso\nUzxHAOyi8vSeIArDsKpLNbwhQIyPulDf82x9Du7CucrgAdAA93r8OoC/KiU/tW4r\nJBEcIQxTjbtNWztY1IUZfqNgQxA34a5n4uGpnkhgu+m9NkDL+MdENO6Jv5kQA25V\n8ghyHQBJ7qPU6qIvBeptZzEH1bvRQN7I3/dP8+/LE7sKp09+MO8O/+WDggHu2VBV\niYRniyTfpr2fEvsECh3SSH2DGOgoE0XLqpOnN01hIsFyBomvs5H45wblMoyQicQL\nQgTovz9pT+vAAP2tACqC1W6elVg9wHv6I5t8N0s2CpDRCZFuGc9vBIGm4vPqEmFR\nUTqC3SZqJZwssd579urX1/9joTeuNofwyvVv85zFCISoRecVBOpcmWERCwVTpg4E\n5CgxPEWl9HjQiPRcY/wf1L3OOVUOqy/bNMkYZkRv6mDneI/juxPBqyuI8hLd1vRY\nEcDWg0RPqtdCa5bNgEm/uKjMdc2Z7bRl8eoCT8uWteo1oQq5NDAXMgHgbYbEtN4c\nR0B809BErZgohYcs/NzLz6pOR5rMU4akBMU3hgRpcwo1OkyL56ClrI7Bj/LGG0bF\nQTN6YW1o5RMlitYGRF32\n=RYdR\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9493b38ce63228bfaf1b278b6b4b0800f2881761\nparent 83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64\nparent ce386f1a861ac8ec0e54afa5d5b5bc9adcbca3db\nauthor Nick Almiron <nicholas.almiron@accompany.health> 1780441243 -0700\ncommitter GitHub <noreply@github.com> 1780441243 -0700\n\nMerge branch 'main' into fix/plugin-locations-workspace-scope",
+     "verified_at": "2026-06-02T23:00:44Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+   "html_url": "https://github.com/microsoft/vscode/commit/a52e5906c4d0d4f605e93942e3224235bc7f8c35",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a52e5906c4d0d4f605e93942e3224235bc7f8c35/comments",
+   "author": {
+    "login": "nalmiron",
+    "id": 5623893,
+    "node_id": "MDQ6VXNlcjU2MjM4OTM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5623893?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nalmiron",
+    "html_url": "https://github.com/nalmiron",
+    "followers_url": "https://api.github.com/users/nalmiron/followers",
+    "following_url": "https://api.github.com/users/nalmiron/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nalmiron/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nalmiron/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nalmiron/subscriptions",
+    "organizations_url": "https://api.github.com/users/nalmiron/orgs",
+    "repos_url": "https://api.github.com/users/nalmiron/repos",
+    "events_url": "https://api.github.com/users/nalmiron/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nalmiron/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64",
+     "html_url": "https://github.com/microsoft/vscode/commit/83cb8f64240aa4a1a04bcd2b587efcd8b78d2f64"
+    },
+    {
+     "sha": "ce386f1a861ac8ec0e54afa5d5b5bc9adcbca3db",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ce386f1a861ac8ec0e54afa5d5b5bc9adcbca3db",
+     "html_url": "https://github.com/microsoft/vscode/commit/ce386f1a861ac8ec0e54afa5d5b5bc9adcbca3db"
+    }
+   ]
+  }
+ ]
+}

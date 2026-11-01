@@ -1,0 +1,570 @@
+{
+ "fetchedAt": "2026-11-01T00:53:05.931Z",
+ "pr": {
+  "number": 301722,
+  "title": "Terminal - reduce UI re-renders on rapid instance events",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-03-14T15:28:13Z",
+  "updated_at": "2026-05-15T14:10:39Z",
+  "user": "xingsy97",
+  "author_association": "MEMBER",
+  "additions": 19,
+  "deletions": 7,
+  "changed_files": 1,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 4,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [
+   "Tyriar"
+  ],
+  "head": {
+   "ref": "wt/terminal-batch-events",
+   "sha": "8646aee97a7bd9dac71873c72b9c112b34c77149",
+   "repo": "xingsy97/vscode",
+   "label": "xingsy97:wt/terminal-batch-events"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "0ff895b5cb2d92d7632da9a736351606741a17b7"
+  },
+  "body": "fix todo in `src/vs/workbench/contrib/terminal/browser/terminalService.ts`:`TODO: Batch events`\r\n\r\n## Summary\r\n- batch UI-triggering terminal instance events behind a microtask delay in terminal service\r\n- keep data and lifecycle events unbatched\r\n- remove the stale TODO by applying the intended debounce strategy\r\n\r\n## Testing\r\n- eslint on changed file path (workspace lint script)\r\n- manual code review for event ordering and disposable lifecycle\r\n\r\n## Notes\r\n- behavior for data stream and lifecycle listeners is unchanged",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "d42e314b55a3bbb9f458a40c14045c05d2b304dc",
+   "filename": "src/vs/workbench/contrib/terminal/browser/terminalService.ts",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 7,
+   "changes": 26,
+   "blob_url": "https://github.com/microsoft/vscode/blob/8646aee97a7bd9dac71873c72b9c112b34c77149/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalService.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/8646aee97a7bd9dac71873c72b9c112b34c77149/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalService.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalService.ts?ref=8646aee97a7bd9dac71873c72b9c112b34c77149",
+   "patch": "@@ -8,6 +8,7 @@ import * as cssValue from '../../../../base/browser/cssValue.js';\n import { DeferredPromise, timeout, type MaybePromise } from '../../../../base/common/async.js';\n import { debounce, memoize } from '../../../../base/common/decorators.js';\n import { DynamicListEventMultiplexer, Emitter, Event, IDynamicListEventMultiplexer } from '../../../../base/common/event.js';\n+import { MicrotaskDelay } from '../../../../base/common/symbols.js';\n import { Disposable, DisposableStore, dispose, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';\n import { Schemas } from '../../../../base/common/network.js';\n import { isMacintosh, isWeb } from '../../../../base/common/platform.js';\n@@ -153,17 +154,17 @@ export class TerminalService extends Disposable implements ITerminalService {\n \tprivate readonly _onDidChangeActiveGroup = this._register(new Emitter<ITerminalGroup | undefined>());\n \tget onDidChangeActiveGroup(): Event<ITerminalGroup | undefined> { return this._onDidChangeActiveGroup.event; }\n \n-\t// Lazily initialized events that fire when the specified event fires on _any_ terminal\n-\t// TODO: Batch events\n+\t// Lazily initialized events that fire when the specified event fires on _any_ terminal.\n+\t// UI-triggering events are batched with microtask delay while preserving all events.\n \t@memoize get onAnyInstanceData() { return this._register(this.createOnInstanceEvent(instance => Event.map(instance.onData, data => ({ instance, data })))).event; }\n \t@memoize get onAnyInstanceDataInput() { return this._register(this.createOnInstanceEvent(e => Event.map(e.onDidInputData, () => e, e.store))).event; }\n-\t@memoize get onAnyInstanceIconChange() { return this._register(this.createOnInstanceEvent(e => e.onIconChanged)).event; }\n-\t@memoize get onAnyInstanceMaximumDimensionsChange() { return this._register(this.createOnInstanceEvent(e => Event.map(e.onMaximumDimensionsChanged, () => e, e.store))).event; }\n-\t@memoize get onAnyInstancePrimaryStatusChange() { return this._register(this.createOnInstanceEvent(e => Event.map(e.statusList.onDidChangePrimaryStatus, () => e, e.store))).event; }\n+\t@memoize get onAnyInstanceIconChange() { return this._createOnInstanceMicrotaskBatchEvent(e => e.onIconChanged); }\n+\t@memoize get onAnyInstanceMaximumDimensionsChange() { return this._createOnInstanceMicrotaskBatchEvent(e => Event.map(e.onMaximumDimensionsChanged, () => e, e.store)); }\n+\t@memoize get onAnyInstancePrimaryStatusChange() { return this._createOnInstanceMicrotaskBatchEvent(e => Event.map(e.statusList.onDidChangePrimaryStatus, () => e, e.store)); }\n \t@memoize get onAnyInstanceProcessIdReady() { return this._register(this.createOnInstanceEvent(e => e.onProcessIdReady)).event; }\n \t@memoize get onAnyInstanceSelectionChange() { return this._register(this.createOnInstanceEvent(e => e.onDidChangeSelection)).event; }\n-\t@memoize get onAnyInstanceTitleChange() { return this._register(this.createOnInstanceEvent(e => e.onTitleChanged)).event; }\n-\t@memoize get onAnyInstanceShellTypeChanged() { return this._register(this.createOnInstanceEvent(e => Event.map(e.onDidChangeShellType, () => e))).event; }\n+\t@memoize get onAnyInstanceTitleChange() { return this._createOnInstanceMicrotaskBatchEvent(e => e.onTitleChanged); }\n+\t@memoize get onAnyInstanceShellTypeChanged() { return this._createOnInstanceMicrotaskBatchEvent(e => Event.map(e.onDidChangeShellType, () => e)); }\n \t@memoize get onAnyInstanceAddedCapabilityType() { return this._register(this.createOnInstanceEvent(e => Event.map(e.capabilities.onDidAddCapability, e => e.id))).event; }\n \n \tconstructor(\n@@ -1378,6 +1379,17 @@ export class TerminalService extends Disposable implements ITerminalService {\n \t\treturn new DynamicListEventMultiplexer(this.instances, this.onDidCreateInstance, this.onDidDisposeInstance, getEvent);\n \t}\n \n+\tprivate _createOnInstanceMicrotaskBatchEvent<T>(getEvent: (instance: ITerminalInstance) => Event<T>): Event<T> {\n+\t\tconst source = this._register(this.createOnInstanceEvent(getEvent));\n+\t\tconst emitter = this._register(new Emitter<T>());\n+\t\tthis._register(Event.accumulate(source.event, MicrotaskDelay, true, this._store)(events => {\n+\t\t\tfor (const e of events) {\n+\t\t\t\temitter.fire(e);\n+\t\t\t}\n+\t\t}));\n+\t\treturn emitter.event;\n+\t}\n+\n \tcreateOnInstanceCapabilityEvent<T extends TerminalCapability, K>(capabilityId: T, getEvent: (capability: ITerminalCapabilityImplMap[T]) => Event<K>): IDynamicListEventMultiplexer<{ instance: ITerminalInstance; data: K }> {\n \t\treturn createInstanceCapabilityEventMultiplexer(this.instances, this.onDidCreateInstance, this.onDidDisposeInstance, capabilityId, getEvent);\n \t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3948958096,
+   "node_id": "PRR_kwDOAn8RLM7rYFGQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR updates the terminal service’s “any instance” event surface to batch several UI-triggering terminal instance events behind a microtask delay, aiming to reduce redundant UI re-renders during rapid event bursts.\n\n**Changes:**\n- Introduces microtask-based debouncing for several multiplexed “onAnyInstance…” terminal events (icon/title/status/dimensions/shell type).\n- Keeps data/input events unbatched while removing the prior “TODO: Batch events” note in favor of a concrete strategy.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948958096",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/301722",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948958096"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/301722"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-03-14T15:32:24Z",
+   "commit_id": "b8d44845ac93d00ce5dc20223d5b26b742ad43f7"
+  },
+  {
+   "id": 3948962934,
+   "node_id": "PRR_kwDOAn8RLM7rYGR2",
+   "user": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?u=88d0559f9ca0bf5ec2537608527dc9299ca6163a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948962934",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/301722",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948962934"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/301722"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-03-14T15:37:27Z",
+   "commit_id": "2e6c90315013bfb3494837980592a4071a9048f7"
+  },
+  {
+   "id": 3948963083,
+   "node_id": "PRR_kwDOAn8RLM7rYGUL",
+   "user": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?u=88d0559f9ca0bf5ec2537608527dc9299ca6163a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948963083",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/301722",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/301722#pullrequestreview-3948963083"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/301722"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-03-14T15:37:38Z",
+   "commit_id": "2e6c90315013bfb3494837980592a4071a9048f7"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4119990389",
+   "html_url": "https://github.com/microsoft/vscode/pull/301722#issuecomment-4119990389",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/301722",
+   "id": 4119990389,
+   "node_id": "IC_kwDOAn8RLM71khB1",
+   "user": {
+    "login": "meganrogge",
+    "id": 29464607,
+    "node_id": "MDQ6VXNlcjI5NDY0NjA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/29464607?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/meganrogge",
+    "html_url": "https://github.com/meganrogge",
+    "followers_url": "https://api.github.com/users/meganrogge/followers",
+    "following_url": "https://api.github.com/users/meganrogge/following{/other_user}",
+    "gists_url": "https://api.github.com/users/meganrogge/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/meganrogge/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/meganrogge/subscriptions",
+    "organizations_url": "https://api.github.com/users/meganrogge/orgs",
+    "repos_url": "https://api.github.com/users/meganrogge/repos",
+    "events_url": "https://api.github.com/users/meganrogge/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/meganrogge/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-03-24T17:19:09Z",
+   "updated_at": "2026-03-24T17:19:09Z",
+   "body": "Deferring this for now as it will require a lot of testing",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4119990389/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+   "node_id": "C_kwDORhA6dtoAKDM1ZDM3YWNhOWE0MjVhODBmN2I2YzA5MjI1MGIyZWUzODJlYmIyOGM",
+   "commit": {
+    "author": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-03-14T15:07:33Z"
+    },
+    "committer": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-03-24T06:09:09Z"
+    },
+    "message": "terminal: batch UI-triggering onAny* events with microtask debounce\n\nDebounce onAnyInstanceIconChange, onAnyInstanceMaximumDimensionsChange,\nonAnyInstancePrimaryStatusChange, onAnyInstanceTitleChange, and\nonAnyInstanceShellTypeChanged with MicrotaskDelay. These events drive\nUI refreshes (tab list, view, styles) and firing them individually per\ninstance causes redundant re-renders during bulk operations.\n\nData-streaming events (onAnyInstanceData, onAnyInstanceDataInput) and\nlifecycle events (onAnyInstanceProcessIdReady, onAnyInstanceSelectionChange,\nonAnyInstanceAddedCapabilityType) are left unbatched to preserve their\nreal-time semantics.",
+    "tree": {
+     "sha": "97e7bbc2cb4e07139520bc7394f15f4a6608d33f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/97e7bbc2cb4e07139520bc7394f15f4a6608d33f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+   "html_url": "https://github.com/microsoft/vscode/commit/35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/35d37aca9a425a80f7b6c092250b2ee382ebb28c/comments",
+   "author": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2c51cfd4ddd8fa5ea1d793142958eabf492fb977",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2c51cfd4ddd8fa5ea1d793142958eabf492fb977",
+     "html_url": "https://github.com/microsoft/vscode/commit/2c51cfd4ddd8fa5ea1d793142958eabf492fb977"
+    }
+   ]
+  },
+  {
+   "sha": "3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+   "node_id": "C_kwDORhA6dtoAKDNhMWZiN2Q0YjlmOWM1N2Y4ZGY5MWMxM2U5NzI3ZWUxNDAwYmMyYWE",
+   "commit": {
+    "author": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-04-27T05:43:06Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-04-27T05:43:06Z"
+    },
+    "message": "Merge branch 'main' into wt/terminal-batch-events",
+    "tree": {
+     "sha": "9bdca4df456e051d911d01943bad398f81b28cb3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9bdca4df456e051d911d01943bad398f81b28cb3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp7vdqCRC1aQ7uu5UhlAAAcaUQAEQKGo3NcRANGcCOLKdf1ruw\n1mxeS8sBAo50/9U/sQLLydMFVU5jTMG5mGz82Lnf1DumhMQ/BW7SofI5cDk98aKc\nhcahBMM2qgpIbHwr97cBzzKWfKte0ROqNfQbScPcgqsyro3nxdcXh/IrxGnGq7Dk\nvs6E5Qm+feEVoz52GD6pCVetBcDx8b95Rx8Bi+x9AeRPjs/HS6cIWnhh6ipmcvfC\neOdeJyoCKcOKIec1HZwQ5L7pgihD5gA7V9Xdp0Q42zCkQ30drkJI4iFU07iuN5K7\nFBWNDkgaussvKLp354jXL61/YqO2k5nJm5c82hBX+0htvRl45JaKBNFfZQ/Dj2nY\n4fONa1V5mOpNg6zS61UMaL+hFVs6mcdsXkdrXoIbZS2gyw7F6LRQioOofv/Qg4ON\nDO64AzaOOGpZo9GX/X0exgFLHOdq77AxXmyRKiK4B4OOBz0N1bTIIO8nBUDpmXKO\nmnxK2pZtKMr2AW00W97C71AGmsIq2Ii18sAc85cOmDwT2Qi3um828RSKMFqwOiMo\nscTdM3cYUq7QaiQS3Y7D8YtkzxefQJWfaI8SLH80Qk1T37XZ9ux9etWMioIaZCRn\ngI830EaoPZkzHewspfqvjKy/yRv5TX6yh7O1Kix29iHinEfPLjn6wj+090AhQnMm\nXZfPEeTxCD2+AxNrCaYB\n=I6Uk\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9bdca4df456e051d911d01943bad398f81b28cb3\nparent 35d37aca9a425a80f7b6c092250b2ee382ebb28c\nparent 8ae0d8eab63dbfe8e5bb1c0943d92d49f804869f\nauthor xingsy97 <87063252+xingsy97@users.noreply.github.com> 1777268586 +0800\ncommitter GitHub <noreply@github.com> 1777268586 +0800\n\nMerge branch 'main' into wt/terminal-batch-events",
+     "verified_at": "2026-04-27T05:43:07Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+   "html_url": "https://github.com/microsoft/vscode/commit/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa/comments",
+   "author": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/35d37aca9a425a80f7b6c092250b2ee382ebb28c",
+     "html_url": "https://github.com/microsoft/vscode/commit/35d37aca9a425a80f7b6c092250b2ee382ebb28c"
+    },
+    {
+     "sha": "8ae0d8eab63dbfe8e5bb1c0943d92d49f804869f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8ae0d8eab63dbfe8e5bb1c0943d92d49f804869f",
+     "html_url": "https://github.com/microsoft/vscode/commit/8ae0d8eab63dbfe8e5bb1c0943d92d49f804869f"
+    }
+   ]
+  },
+  {
+   "sha": "a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+   "node_id": "C_kwDORhA6dtoAKGE1NzkxM2YyMDA5MzJlM2Q3ZTczMGUxMDNlMGU1ZWU2NWVjNGVjZWU",
+   "commit": {
+    "author": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-05-15T12:13:44Z"
+    },
+    "committer": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-05-15T12:13:44Z"
+    },
+    "message": "Merge remote-tracking branch 'upstream/main' into wt/terminal-batch-events",
+    "tree": {
+     "sha": "db46b771793922714209878e02d32f145b1c9c18",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/db46b771793922714209878e02d32f145b1c9c18"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+   "html_url": "https://github.com/microsoft/vscode/commit/a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a57913f200932e3d7e730e103e0e5ee65ec4ecee/comments",
+   "author": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa",
+     "html_url": "https://github.com/microsoft/vscode/commit/3a1fb7d4b9f9c57f8df91c13e9727ee1400bc2aa"
+    },
+    {
+     "sha": "0ff895b5cb2d92d7632da9a736351606741a17b7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0ff895b5cb2d92d7632da9a736351606741a17b7",
+     "html_url": "https://github.com/microsoft/vscode/commit/0ff895b5cb2d92d7632da9a736351606741a17b7"
+    }
+   ]
+  },
+  {
+   "sha": "8646aee97a7bd9dac71873c72b9c112b34c77149",
+   "node_id": "C_kwDORhA6dtoAKDg2NDZhZWU5N2E3YmQ5ZGFjNzE4NzNjNzJiOWMxMTJiMzRjNzcxNDk",
+   "commit": {
+    "author": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-05-15T14:10:23Z"
+    },
+    "committer": {
+     "name": "xingsy97",
+     "email": "87063252+xingsy97@users.noreply.github.com",
+     "date": "2026-05-15T14:10:23Z"
+    },
+    "message": "trigger ci\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "db46b771793922714209878e02d32f145b1c9c18",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/db46b771793922714209878e02d32f145b1c9c18"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8646aee97a7bd9dac71873c72b9c112b34c77149",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8646aee97a7bd9dac71873c72b9c112b34c77149",
+   "html_url": "https://github.com/microsoft/vscode/commit/8646aee97a7bd9dac71873c72b9c112b34c77149",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8646aee97a7bd9dac71873c72b9c112b34c77149/comments",
+   "author": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "xingsy97",
+    "id": 87063252,
+    "node_id": "MDQ6VXNlcjg3MDYzMjUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/87063252?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/xingsy97",
+    "html_url": "https://github.com/xingsy97",
+    "followers_url": "https://api.github.com/users/xingsy97/followers",
+    "following_url": "https://api.github.com/users/xingsy97/following{/other_user}",
+    "gists_url": "https://api.github.com/users/xingsy97/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/xingsy97/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/xingsy97/subscriptions",
+    "organizations_url": "https://api.github.com/users/xingsy97/orgs",
+    "repos_url": "https://api.github.com/users/xingsy97/repos",
+    "events_url": "https://api.github.com/users/xingsy97/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/xingsy97/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a57913f200932e3d7e730e103e0e5ee65ec4ecee",
+     "html_url": "https://github.com/microsoft/vscode/commit/a57913f200932e3d7e730e103e0e5ee65ec4ecee"
+    }
+   ]
+  }
+ ]
+}

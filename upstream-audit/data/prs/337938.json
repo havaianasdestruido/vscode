@@ -1,0 +1,410 @@
+{
+ "fetchedAt": "2026-11-01T00:55:23.780Z",
+ "pr": {
+  "number": 337938,
+  "title": "Terminal: Sanitize trailing/leading newlines when mutating environment variables",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-25T10:58:58Z",
+  "updated_at": "2026-09-29T14:23:30Z",
+  "user": "toaruR",
+  "author_association": "NONE",
+  "additions": 37,
+  "deletions": 4,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "terminal/sanitize-env-newlines",
+   "sha": "6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "repo": "toaruR/vscode",
+   "label": "toaruR:terminal/sanitize-env-newlines"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "4a6a3612a562c50f54c2bd5211f0ea42915b974e"
+  },
+  "body": "Fixes #337937\n\n### Summary\nWhen extensions contribute to environment variables (such as `PATH`) using `EnvironmentVariableMutatorType.Append` or `Prepend`, the existing environment variable value is concatenated directly via string addition (`+`).\n\nIf the existing environment variable happens to have a trailing carriage return (`\\r`) or newline (`\\n`)—which can happen via manual environment variable configuration, batch files, or external tools/installers—appending an extension path produces a string with an embedded `\\r`. \n\nOn Windows integrated terminals:\n1. Printing `$env:Path` causes the cursor to return to the beginning of the line upon hitting `\\r`, overwriting earlier characters with the appended path and visually truncating the line.\n2. The path entry containing the trailing `\\r` becomes an invalid filesystem path on Windows, breaking command resolution.\n\n### Proposed Changes\n- In `MergedEnvironmentVariableCollection.applyToProcessEnvironment`:\n  - `EnvironmentVariableMutatorType.Append`: Trim trailing `[\\r\\n]+$` from `env[actualVariable]` before appending.\n  - `EnvironmentVariableMutatorType.Prepend`: Trim leading `^[\\r\\n]+` from `env[actualVariable]` before prepending.\n- Restricted the sanitization strictly to `[\\r\\n]` so that full-width Unicode characters (e.g., Japanese directory paths with full-width spaces `\\u3000`) and standard spaces/symbols remain completely intact.\n- Added comprehensive unit test cases to `environmentVariableCollection.test.ts` covering CR/LF sanitization and full-width multi-byte paths.\n\n### Verification Done\n- Verified with unit tests covering trailing `\\r`, `\\r\\n`, `\\n`, multiple newlines, and Japanese characters with ideographic spaces.\n- Verified that trailing newlines are safely stripped while paths and full-width spaces remain intact.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "32c2f1f672c8c0a4b930443aa34d74287187774c",
+   "filename": "src/vs/platform/terminal/common/environmentVariableCollection.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 4,
+   "changes": 12,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FenvironmentVariableCollection.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FenvironmentVariableCollection.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fterminal%2Fcommon%2FenvironmentVariableCollection.ts?ref=6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "patch": "@@ -86,12 +86,16 @@ export class MergedEnvironmentVariableCollection implements IMergedEnvironmentVa\n \t\t\t\t// Default: true\n \t\t\t\tif (mutator.options?.applyAtProcessCreation ?? true) {\n \t\t\t\t\tswitch (mutator.type) {\n-\t\t\t\t\t\tcase EnvironmentVariableMutatorType.Append:\n-\t\t\t\t\t\t\tenv[actualVariable] = (env[actualVariable] || '') + value;\n+\t\t\t\t\t\tcase EnvironmentVariableMutatorType.Append: {\n+\t\t\t\t\t\t\tconst existing = env[actualVariable] || '';\n+\t\t\t\t\t\t\tenv[actualVariable] = existing.replace(/[\\r\\n]+$/, '') + value;\n \t\t\t\t\t\t\tbreak;\n-\t\t\t\t\t\tcase EnvironmentVariableMutatorType.Prepend:\n-\t\t\t\t\t\t\tenv[actualVariable] = value + (env[actualVariable] || '');\n+\t\t\t\t\t\t}\n+\t\t\t\t\t\tcase EnvironmentVariableMutatorType.Prepend: {\n+\t\t\t\t\t\t\tconst existing = env[actualVariable] || '';\n+\t\t\t\t\t\t\tenv[actualVariable] = value + existing.replace(/^[\\r\\n]+/, '');\n \t\t\t\t\t\t\tbreak;\n+\t\t\t\t\t\t}\n \t\t\t\t\t\tcase EnvironmentVariableMutatorType.Replace:\n \t\t\t\t\t\t\tenv[actualVariable] = value;\n \t\t\t\t\t\t\tbreak;"
+  },
+  {
+   "sha": "03e306dc1f4520399f11f11eda2ca18fb8547290",
+   "filename": "src/vs/workbench/contrib/terminal/test/common/environmentVariableCollection.test.ts",
+   "status": "modified",
+   "additions": 29,
+   "deletions": 0,
+   "changes": 29,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Ftest%2Fcommon%2FenvironmentVariableCollection.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Ftest%2Fcommon%2FenvironmentVariableCollection.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Ftest%2Fcommon%2FenvironmentVariableCollection.test.ts?ref=6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "patch": "@@ -292,6 +292,35 @@ suite('EnvironmentVariable - MergedEnvironmentVariableCollection', () => {\n \t\t\t\t});\n \t\t\t}\n \t\t});\n+\n+\t\ttest('should sanitize trailing/leading newlines when appending or prepending', async () => {\n+\t\t\tconst merged = new MergedEnvironmentVariableCollection(new Map([\n+\t\t\t\t['ext', {\n+\t\t\t\t\tmap: deserializeEnvironmentVariableCollection([\n+\t\t\t\t\t\t['A-key', { value: ';/path/a', type: EnvironmentVariableMutatorType.Append, variable: 'A' }],\n+\t\t\t\t\t\t['B-key', { value: ';/path/b', type: EnvironmentVariableMutatorType.Append, variable: 'B' }],\n+\t\t\t\t\t\t['C-key', { value: '/path/c;', type: EnvironmentVariableMutatorType.Prepend, variable: 'C' }],\n+\t\t\t\t\t\t['D-key', { value: ';D:\\\\追加パス\\\\bin', type: EnvironmentVariableMutatorType.Append, variable: 'D' }],\n+\t\t\t\t\t\t['E-key', { value: '/path/e;', type: EnvironmentVariableMutatorType.Prepend, variable: 'E' }]\n+\t\t\t\t\t])\n+\t\t\t\t}]\n+\t\t\t]));\n+\t\t\tconst env: IProcessEnvironment = {\n+\t\t\t\tA: 'foo\\r',\n+\t\t\t\tB: 'bar\\r\\n',\n+\t\t\t\tC: '\\r\\nbaz',\n+\t\t\t\tD: 'D:\\\\既存パス　全角\\r',\n+\t\t\t\tE: '\\r\\n　全角先頭\\\\path'\n+\t\t\t};\n+\t\t\tawait merged.applyToProcessEnvironment(env, undefined);\n+\t\t\tdeepStrictEqual(env, {\n+\t\t\t\tA: 'foo;/path/a',\n+\t\t\t\tB: 'bar;/path/b',\n+\t\t\t\tC: '/path/c;baz',\n+\t\t\t\tD: 'D:\\\\既存パス　全角;D:\\\\追加パス\\\\bin',\n+\t\t\t\tE: '/path/e;　全角先頭\\\\path'\n+\t\t\t});\n+\t\t});\n \t});\n \n \tsuite('diff', () => {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5316877568,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPOkdAA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟡 Changes recommended\n\nThe Unicode-space test does not exercise preservation in the sanitized existing value.\n\n*Get a fresh assessment by requesting another Copilot review.*\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Test ideographic space preservation in the existing environment value](#discussion_r4103874211) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nSanitizes CR/LF boundaries when extensions append or prepend terminal environment variables.\n\n**Changes:**\n- Strips trailing or leading CR/LF sequences before mutation.\n- Adds coverage for newline handling and Unicode paths.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/​vs/​platform/​terminal/​common/​environmentVariableCollection.ts` | Sanitizes existing environment values before mutation. |\r\n| `src/​vs/​workbench/​contrib/​terminal/​test/​common/​environmentVariableCollection.test.ts` | Tests sanitization and Unicode path preservation. |\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/337938#pullrequestreview-5316877568",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/337938",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/337938#pullrequestreview-5316877568"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/337938"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-25T11:02:33Z",
+   "commit_id": "72e0c31f28121c728a7592e61ee907ea0ff5cb11"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5831279750",
+   "html_url": "https://github.com/microsoft/vscode/pull/337938#issuecomment-5831279750",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337938",
+   "id": 5831279750,
+   "node_id": "IC_kwDOAn8RLM8AAAABW5JEhg",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T10:59:36Z",
+   "updated_at": "2026-09-29T14:23:30Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @anthonykim1\n\nMatched files:\n- `src/vs/platform/terminal/common/environmentVariableCollection.ts`\n- `src/vs/workbench/contrib/terminal/test/common/environmentVariableCollection.test.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5831279750/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5887233371",
+   "html_url": "https://github.com/microsoft/vscode/pull/337938#issuecomment-5887233371",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337938",
+   "id": 5887233371,
+   "node_id": "IC_kwDOAn8RLM8AAAABXugNWw",
+   "user": {
+    "login": "toaruR",
+    "id": 659197,
+    "node_id": "MDQ6VXNlcjY1OTE5Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/659197?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/toaruR",
+    "html_url": "https://github.com/toaruR",
+    "followers_url": "https://api.github.com/users/toaruR/followers",
+    "following_url": "https://api.github.com/users/toaruR/following{/other_user}",
+    "gists_url": "https://api.github.com/users/toaruR/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/toaruR/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/toaruR/subscriptions",
+    "organizations_url": "https://api.github.com/users/toaruR/orgs",
+    "repos_url": "https://api.github.com/users/toaruR/repos",
+    "events_url": "https://api.github.com/users/toaruR/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/toaruR/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-29T09:14:17Z",
+   "updated_at": "2026-09-29T09:14:17Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5887233371/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+   "node_id": "C_kwDOUrByZdoAKDcyZTBjMzFmMjgxMjFjNzI4YTc1OTJlNjFlZTkwN2VhMGZmNWNiMTE",
+   "commit": {
+    "author": {
+     "name": "toaruR",
+     "email": "toarur@gmail.com",
+     "date": "2026-09-25T10:51:00Z"
+    },
+    "committer": {
+     "name": "toaruR",
+     "email": "toarur@gmail.com",
+     "date": "2026-09-25T10:51:00Z"
+    },
+    "message": "Terminal: Sanitize trailing/leading newlines when mutating environment variables\n\nWhen appending or prepending to process environment variables in\nMergedEnvironmentVariableCollection, trim trailing/leading CR/LF characters\nfrom the existing value. This prevents corrupted environment variables (such\nas PATH containing carriage returns that cause terminal display overwrites\nand command resolution failures).",
+    "tree": {
+     "sha": "6cabf2d94945f8351d12f9da576ceefd8a7a3a63",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6cabf2d94945f8351d12f9da576ceefd8a7a3a63"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgheOXKAjrSULOpVI4HGVLy4tSNU\nnW5jXF4SMb2+0DDnoAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJmorKASm4R5P81z/Ldglzf3maxbIcnH5DFmqi6QT+Rc/3tj9w3Vxh2V3T9DaiTIWu\nz1bpYH/mSZC9e37u4gdwA=\n-----END SSH SIGNATURE-----",
+     "payload": "tree 6cabf2d94945f8351d12f9da576ceefd8a7a3a63\nparent 0790260d6896d2f17fd361d13198a52fa52d2dae\nauthor toaruR <toarur@gmail.com> 1790333460 +0900\ncommitter toaruR <toarur@gmail.com> 1790333460 +0900\n\nTerminal: Sanitize trailing/leading newlines when mutating environment variables\n\nWhen appending or prepending to process environment variables in\nMergedEnvironmentVariableCollection, trim trailing/leading CR/LF characters\nfrom the existing value. This prevents corrupted environment variables (such\nas PATH containing carriage returns that cause terminal display overwrites\nand command resolution failures).\n",
+     "verified_at": "2026-09-25T10:51:28Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+   "html_url": "https://github.com/microsoft/vscode/commit/72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/72e0c31f28121c728a7592e61ee907ea0ff5cb11/comments",
+   "author": {
+    "login": "toaruR",
+    "id": 659197,
+    "node_id": "MDQ6VXNlcjY1OTE5Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/659197?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/toaruR",
+    "html_url": "https://github.com/toaruR",
+    "followers_url": "https://api.github.com/users/toaruR/followers",
+    "following_url": "https://api.github.com/users/toaruR/following{/other_user}",
+    "gists_url": "https://api.github.com/users/toaruR/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/toaruR/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/toaruR/subscriptions",
+    "organizations_url": "https://api.github.com/users/toaruR/orgs",
+    "repos_url": "https://api.github.com/users/toaruR/repos",
+    "events_url": "https://api.github.com/users/toaruR/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/toaruR/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "toaruR",
+    "id": 659197,
+    "node_id": "MDQ6VXNlcjY1OTE5Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/659197?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/toaruR",
+    "html_url": "https://github.com/toaruR",
+    "followers_url": "https://api.github.com/users/toaruR/followers",
+    "following_url": "https://api.github.com/users/toaruR/following{/other_user}",
+    "gists_url": "https://api.github.com/users/toaruR/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/toaruR/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/toaruR/subscriptions",
+    "organizations_url": "https://api.github.com/users/toaruR/orgs",
+    "repos_url": "https://api.github.com/users/toaruR/repos",
+    "events_url": "https://api.github.com/users/toaruR/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/toaruR/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0790260d6896d2f17fd361d13198a52fa52d2dae",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0790260d6896d2f17fd361d13198a52fa52d2dae",
+     "html_url": "https://github.com/microsoft/vscode/commit/0790260d6896d2f17fd361d13198a52fa52d2dae"
+    }
+   ]
+  },
+  {
+   "sha": "6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "node_id": "C_kwDOUrByZdoAKDZkNTUyOTVmMmVlZDFjNmE5ZDkyN2RkZmZmZThjOTM4NmRmZDMzNjc",
+   "commit": {
+    "author": {
+     "name": "toaruR",
+     "email": "toarur@gmail.com",
+     "date": "2026-09-29T14:22:20Z"
+    },
+    "committer": {
+     "name": "toaruR",
+     "email": "toarur@gmail.com",
+     "date": "2026-09-29T14:22:20Z"
+    },
+    "message": "terminal: test ideographic space preservation adjacent to CR/LF",
+    "tree": {
+     "sha": "059b1438b355fd417dfb3633c3d456b5b7af6c9f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/059b1438b355fd417dfb3633c3d456b5b7af6c9f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgheOXKAjrSULOpVI4HGVLy4tSNU\nnW5jXF4SMb2+0DDnoAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQJeBmztCfzzDbAXlpKhkaoeSoi9rjJtZIgRGBoTv6Yf7BS9AKCZKzzvUsfuOhKy5ho\nSBhfKoeQb5sOjreksO8A8=\n-----END SSH SIGNATURE-----",
+     "payload": "tree 059b1438b355fd417dfb3633c3d456b5b7af6c9f\nparent 72e0c31f28121c728a7592e61ee907ea0ff5cb11\nauthor toaruR <toarur@gmail.com> 1790691740 +0900\ncommitter toaruR <toarur@gmail.com> 1790691740 +0900\n\nterminal: test ideographic space preservation adjacent to CR/LF\n",
+     "verified_at": "2026-09-29T14:22:48Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "html_url": "https://github.com/microsoft/vscode/commit/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6d55295f2eed1c6a9d927ddfffe8c9386dfd3367/comments",
+   "author": {
+    "login": "toaruR",
+    "id": 659197,
+    "node_id": "MDQ6VXNlcjY1OTE5Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/659197?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/toaruR",
+    "html_url": "https://github.com/toaruR",
+    "followers_url": "https://api.github.com/users/toaruR/followers",
+    "following_url": "https://api.github.com/users/toaruR/following{/other_user}",
+    "gists_url": "https://api.github.com/users/toaruR/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/toaruR/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/toaruR/subscriptions",
+    "organizations_url": "https://api.github.com/users/toaruR/orgs",
+    "repos_url": "https://api.github.com/users/toaruR/repos",
+    "events_url": "https://api.github.com/users/toaruR/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/toaruR/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "toaruR",
+    "id": 659197,
+    "node_id": "MDQ6VXNlcjY1OTE5Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/659197?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/toaruR",
+    "html_url": "https://github.com/toaruR",
+    "followers_url": "https://api.github.com/users/toaruR/followers",
+    "following_url": "https://api.github.com/users/toaruR/following{/other_user}",
+    "gists_url": "https://api.github.com/users/toaruR/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/toaruR/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/toaruR/subscriptions",
+    "organizations_url": "https://api.github.com/users/toaruR/orgs",
+    "repos_url": "https://api.github.com/users/toaruR/repos",
+    "events_url": "https://api.github.com/users/toaruR/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/toaruR/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/72e0c31f28121c728a7592e61ee907ea0ff5cb11",
+     "html_url": "https://github.com/microsoft/vscode/commit/72e0c31f28121c728a7592e61ee907ea0ff5cb11"
+    }
+   ]
+  }
+ ]
+}

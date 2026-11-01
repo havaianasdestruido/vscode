@@ -1,0 +1,664 @@
+{
+ "fetchedAt": "2026-11-01T00:52:05.452Z",
+ "pr": {
+  "number": 240604,
+  "title": "Fix bracket snippet overwriting chars outside the closing bracket",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-02-13T02:47:05Z",
+  "updated_at": "2026-08-29T04:23:38Z",
+  "user": "RedCMD",
+  "author_association": "CONTRIBUTOR",
+  "additions": 4,
+  "deletions": 2,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 1,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "bracketSnippetOverwriteFix",
+   "sha": "a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+   "repo": "RedCMD/vscode",
+   "label": "RedCMD:bracketSnippetOverwriteFix"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "eda8fe2218bfbe30739b4db43d005380fac5cb03"
+  },
+  "body": "Fixes https://github.com/microsoft/vscode/issues/235515\r\n\r\nif the prefix equals the surrounding text\r\nthen `endColumn` was already capturing the closing bracket\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "e2cab377ff76a9df888607d2331883d0828aa48a",
+   "filename": "src/vs/workbench/contrib/snippets/browser/snippetCompletionProvider.ts",
+   "status": "modified",
+   "additions": 4,
+   "deletions": 2,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a025194890f94d3b1ef5ec788c9ba8f363eaff5a/src%2Fvs%2Fworkbench%2Fcontrib%2Fsnippets%2Fbrowser%2FsnippetCompletionProvider.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a025194890f94d3b1ef5ec788c9ba8f363eaff5a/src%2Fvs%2Fworkbench%2Fcontrib%2Fsnippets%2Fbrowser%2FsnippetCompletionProvider.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fsnippets%2Fbrowser%2FsnippetCompletionProvider.ts?ref=a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+   "patch": "@@ -151,8 +151,10 @@ export class SnippetCompletionProvider implements CompletionItemProvider {\n \t\t\t\t\tp.open === lineContentLow[startPosition.column - 1] &&\n \t\t\t\t\t// and the snippet prefix contains the opening and closing pair at its edges\n \t\t\t\t\tsnippet.prefix.startsWith(p.open) &&\n-\t\t\t\t\tsnippet.prefix[snippet.prefix.length - 1] === p.close)\n-\t\t\t\t) {\n+\t\t\t\t\tsnippet.prefix.endsWith(p.close) &&\n+\t\t\t\t\t// and make sure the endColumn isn't already overwriting the closing bracket\n+\t\t\t\t\tsnippet.prefix.length !== p.open.length + p.close.length\n+\t\t\t\t)) {\n \t\t\t\t\t// Eat the character that was likely inserted because of auto-closing pairs\n \t\t\t\t\tendColumn++;\n \t\t\t\t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4248825162,
+   "node_id": "PRR_kwDOAn8RLM79P-1K",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes an issue in snippet completion range calculation where, in replace-mode and with surrounding auto-closing pairs, the computed replace range could extend past the intended closing bracket and delete the following character.\n\n**Changes:**\n- Tightens the condition that decides when to “eat” a closing character from an auto-closing pair by incrementing `endColumn`.\n- Uses `snippet.prefix.endsWith(...)` and adds an additional guard intended to prevent overwriting past the closing bracket.\n\n<details open>\n<summary>Show a summary per file</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| src/vs/workbench/contrib/snippets/browser/snippetCompletionProvider.ts | Adjusts auto-closing-pair range extension logic for snippet completions to avoid unintended overwrite past a closing bracket. |\n</details>\n\n## Copilot's findings\n\n\n<details>\n<summary>Comments suppressed due to low confidence (1)</summary>\n\n**src/vs/workbench/contrib/snippets/browser/snippetCompletionProvider.ts:159**\n* Please add a regression test for the replace-range behavior this block is adjusting (e.g. snippet prefix \"()\" with existing text \"()!!\" and cursor between the brackets should not extend the replace range beyond the closing bracket). There are already tests for replace ranges/auto-closing consumption, but this specific scenario doesn’t appear to be asserted.\n```\n\t\t\t\t\t// and make sure the endColumn isn't already overwriting the closing bracket\n\t\t\t\t\tsnippet.prefix.length !== p.open.length + p.close.length\n\t\t\t\t)) {\n\t\t\t\t\t// Eat the character that was likely inserted because of auto-closing pairs\n\t\t\t\t\tendColumn++;\n```\n</details>\n\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 1\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/240604#pullrequestreview-4248825162",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/240604",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/240604#pullrequestreview-4248825162"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/240604"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-08T01:43:40Z",
+   "commit_id": "ad735f6e1f2f46e2e7ca324366c65b67485a1784"
+  },
+  {
+   "id": 5056879522,
+   "node_id": "PRR_kwDOAn8RLM8AAAABLWnbog",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Review details\n\n\n\n\n<details>\n<summary>Suppressed comments (1)</summary>\n\n**src/vs/workbench/contrib/snippets/browser/snippetCompletionProvider.ts:156**\n* This length check only fixes two-character prefixes. For a prefix such as `(abc)` with the cursor before `)` in `(abc)!`, suffix matching has already advanced `endColumn` past `)`, but this condition still increments it and the replace operation deletes `!`. Gate the increment on the computed range instead (and cover both exact-pair and longer bracketed prefixes in regression tests).\n```\n\t\t\t\t\tsnippet.prefix.length !== p.open.length + p.close.length\n```\n</details>\n\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 0 new\n- **Review effort level:** Balanced\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/240604#pullrequestreview-5056879522",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/240604",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/240604#pullrequestreview-5056879522"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/240604"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-08-29T04:23:37Z",
+   "commit_id": "a025194890f94d3b1ef5ec788c9ba8f363eaff5a"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2815223131",
+   "html_url": "https://github.com/microsoft/vscode/pull/240604#issuecomment-2815223131",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/240604",
+   "id": 2815223131,
+   "node_id": "IC_kwDOAn8RLM6nzOVb",
+   "user": {
+    "login": "RedCMD",
+    "id": 33529441,
+    "node_id": "MDQ6VXNlcjMzNTI5NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33529441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedCMD",
+    "html_url": "https://github.com/RedCMD",
+    "followers_url": "https://api.github.com/users/RedCMD/followers",
+    "following_url": "https://api.github.com/users/RedCMD/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedCMD/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedCMD/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedCMD/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedCMD/orgs",
+    "repos_url": "https://api.github.com/users/RedCMD/repos",
+    "events_url": "https://api.github.com/users/RedCMD/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedCMD/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-18T10:39:57Z",
+   "updated_at": "2025-04-18T10:39:57Z",
+   "body": "@jrieken would you mind reviewing this thanks",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2815223131/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4482151066",
+   "html_url": "https://github.com/microsoft/vscode/pull/240604#issuecomment-4482151066",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/240604",
+   "id": 4482151066,
+   "node_id": "IC_kwDOAn8RLM8AAAABCygymg",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-05-18T20:59:23Z",
+   "updated_at": "2026-05-18T20:59:23Z",
+   "body": "@RedCMD FYI, created new PR here: https://github.com/microsoft/vscode/pull/317164 with a different fix, will verify.\r\n",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4482151066/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+   "node_id": "C_kwDOIBHEF9oAKDlhY2E1NDEyYTljYjAzZDI2MWQ0MGY2YzM5OGU4MDVmOWI1NjI2ZDY",
+   "commit": {
+    "author": {
+     "name": "RedCMD",
+     "email": "TheRedCMD@gmail.com",
+     "date": "2025-02-13T02:44:24Z"
+    },
+    "committer": {
+     "name": "RedCMD",
+     "email": "TheRedCMD@gmail.com",
+     "date": "2025-02-13T02:44:24Z"
+    },
+    "message": "Fix bracket snippet overwriting chars outside the closing bracket #235515",
+    "tree": {
+     "sha": "38515063d6240c7ba8fac03a18d51b8f24f8510e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/38515063d6240c7ba8fac03a18d51b8f24f8510e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+   "html_url": "https://github.com/microsoft/vscode/commit/9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9aca5412a9cb03d261d40f6c398e805f9b5626d6/comments",
+   "author": {
+    "login": "RedCMD",
+    "id": 33529441,
+    "node_id": "MDQ6VXNlcjMzNTI5NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33529441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedCMD",
+    "html_url": "https://github.com/RedCMD",
+    "followers_url": "https://api.github.com/users/RedCMD/followers",
+    "following_url": "https://api.github.com/users/RedCMD/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedCMD/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedCMD/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedCMD/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedCMD/orgs",
+    "repos_url": "https://api.github.com/users/RedCMD/repos",
+    "events_url": "https://api.github.com/users/RedCMD/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedCMD/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "RedCMD",
+    "id": 33529441,
+    "node_id": "MDQ6VXNlcjMzNTI5NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33529441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedCMD",
+    "html_url": "https://github.com/RedCMD",
+    "followers_url": "https://api.github.com/users/RedCMD/followers",
+    "following_url": "https://api.github.com/users/RedCMD/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedCMD/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedCMD/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedCMD/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedCMD/orgs",
+    "repos_url": "https://api.github.com/users/RedCMD/repos",
+    "events_url": "https://api.github.com/users/RedCMD/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedCMD/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "984a65113ef245fa4a0e4184621272da0b031f5f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/984a65113ef245fa4a0e4184621272da0b031f5f",
+     "html_url": "https://github.com/microsoft/vscode/commit/984a65113ef245fa4a0e4184621272da0b031f5f"
+    }
+   ]
+  },
+  {
+   "sha": "5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+   "node_id": "C_kwDOIBHEF9oAKDVkZDU5ZTlhZWM2YWRlNDg4NWFlZGUwYTczYzA0YzRhODE1YWFjOTc",
+   "commit": {
+    "author": {
+     "name": "RedCMD",
+     "email": "33529441+RedCMD@users.noreply.github.com",
+     "date": "2025-07-13T04:27:22Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-13T04:27:22Z"
+    },
+    "message": "Merge branch 'main' into bracketSnippetOverwriteFix",
+    "tree": {
+     "sha": "dfbdd1d7cafc093b640fb1950049e36541afaabc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/dfbdd1d7cafc093b640fb1950049e36541afaabc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoczWqCRC1aQ7uu5UhlAAADfQQAE3YLRsx25ZdGz1GnPyG06y2\ndgSe0la4e6k+MBzzmwA/b/Jk7bdultr6zD4J/Q1s13ehKRN2QIRrDTzTvfngfPzo\nGrhVQiyEKBs9eF6WMope/TuUTYJRU1bYAPlGwKmtNEvVoeOYRkGfVpy1yutzNqrM\n+xSlVpBA9WSa5mERtSJIsxeX+oiCLswJafDrOQZw5ATCx8f9WEVnQEoFG3J1N1vZ\ndlcJqHkBSBJG1EluausrqcRjjNG5NOxkg3XMuyeujJuRNvnluIc0w8aFooJXfV4x\nkBAo7JTXRyOYghibeVxBANydWHAS+FzGmWEcP2k8rQ+UAsHYRbC+ZMsrFKl9vstz\nOL92qzNYhJMTMeZixdxDABZj8mCDPnLbNZiqBtyzCOPTi/qlU5dziPMWqCkQ2N/t\nQrcn768MX48leBTXQFnppLTfjRKgPdFFRsY2ck4Z9v79q/9Eb6d6Jw8UVVkiUXm/\nAiW1dp88sZ+n4sgXKoc3/gZnYozAi64JfaGaEgK1mxiQVFJ6oFTXAXsoaQs1U9j9\nh69Jy4Dq6cCCq66oLSg5ufI607mj12deqNN7tKEV4NJanFq2YKBkGSJuEiohwOSB\nBZ9t9h7LGB74o0P9FdDYeR/tU/XmsiJpKV3WYBxN+2SLUDfa4lSSKmS5rdpZbT11\nSm3JUmRTCIowPsx7OZIB\n=ExLF\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree dfbdd1d7cafc093b640fb1950049e36541afaabc\nparent 9aca5412a9cb03d261d40f6c398e805f9b5626d6\nparent b8c44fbcabb8d28bb637dbe844530d8ad7865401\nauthor RedCMD <33529441+RedCMD@users.noreply.github.com> 1752380842 +1200\ncommitter GitHub <noreply@github.com> 1752380842 +1200\n\nMerge branch 'main' into bracketSnippetOverwriteFix",
+     "verified_at": "2025-07-13T04:27:22Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+   "html_url": "https://github.com/microsoft/vscode/commit/5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5dd59e9aec6ade4885aede0a73c04c4a815aac97/comments",
+   "author": {
+    "login": "RedCMD",
+    "id": 33529441,
+    "node_id": "MDQ6VXNlcjMzNTI5NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33529441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedCMD",
+    "html_url": "https://github.com/RedCMD",
+    "followers_url": "https://api.github.com/users/RedCMD/followers",
+    "following_url": "https://api.github.com/users/RedCMD/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedCMD/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedCMD/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedCMD/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedCMD/orgs",
+    "repos_url": "https://api.github.com/users/RedCMD/repos",
+    "events_url": "https://api.github.com/users/RedCMD/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedCMD/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9aca5412a9cb03d261d40f6c398e805f9b5626d6",
+     "html_url": "https://github.com/microsoft/vscode/commit/9aca5412a9cb03d261d40f6c398e805f9b5626d6"
+    },
+    {
+     "sha": "b8c44fbcabb8d28bb637dbe844530d8ad7865401",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b8c44fbcabb8d28bb637dbe844530d8ad7865401",
+     "html_url": "https://github.com/microsoft/vscode/commit/b8c44fbcabb8d28bb637dbe844530d8ad7865401"
+    }
+   ]
+  },
+  {
+   "sha": "e24a16c32ee754dafd47d6f6301f82d512a3153e",
+   "node_id": "C_kwDOIBHEF9oAKGUyNGExNmMzMmVlNzU0ZGFmZDQ3ZDZmNjMwMWY4MmQ1MTJhMzE1M2U",
+   "commit": {
+    "author": {
+     "name": "RedCMD",
+     "email": "33529441+RedCMD@users.noreply.github.com",
+     "date": "2026-02-09T00:13:26Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-02-09T00:13:26Z"
+    },
+    "message": "Merge branch 'main' into bracketSnippetOverwriteFix",
+    "tree": {
+     "sha": "a1f989ee4941b82e5738dda985aad1c694893e5c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a1f989ee4941b82e5738dda985aad1c694893e5c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e24a16c32ee754dafd47d6f6301f82d512a3153e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpiSamCRC1aQ7uu5UhlAAAmtUQAGpKxgfkAHq4ZzbBsNK0S+eP\nR4chhlY+xgw4uY78Ner7A4nFyC3htV1S4CP+dKtnGQp1Me3opUiTdFLsCVEVcD/J\nfNtz5ir++g87ERB0qRdo0D2y2VikXz00cZWmy9lj+0E6HzcTitC5B9OwOEieD96O\nFyhGywS69Ej251+JOtS0cskH1hfYxzg+uyB9+UDseU9cwAPnRCJgXgGhYvAJzfNt\naucCXWUnZuER8wPqsTceQ1efiy3a+8Q1w8E7JQ4OHSP1aV7okJrsnwBZB+B4dO9D\nLpKgNgHdbg4e7p98zErKtl5wo+ZHVfM5GfhotDb9cqTtY7l9xSNxJ/y8SCS/itwv\nUPfWcDUAGFrMUeUwxnBsIKaKIedP+XQmqZ6PPC4/I76/N/6shWSBsDC6/+HdvxBK\njFV6FBuU81BKPTi1G6vPo85dXwW8dOlSOO04hNazpS69AotXv83eEp3l3l7O1eDd\nufMzfALUZYLKZ8vmJzY5RPeTODaiWBd04LWREPsG1q0Ny3PnLgRSVRCU+EcbetnI\nZ+C4PB6c7qTEEPRM8K7UMZaPb5lDbMRvhINZjpe2h52bkoCKO2AklctFi7up+2cP\nCKTX2cd4n3BWf7w26/KrnAau1FTH6bhpbhlKT6zrAs2b8VtiioCp89oYKd30u5A7\ndps3XWrKBvWAQm2dKJP0\n=ZGES\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a1f989ee4941b82e5738dda985aad1c694893e5c\nparent 5dd59e9aec6ade4885aede0a73c04c4a815aac97\nparent f7e2fdc34931ed0a5029151b1e3437774964b92b\nauthor RedCMD <33529441+RedCMD@users.noreply.github.com> 1770596006 +1300\ncommitter GitHub <noreply@github.com> 1770596006 +1300\n\nMerge branch 'main' into bracketSnippetOverwriteFix",
+     "verified_at": "2026-02-09T00:13:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e24a16c32ee754dafd47d6f6301f82d512a3153e",
+   "html_url": "https://github.com/microsoft/vscode/commit/e24a16c32ee754dafd47d6f6301f82d512a3153e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e24a16c32ee754dafd47d6f6301f82d512a3153e/comments",
+   "author": {
+    "login": "RedCMD",
+    "id": 33529441,
+    "node_id": "MDQ6VXNlcjMzNTI5NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33529441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedCMD",
+    "html_url": "https://github.com/RedCMD",
+    "followers_url": "https://api.github.com/users/RedCMD/followers",
+    "following_url": "https://api.github.com/users/RedCMD/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedCMD/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedCMD/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedCMD/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedCMD/orgs",
+    "repos_url": "https://api.github.com/users/RedCMD/repos",
+    "events_url": "https://api.github.com/users/RedCMD/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedCMD/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5dd59e9aec6ade4885aede0a73c04c4a815aac97",
+     "html_url": "https://github.com/microsoft/vscode/commit/5dd59e9aec6ade4885aede0a73c04c4a815aac97"
+    },
+    {
+     "sha": "f7e2fdc34931ed0a5029151b1e3437774964b92b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f7e2fdc34931ed0a5029151b1e3437774964b92b",
+     "html_url": "https://github.com/microsoft/vscode/commit/f7e2fdc34931ed0a5029151b1e3437774964b92b"
+    }
+   ]
+  },
+  {
+   "sha": "ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+   "node_id": "C_kwDOIBHEF9oAKGFkNzM1ZjZlMWYyZjQ2ZTJlN2NhMzI0MzY2YzY1YjY3NDg1YTE3ODQ",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-05-08T01:38:08Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-08T01:38:08Z"
+    },
+    "message": "Merge branch 'main' into bracketSnippetOverwriteFix",
+    "tree": {
+     "sha": "51e6f301eac2f0a3382bf252d87554b7df3a0b2e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/51e6f301eac2f0a3382bf252d87554b7df3a0b2e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp/T6BCRC1aQ7uu5UhlAAAAJYQAGxajTSOsa6rP2+HUopwSlq9\ncpar+geW7CMwnDelx+h2ulyC7cZj3o/uiOAynK+w2jBvycVrFfBJzXifP00AqmZV\nN666wakw2X528A0Xv4W+h5iRi4aUJYwRyAteqRzSUKZcZVijFvCe1D5tdGrIlAiF\nLLYLeRSFOI5msyHlEWzO7VyKsRhK8nOkHtKUlHSS8GKTLsqYBMRQii0hFLzrJ4lj\nJF/OfkH+9zQpZlmHZPeoZCsfWyeIWDpT8PKmNWBZ+n++Ug99yQCoQR9NV17TUGly\nAsQpFUzg31QcSyWKjUe4lrkdvXW/BCSc0nYAz9aUm3bfcXl9Pui7d1SxJwzKIJNe\nHzCPx1voitSV3UOQTfj1Qw5wdTV2EMumyxTvYUk/QVK5I9i8Nrzdbb2LU2FRzIAZ\niSQJns2RkVRI2RFxWhMe8Wten9rpCjdnXC8XHBQDfZDkHcPziMdKENvOMjwW4EcH\nozdoPUxNEg2x7G+IkPeN7MvTzNGGHwyZ1oesQpwdRPbO4ccUZWE0KVSXXQ/MFUlp\nPzP/3Xx7n2vvGFd3Yrriw4K4uQykNSmcaFpsQZgNL1XgRqf5MJjq/yCaLmnOVJUx\n8jKyUj56YPQgc9L+6wwJAiuFiTt4syQDmI3u+0CKh7N7vgVECoPoMNI8VV3ygfaq\nCfOQD5O+Qniv2EpcAe08\n=9GHr\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 51e6f301eac2f0a3382bf252d87554b7df3a0b2e\nparent e24a16c32ee754dafd47d6f6301f82d512a3153e\nparent 005c4d77704e027a8ff700126b094dbaf48e94d8\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1778204288 -0700\ncommitter GitHub <noreply@github.com> 1778204288 -0700\n\nMerge branch 'main' into bracketSnippetOverwriteFix",
+     "verified_at": "2026-05-08T01:38:09Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+   "html_url": "https://github.com/microsoft/vscode/commit/ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ad735f6e1f2f46e2e7ca324366c65b67485a1784/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e24a16c32ee754dafd47d6f6301f82d512a3153e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e24a16c32ee754dafd47d6f6301f82d512a3153e",
+     "html_url": "https://github.com/microsoft/vscode/commit/e24a16c32ee754dafd47d6f6301f82d512a3153e"
+    },
+    {
+     "sha": "005c4d77704e027a8ff700126b094dbaf48e94d8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/005c4d77704e027a8ff700126b094dbaf48e94d8",
+     "html_url": "https://github.com/microsoft/vscode/commit/005c4d77704e027a8ff700126b094dbaf48e94d8"
+    }
+   ]
+  },
+  {
+   "sha": "a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+   "node_id": "C_kwDOIBHEF9oAKGEwMjUxOTQ4OTBmOTRkM2IxZWY1ZWM3ODhjOWJhOGYzNjNlYWZmNWE",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-05-16T22:51:41Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-16T22:51:41Z"
+    },
+    "message": "Merge branch 'main' into bracketSnippetOverwriteFix",
+    "tree": {
+     "sha": "7dddad9eee165f8d683af99d4dcdd689e69515d7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7dddad9eee165f8d683af99d4dcdd689e69515d7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqCPT+CRC1aQ7uu5UhlAAA+jgQAB/+JiCFKrYTlpZzh0RucgC/\nLM/860CJygWs3fSFRi8eKhcW0kPXIdcsMzV1cXqbjbXf+GCeVxYHjJWCDPjYxQfA\nXZdFBC7AUXCYk5t+Abh/tX/shqoWhm2dzuigQS3mzZkqxbW1IDBBpyqB4aKpQYX8\n3mzJNSpwpBB8ULb8AtGqV6dOlpW4nGLiU683tcaTxwSbi/fGbA9jDge9q/ZWGT72\n9IebbtKFwwfGUJFH2qvV0Wio1YUmuxAoRy8Ge4jruxuyO7kwHYKvvnxysFW9uXgE\nV5f0+mTlgDnOViVVOPTeTJb0jumEN9gewp/6MyRRgw0HQvzfgGIETwLfKgicU9eY\nQ1yeR/Zi9Rer/oGvlrHSWFL0650+c9CmU3+3fxGYimhsUq1EegIDT+iWVv0ghQmU\nIoAWeeeKIGFAonnNmONANl9e+xzQSSu8xl5pfRWno2DVEABqXmAbUVMWc1zqJb8n\nxHag+z8GMKhNc3mju44wP2cyIPUGcOKG1wEKFZtKVoBs3SeBNLZ2WFZWMhrewvPS\noxkSarRFJnspVgke0nQJ1ibItHSvS7VOgwLc5NhgsNk0YKVofbnT+AN+HTlsJVhQ\naccQUr+ld9J7L+DzTA6Ak06LD9t25Kc6jCUO8ZI7vXfoztfJCJ9l/46ochlbQxRD\n06dgSZPCz8VXFzgN739E\n=pQis\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 7dddad9eee165f8d683af99d4dcdd689e69515d7\nparent ad735f6e1f2f46e2e7ca324366c65b67485a1784\nparent eda8fe2218bfbe30739b4db43d005380fac5cb03\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1778971901 -0700\ncommitter GitHub <noreply@github.com> 1778971901 -0700\n\nMerge branch 'main' into bracketSnippetOverwriteFix",
+     "verified_at": "2026-05-16T22:51:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+   "html_url": "https://github.com/microsoft/vscode/commit/a025194890f94d3b1ef5ec788c9ba8f363eaff5a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a025194890f94d3b1ef5ec788c9ba8f363eaff5a/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ad735f6e1f2f46e2e7ca324366c65b67485a1784",
+     "html_url": "https://github.com/microsoft/vscode/commit/ad735f6e1f2f46e2e7ca324366c65b67485a1784"
+    },
+    {
+     "sha": "eda8fe2218bfbe30739b4db43d005380fac5cb03",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/eda8fe2218bfbe30739b4db43d005380fac5cb03",
+     "html_url": "https://github.com/microsoft/vscode/commit/eda8fe2218bfbe30739b4db43d005380fac5cb03"
+    }
+   ]
+  }
+ ]
+}

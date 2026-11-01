@@ -1,0 +1,898 @@
+{
+ "fetchedAt": "2026-11-01T00:54:15.604Z",
+ "pr": {
+  "number": 327494,
+  "title": "Git - support for SHA-256 repositories (#227281)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-07-25T22:49:22Z",
+  "updated_at": "2026-10-07T10:45:49Z",
+  "user": "rostidev",
+  "author_association": "NONE",
+  "additions": 445,
+  "deletions": 31,
+  "changed_files": 4,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 6,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "git-sha256-support",
+   "sha": "ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "repo": "rostidev/vscode",
+   "label": "rostidev:git-sha256-support"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "50f37bcc26c75b91937883a8974c969af300d4d4"
+  },
+  "body": "Fixes #227281\r\n\r\n## Credit\r\n\r\nThis builds on @PositroniumJS’s work in #317363. Their two commits are preserved with authorship intact, and this PR supersedes that one.\r\n\r\nThe original investigation and hash-pattern updates are theirs. This PR carries that work forward and fixes the remaining SHA-256 blame truncation.\r\n\r\n## Problem\r\n\r\nThe proposed blame pattern matches the 40-character alternative first:\r\n\r\n```ts\r\n/^([0-9a-f]{40}|[0-9a-f]{64})/gm\r\n```\r\n\r\nBecause no delimiter follows the group, a SHA-256 object ID matches only its first 40 characters.\r\n\r\nThe truncated value becomes `BlameInformation.hash`. It cannot match the full IDs returned by `getUnpublishedCommits()`, causing the blame hover to offer remote commands for unpublished commits.\r\n\r\n## Changes\r\n\r\n- Introduce a shared, grouped object-ID pattern with the 64-character alternative first:\r\n\r\n  ```ts\r\n  const OBJECT_ID = '(?:[0-9a-f]{64}|[0-9a-f]{40})';\r\n  ```\r\n\r\n  Use it across the affected parsers and reuse `objectIdRegex` for Git operation validation and blame’s full-hash checks. Preserve the validator’s existing zero-ID handling.\r\n\r\n- Extract `getRemoteRefs` parsing into `parseLsRemote` for direct testing and reuse of the shared pattern. This preserves the base implementation’s existing branch-name/hash mapping and SHA-1/SHA-256 support.\r\n\r\n- Raise the maximum `git.commitShortHashLength` from 40 to 64.\r\n\r\n- Add SHA-256 commit/tree cases and direct tests for object-ID matching, blame, refs, remote refs, and stashes. Include SHA-1 cases to protect existing behavior.\r\n\r\n## Verification\r\n\r\nLocal checks during the rebase and subsequent review:\r\n\r\n- Passed 31 selected existing parser tests using an in-memory harness that executes the TypeScript source after stripping types.\r\n- Confirmed that restoring the shorter-first alternation makes both SHA-256 blame regression tests fail.\r\n- Checked real SHA-1 and SHA-256 repository output, including merge commits, blame ranges, annotated/lightweight tags, remote refs, multiple stashes, and detached HEAD files.\r\n- After sharing the validator’s regex, reran both object-ID tests and verified equivalent acceptance, rejection, and error messages across 24,507 cases.\r\n\r\nFull TypeScript checking and the extension-host Mocha suite have not been rerun locally after the rebase.\r\n\r\n## Scope\r\n\r\nThis PR addresses the Git extension. SHA-256 assumptions elsewhere in the repository, including build tooling, remain outside its scope.",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "dfe2b36d5a7d161fda58ebe432dd26be50b8680d",
+   "filename": "extensions/git/package.json",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fpackage.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fpackage.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fpackage.json?ref=ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "patch": "@@ -4117,7 +4117,7 @@\n           \"type\": \"number\",\n           \"default\": 7,\n           \"minimum\": 7,\n-          \"maximum\": 40,\n+          \"maximum\": 64,\n           \"markdownDescription\": \"%config.commitShortHashLength%\",\n           \"scope\": \"resource\"\n         },"
+  },
+  {
+   "sha": "44f03b7d56c4736351380d338e329a5d077a5cda",
+   "filename": "extensions/git/src/blame.ts",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 3,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Fblame.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Fblame.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fblame.ts?ref=ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "patch": "@@ -8,7 +8,7 @@ import { Model } from './model';\n import { dispose, fromNow, getCommitShortHash, IDisposable, truncate } from './util';\n import { Repository } from './repository';\n import { throttle } from './decorators';\n-import { BlameInformation, Commit } from './git';\n+import { BlameInformation, Commit, objectIdRegex } from './git';\n import { fromGitUri, isGitUri, toGitUri } from './uri';\n import { emojify, ensureEmojis } from './emoji';\n import { getWorkingTreeAndIndexDiffInformation, getWorkingTreeDiffInformation } from './staging';\n@@ -419,7 +419,7 @@ export class GitBlameController {\n \t\t\t// 1) Commit - Resource in the multi-file diff editor when viewing the details of a commit.\n \t\t\t// 2) HEAD   - Resource on the left-hand side of the diff editor when viewing a resource from the index.\n \t\t\t// 3) ~      - Resource on the left-hand side of the diff editor when viewing a resource from the working tree.\n-\t\t\tif (/^[0-9a-f]{40}$/i.test(ref) || ref === 'HEAD' || ref === '~') {\n+\t\t\tif (objectIdRegex.test(ref) || ref === 'HEAD' || ref === '~') {\n \t\t\t\tworkingTreeChanges = allChanges = [];\n \t\t\t\tworkingTreeAndIndexChanges = undefined;\n \t\t\t} else if (ref === '') {\n@@ -478,7 +478,7 @@ export class GitBlameController {\n \t\t} else {\n \t\t\t// Resource with the `git` scheme\n \t\t\tconst { ref } = fromGitUri(textEditor.document.uri);\n-\t\t\tcommit = /^[0-9a-f]{40}$/i.test(ref) ? ref : repository.HEAD.commit;\n+\t\t\tcommit = objectIdRegex.test(ref) ? ref : repository.HEAD.commit;\n \t\t}\n \n \t\t// Git blame information"
+  },
+  {
+   "sha": "7fdfef54bee5ffedb34205cf20f7d096f826fc51",
+   "filename": "extensions/git/src/git.ts",
+   "status": "modified",
+   "additions": 65,
+   "deletions": 26,
+   "changes": 91,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fgit.ts?ref=ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "patch": "@@ -21,8 +21,29 @@ import { StringDecoder } from 'string_decoder';\n // https://github.com/microsoft/vscode/issues/65693\n const MAX_CLI_LENGTH = 30000;\n \n+/**\n+ * A full git object id is exactly 40 hexadecimal characters (SHA-1) or exactly\n+ * 64 (SHA-256) - never a length in between - so the two lengths are matched as\n+ * alternatives rather than as a `{40,64}` range.\n+ *\n+ * The 64 character alternative is always listed first. Regular expression\n+ * alternation is ordered, so with the shorter alternative first a SHA-256 id\n+ * would match only its first 40 characters in any context where no delimiter\n+ * follows it to force the engine to backtrack.\n+ *\n+ * The alternation is wrapped so that interpolating this into a larger pattern\n+ * cannot let it escape its intended position - `^${OBJECT_ID}$` would otherwise\n+ * split at the top level and defeat both anchors.\n+ */\n+const OBJECT_ID = '(?:[0-9a-f]{64}|[0-9a-f]{40})';\n+\n+/**\n+ * Matches a string that consists solely of a full git object id.\n+ */\n+export const objectIdRegex = new RegExp(`^${OBJECT_ID}$`, 'i');\n+\n function assertValidObjectId(sha: string, allowZero = false): void {\n-\tif (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(sha) || (!allowZero && /^0+$/.test(sha))) {\n+\tif (!objectIdRegex.test(sha) || (!allowZero && /^0+$/.test(sha))) {\n \t\tthrow new Error(allowZero ? 'Expected a full Git object ID' : 'Expected a full, non-zero Git object ID');\n \t}\n }\n@@ -382,6 +403,11 @@ function sanitizeRelativePath(path: string): string {\n const COMMIT_FORMAT = '%H%n%aN%n%aE%n%at%n%ct%n%P%n%D%n%B';\n const STASH_FORMAT = '%H%n%P%n%gd%n%gs%n%at%n%ct';\n \n+/**\n+ * Matches the object id in the `.git/HEAD` file of a detached HEAD.\n+ */\n+const detachedHeadRegex = new RegExp(`^(?<commit>${OBJECT_ID})$`, 'm');\n+\n export interface ICloneOptions {\n \treadonly parentPath: string;\n \treadonly targetName?: string;\n@@ -929,7 +955,7 @@ export function parseGitRemotes(raw: string): MutableRemote[] {\n \treturn remotes;\n }\n \n-const commitRegex = /([0-9a-f]{40})\\n(.*)\\n(.*)\\n(.*)\\n(.*)\\n(.*)\\n(.*)(?:\\n([^]*?))?(?:\\x00)(?:\\n((?:.*)files? changed(?:.*))$)?/gm;\n+const commitRegex = new RegExp(`(${OBJECT_ID})\\\\n(.*)\\\\n(.*)\\\\n(.*)\\\\n(.*)\\\\n(.*)\\\\n(.*)(?:\\\\n([^]*?))?(?:\\\\x00)(?:\\\\n((?:.*)files? changed(?:.*))$)?`, 'gm');\n \n export function parseGitCommits(data: string): Commit[] {\n \tconst commits: Commit[] = [];\n@@ -1042,9 +1068,9 @@ export function parseLsFiles(raw: string): LsFilesElement[] {\n \t\t.map(([, mode, object, stage, file]) => ({ mode, object, stage, file }));\n }\n \n-const stashRegex = /([0-9a-f]{40})\\n(.*)\\nstash@{(\\d+)}\\n(WIP\\s)?on\\s([^:]+):\\s(.*)\\n(\\d+)\\n(\\d+)(?:\\x00)/gmi;\n+const stashRegex = new RegExp(`(${OBJECT_ID})\\\\n(.*)\\\\nstash@{(\\\\d+)}\\\\n(WIP\\\\s)?on\\\\s([^:]+):\\\\s(.*)\\\\n(\\\\d+)\\\\n(\\\\d+)(?:\\\\x00)`, 'gmi');\n \n-function parseGitStashes(raw: string): Stash[] {\n+export function parseGitStashes(raw: string): Stash[] {\n \tconst result: Stash[] = [];\n \n \tlet match, hash, parents, index, wip, branchName, description, authorDate, commitDate;\n@@ -1227,9 +1253,12 @@ export interface BlameInformation {\n \t}[];\n }\n \n-function parseGitBlame(data: string): BlameInformation[] {\n+export function parseGitBlame(data: string): BlameInformation[] {\n \tconst lineSeparator = /\\r?\\n/;\n-\tconst commitRegex = /^([0-9a-f]{40})/gm;\n+\t// Nothing follows the object id in this pattern, so the ordering of the\n+\t// alternatives documented on OBJECT_ID is what keeps a SHA-256 id from\n+\t// being matched as only its first 40 characters.\n+\tconst objectIdLineRegex = new RegExp(`^${OBJECT_ID}`, 'gm');\n \n \tconst blameInformation = new Map<string, BlameInformation>();\n \n@@ -1243,7 +1272,7 @@ function parseGitBlame(data: string): BlameInformation[] {\n \n \tfor (const line of data.split(lineSeparator)) {\n \t\t// Commit\n-\t\tconst commitMatch = line.match(commitRegex);\n+\t\tconst commitMatch = line.match(objectIdLineRegex);\n \t\tif (!commitHash && commitMatch) {\n \t\t\tconst segments = line.split(' ');\n \n@@ -1288,8 +1317,8 @@ function parseGitBlame(data: string): BlameInformation[] {\n const REFS_FORMAT = '%(refname)%00%(objectname)%00%(*objectname)';\n const REFS_WITH_DETAILS_FORMAT = `${REFS_FORMAT}%00%(parent)%00%(*parent)%00%(authorname)%00%(*authorname)%00%(committerdate:unix)%00%(*committerdate:unix)%00%(subject)%00%(*subject)`;\n \n-function parseRefs(data: string): (Ref | Branch)[] {\n-\tconst refRegex = /^(refs\\/[^\\0]+)\\0([0-9a-f]{40})\\0([0-9a-f]{40})?(?:\\0(.*))?$/gm;\n+export function parseRefs(data: string): (Ref | Branch)[] {\n+\tconst refRegex = new RegExp(`^(refs/[^\\\\0]+)\\\\0(${OBJECT_ID})\\\\0(${OBJECT_ID})?(?:\\\\0(.*))?$`, 'gm');\n \n \tconst headRegex = /^refs\\/heads\\/([^ ]+)$/;\n \tconst remoteHeadRegex = /^refs\\/remotes\\/([^/]+)\\/([^ ]+)$/;\n@@ -1354,6 +1383,31 @@ function parseRefs(data: string): (Ref | Branch)[] {\n \treturn refs;\n }\n \n+const lsRemoteHeadRegex = new RegExp(`^(${OBJECT_ID})\\\\trefs/heads/([^ ]+)$`);\n+const lsRemoteTagRegex = new RegExp(`^(${OBJECT_ID})\\\\trefs/tags/([^ ]+)$`);\n+\n+/**\n+ * Parses the output of `git ls-remote`, whose lines are `<object id>\\t<ref>`.\n+ */\n+export function parseLsRemote(data: string): Ref[] {\n+\tconst fn = (line: string): Ref | null => {\n+\t\tlet match: RegExpExecArray | null;\n+\n+\t\tif (match = lsRemoteHeadRegex.exec(line)) {\n+\t\t\treturn { name: match[2], commit: match[1], type: RefType.Head };\n+\t\t} else if (match = lsRemoteTagRegex.exec(line)) {\n+\t\t\treturn { name: match[2], commit: match[1], type: RefType.Tag };\n+\t\t}\n+\n+\t\treturn null;\n+\t};\n+\n+\treturn data.split('\\n')\n+\t\t.filter(line => !!line)\n+\t\t.map(fn)\n+\t\t.filter(ref => !!ref) as Ref[];\n+}\n+\n export interface PullOptions {\n \treadonly unshallow?: boolean;\n \treadonly tags?: boolean;\n@@ -2978,7 +3032,7 @@ export class Repository {\n \t\t}\n \n \t\t// Detached\n-\t\tconst commitMatch = raw.match(/^(?<commit>[0-9a-f]{40})$/m);\n+\t\tconst commitMatch = raw.match(detachedHeadRegex);\n \t\tif (commitMatch?.groups?.commit) {\n \t\t\treturn { name: undefined, commit: commitMatch.groups.commit, type: RefType.Head };\n \t\t}\n@@ -3052,22 +3106,7 @@ export class Repository {\n \n \t\tconst result = await this.exec(args, { cancellationToken: opts?.cancellationToken });\n \n-\t\tconst fn = (line: string): Ref | null => {\n-\t\t\tlet match: RegExpExecArray | null;\n-\n-\t\t\tif (match = /^((?:[0-9a-f]{40}|[0-9a-f]{64}))\\trefs\\/heads\\/([^ ]+)$/.exec(line)) {\n-\t\t\t\treturn { name: match[2], commit: match[1], type: RefType.Head };\n-\t\t\t} else if (match = /^((?:[0-9a-f]{40}|[0-9a-f]{64}))\\trefs\\/tags\\/([^ ]+)$/.exec(line)) {\n-\t\t\t\treturn { name: match[2], commit: match[1], type: RefType.Tag };\n-\t\t\t}\n-\n-\t\t\treturn null;\n-\t\t};\n-\n-\t\treturn result.stdout.split('\\n')\n-\t\t\t.filter(line => !!line)\n-\t\t\t.map(fn)\n-\t\t\t.filter(ref => !!ref) as Ref[];\n+\t\treturn parseLsRemote(result.stdout);\n \t}\n \n \tasync getStashes(): Promise<Stash[]> {"
+  },
+  {
+   "sha": "e0d4c16c9d768da24bdd9ac710f2b054c69ca037",
+   "filename": "extensions/git/src/test/git.test.ts",
+   "status": "modified",
+   "additions": 376,
+   "deletions": 1,
+   "changes": 377,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Ftest%2Fgit.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ad091e3ba914b6f27d91e3042732df5575d066f3/extensions%2Fgit%2Fsrc%2Ftest%2Fgit.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Ftest%2Fgit.test.ts?ref=ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "patch": "@@ -4,9 +4,10 @@\n  *--------------------------------------------------------------------------------------------*/\n \n import 'mocha';\n-import { GitStatusParser, parseGitCommits, parseGitmodules, parseLsTree, parseLsFiles, parseGitRemotes, parseCoAuthors } from '../git';\n+import { GitStatusParser, parseGitCommits, parseGitmodules, parseLsTree, parseLsFiles, parseGitRemotes, parseCoAuthors, parseGitBlame, parseRefs, parseLsRemote, parseGitStashes, objectIdRegex } from '../git';\n import * as assert from 'assert';\n import { splitInChunks } from '../util';\n+import { RefType } from '../api/git.constants';\n \n suite('git', () => {\n \tsuite('GitStatusParser', () => {\n@@ -534,6 +535,31 @@ suite('git', () => {\n \t\t\t\tcoAuthors: []\n \t\t\t}]);\n \t\t});\n+\n+\t\ttest('SHA-256 hash commit', function () {\n+\t\t\tconst GIT_OUTPUT_SINGLE_PARENT =\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098\\n' +\n+\t\t\t\t'John Doe\\n' +\n+\t\t\t\t'john.doe@mail.com\\n' +\n+\t\t\t\t'1580811030\\n' +\n+\t\t\t\t'1580811031\\n' +\n+\t\t\t\t'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22\\n' +\n+\t\t\t\t'main,branch\\n' +\n+\t\t\t\t'This is a commit message.\\x00';\n+\n+\t\t\tassert.deepStrictEqual(parseGitCommits(GIT_OUTPUT_SINGLE_PARENT), [{\n+\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tmessage: 'This is a commit message.',\n+\t\t\t\tparents: ['b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22'],\n+\t\t\t\tauthorDate: new Date(1580811030000),\n+\t\t\t\tauthorName: 'John Doe',\n+\t\t\t\tauthorEmail: 'john.doe@mail.com',\n+\t\t\t\tcommitDate: new Date(1580811031000),\n+\t\t\t\trefNames: ['main', 'branch'],\n+\t\t\t\tshortStat: undefined,\n+\t\t\t\tcoAuthors: []\n+\t\t\t}]);\n+\t\t});\n \t});\n \n \tsuite('parseLsTree', function () {\n@@ -566,6 +592,36 @@ suite('git', () => {\n \t\t\t\t{ mode: '100644', type: 'blob', object: '56ec42c9dc6fcf4534788f0fe34b36e09f37d085', size: '261186', file: 'what.txt2' }\n \t\t\t]);\n \t\t});\n+\n+\t\ttest('SHA-256 hashes', function () {\n+\t\t\tconst input = `040000 tree b97f4f0b6769e62fe152d5093cdb6a1026325d2d569e9985f639b4bb69081810       -\t.vscode\n+100644 blob a9ae1893d6ccafabb2718269c180be0dc3924a7480f5040f6fc28ba7a002f3b7  491570\tScreen Shot 2018-06-01 at 14.48.05.png\n+100644 blob 0667e7cdcbf2caa1d3a5dd708cd90fe08c778b20d01a10e28c5eb72b0b54026e  764420\tScreen Shot 2018-06-07 at 20.04.59.png\n+100644 blob 78ba54c83767be0aa91a2dd8cda6c5d92a3830971099967eaf5931a7532534e1       4\tboom.txt\n+100644 blob c048ab7ba31f244f98500c3bf7feb7305a460b1bdba0c7e26a993807a152f77a      11\tboomcaboom.txt\n+100644 blob 3559a563123a2bebf459117d2e66aa9c319f8df8bffa548a7ddc5caf1d9896c1      24\tfile.js\n+100644 blob 59e884c6dbd018ea43e694e821f96a5b08226b5ef345e65e81e665cc44c59d95     201\tfile.md\n+100644 blob f868215c351673fcd5d26414b144a100f986c63e3a0f2822eee1566e766f95ba       8\thello.js\n+100644 blob 78ba54c83767be0aa91a2dd8cda6c5d92a3830971099967eaf5931a7532534e1       4\twhat.js\n+100644 blob 20bf819186af6d79b888c89fd94a010f532544a7d3cd6797fc4344c062e0a303      24\twhat.txt\n+100644 blob dcc9c94a5810b1ac3f3ae52937f7dab8087e205b23b1cdc745308e1227b6713c  261186\twhat.txt2`;\n+\n+\t\t\tconst output = parseLsTree(input);\n+\n+\t\t\tassert.deepStrictEqual(output, [\n+\t\t\t\t{ mode: '040000', type: 'tree', object: 'b97f4f0b6769e62fe152d5093cdb6a1026325d2d569e9985f639b4bb69081810', size: '-', file: '.vscode' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: 'a9ae1893d6ccafabb2718269c180be0dc3924a7480f5040f6fc28ba7a002f3b7', size: '491570', file: 'Screen Shot 2018-06-01 at 14.48.05.png' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '0667e7cdcbf2caa1d3a5dd708cd90fe08c778b20d01a10e28c5eb72b0b54026e', size: '764420', file: 'Screen Shot 2018-06-07 at 20.04.59.png' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '78ba54c83767be0aa91a2dd8cda6c5d92a3830971099967eaf5931a7532534e1', size: '4', file: 'boom.txt' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: 'c048ab7ba31f244f98500c3bf7feb7305a460b1bdba0c7e26a993807a152f77a', size: '11', file: 'boomcaboom.txt' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '3559a563123a2bebf459117d2e66aa9c319f8df8bffa548a7ddc5caf1d9896c1', size: '24', file: 'file.js' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '59e884c6dbd018ea43e694e821f96a5b08226b5ef345e65e81e665cc44c59d95', size: '201', file: 'file.md' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: 'f868215c351673fcd5d26414b144a100f986c63e3a0f2822eee1566e766f95ba', size: '8', file: 'hello.js' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '78ba54c83767be0aa91a2dd8cda6c5d92a3830971099967eaf5931a7532534e1', size: '4', file: 'what.js' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: '20bf819186af6d79b888c89fd94a010f532544a7d3cd6797fc4344c062e0a303', size: '24', file: 'what.txt' },\n+\t\t\t\t{ mode: '100644', type: 'blob', object: 'dcc9c94a5810b1ac3f3ae52937f7dab8087e205b23b1cdc745308e1227b6713c', size: '261186', file: 'what.txt2' }\n+\t\t\t]);\n+\t\t});\n \t});\n \n \tsuite('parseLsFiles', function () {\n@@ -600,6 +656,325 @@ suite('git', () => {\n \t\t});\n \t});\n \n+\tsuite('objectIdRegex', () => {\n+\t\ttest('matches full object ids', function () {\n+\t\t\tassert.ok(objectIdRegex.test('9505cacb7c710ed17125fcc6cb3669e8ddca6c8c'));\n+\t\t\tassert.ok(objectIdRegex.test('9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098'));\n+\t\t\tassert.ok(objectIdRegex.test('9505CACB7C710ED17125FCC6CB3669E8DDCA6C8CD8AF6A31F6B3CD64604C3098'));\n+\t\t});\n+\n+\t\ttest('rejects anything that is not a full object id', function () {\n+\t\t\tassert.ok(!objectIdRegex.test(''));\n+\t\t\tassert.ok(!objectIdRegex.test('HEAD'));\n+\t\t\tassert.ok(!objectIdRegex.test('9505cac'));\n+\t\t\t// The alternation must not escape the anchors\n+\t\t\tassert.ok(!objectIdRegex.test('9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098-junk'));\n+\t\t\tassert.ok(!objectIdRegex.test('junk-9505cacb7c710ed17125fcc6cb3669e8ddca6c8c'));\n+\t\t\t// A length between the two valid ones is not a valid object id\n+\t\t\tassert.ok(!objectIdRegex.test('9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c30'));\n+\t\t\tassert.ok(!objectIdRegex.test('9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098a'));\n+\t\t});\n+\t});\n+\n+\tsuite('parseGitBlame', () => {\n+\t\tconst blameOutput = (hash1: string, hash2: string) => [\n+\t\t\t`${hash1} 1 1 2`,\n+\t\t\t'author John Doe',\n+\t\t\t'author-mail <john.doe@mail.com>',\n+\t\t\t'author-time 1580811030',\n+\t\t\t'author-tz +0100',\n+\t\t\t'committer John Doe',\n+\t\t\t'committer-mail <john.doe@mail.com>',\n+\t\t\t'committer-time 1580811031',\n+\t\t\t'committer-tz +0100',\n+\t\t\t'summary This is a commit message.',\n+\t\t\t'boundary',\n+\t\t\t'filename file.txt',\n+\t\t\t`${hash2} 3 3 1`,\n+\t\t\t'author Jane Roe',\n+\t\t\t'author-mail <jane.roe@mail.com>',\n+\t\t\t'author-time 1580811040',\n+\t\t\t'author-tz +0100',\n+\t\t\t'committer Jane Roe',\n+\t\t\t'committer-mail <jane.roe@mail.com>',\n+\t\t\t'committer-time 1580811041',\n+\t\t\t'committer-tz +0100',\n+\t\t\t'summary Another commit message.',\n+\t\t\t`previous ${hash1} file.txt`,\n+\t\t\t'filename file.txt',\n+\t\t].join('\\n');\n+\n+\t\ttest('SHA-1 hashes', function () {\n+\t\t\tassert.deepStrictEqual(parseGitBlame(blameOutput(\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\t'5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d'\n+\t\t\t)), [{\n+\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\tauthorName: 'John Doe',\n+\t\t\t\tauthorEmail: 'john.doe@mail.com',\n+\t\t\t\tauthorDate: 1580811030000,\n+\t\t\t\tsubject: 'This is a commit message.',\n+\t\t\t\tranges: [{ startLineNumber: 1, endLineNumber: 2 }]\n+\t\t\t}, {\n+\t\t\t\thash: '5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d',\n+\t\t\t\tauthorName: 'Jane Roe',\n+\t\t\t\tauthorEmail: 'jane.roe@mail.com',\n+\t\t\t\tauthorDate: 1580811040000,\n+\t\t\t\tsubject: 'Another commit message.',\n+\t\t\t\tranges: [{ startLineNumber: 3, endLineNumber: 3 }]\n+\t\t\t}]);\n+\t\t});\n+\n+\t\t// The object id is not followed by a delimiter in the pattern that matches\n+\t\t// it, so a SHA-256 hash is easily matched as only its first 40 characters.\n+\t\ttest('SHA-256 hashes are not truncated', function () {\n+\t\t\tassert.deepStrictEqual(parseGitBlame(blameOutput(\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\t'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22'\n+\t\t\t)), [{\n+\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tauthorName: 'John Doe',\n+\t\t\t\tauthorEmail: 'john.doe@mail.com',\n+\t\t\t\tauthorDate: 1580811030000,\n+\t\t\t\tsubject: 'This is a commit message.',\n+\t\t\t\tranges: [{ startLineNumber: 1, endLineNumber: 2 }]\n+\t\t\t}, {\n+\t\t\t\thash: 'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\tauthorName: 'Jane Roe',\n+\t\t\t\tauthorEmail: 'jane.roe@mail.com',\n+\t\t\t\tauthorDate: 1580811040000,\n+\t\t\t\tsubject: 'Another commit message.',\n+\t\t\t\tranges: [{ startLineNumber: 3, endLineNumber: 3 }]\n+\t\t\t}]);\n+\t\t});\n+\n+\t\t// A commit that covers more than one range is emitted again as a bare\n+\t\t// header line followed by `filename`, and the ranges are merged by hash.\n+\t\ttest('SHA-256 hashes across multiple ranges', function () {\n+\t\t\tconst output = [\n+\t\t\t\t'd483d3fdacc369559e9ae8a04a752590a350f137ada78ad31fb88c14442f1e05 2 2 1',\n+\t\t\t\t'author Jane Roe',\n+\t\t\t\t'author-mail <jane.roe@mail.com>',\n+\t\t\t\t'author-time 1580811040',\n+\t\t\t\t'author-tz +0100',\n+\t\t\t\t'summary Middle change',\n+\t\t\t\t'filename file.txt',\n+\t\t\t\t'3bb440793cf7b136c503d864a0473d3eb6ace7f2e9a7a5c9de98ca46a8b799f8 1 1 1',\n+\t\t\t\t'author John Doe',\n+\t\t\t\t'author-mail <john.doe@mail.com>',\n+\t\t\t\t'author-time 1580811030',\n+\t\t\t\t'author-tz +0100',\n+\t\t\t\t'summary Base commit',\n+\t\t\t\t'filename file.txt',\n+\t\t\t\t'3bb440793cf7b136c503d864a0473d3eb6ace7f2e9a7a5c9de98ca46a8b799f8 3 3 3',\n+\t\t\t\t'filename file.txt',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseGitBlame(output), [{\n+\t\t\t\thash: 'd483d3fdacc369559e9ae8a04a752590a350f137ada78ad31fb88c14442f1e05',\n+\t\t\t\tauthorName: 'Jane Roe',\n+\t\t\t\tauthorEmail: 'jane.roe@mail.com',\n+\t\t\t\tauthorDate: 1580811040000,\n+\t\t\t\tsubject: 'Middle change',\n+\t\t\t\tranges: [{ startLineNumber: 2, endLineNumber: 2 }]\n+\t\t\t}, {\n+\t\t\t\thash: '3bb440793cf7b136c503d864a0473d3eb6ace7f2e9a7a5c9de98ca46a8b799f8',\n+\t\t\t\tauthorName: 'John Doe',\n+\t\t\t\tauthorEmail: 'john.doe@mail.com',\n+\t\t\t\tauthorDate: 1580811030000,\n+\t\t\t\tsubject: 'Base commit',\n+\t\t\t\tranges: [\n+\t\t\t\t\t{ startLineNumber: 1, endLineNumber: 1 },\n+\t\t\t\t\t{ startLineNumber: 3, endLineNumber: 5 }\n+\t\t\t\t]\n+\t\t\t}]);\n+\t\t});\n+\t});\n+\n+\tsuite('parseRefs', () => {\n+\t\ttest('SHA-1 hashes', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'refs/heads/main\\x009505cacb7c710ed17125fcc6cb3669e8ddca6c8c\\x00',\n+\t\t\t\t'refs/tags/v1.0\\x005b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d\\x001c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseRefs(input), [{\n+\t\t\t\tname: 'main',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\tahead: undefined,\n+\t\t\t\tbehind: undefined,\n+\t\t\t\ttype: RefType.Head\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0',\n+\t\t\t\tcommit: '1c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}]);\n+\t\t});\n+\n+\t\ttest('SHA-256 hashes', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'refs/heads/main\\x009505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098\\x00',\n+\t\t\t\t'refs/remotes/origin/main\\x009505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098\\x00',\n+\t\t\t\t// Annotated tag - the peeled object id is the commit the tag points at\n+\t\t\t\t'refs/tags/v1.0\\x001c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d3b1a4c5e6f70819293a4b5c6\\x00b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\t// Lightweight tag - no peeled object id\n+\t\t\t\t'refs/tags/v0.9\\x00b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22\\x00',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseRefs(input), [{\n+\t\t\t\tname: 'main',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\tahead: undefined,\n+\t\t\t\tbehind: undefined,\n+\t\t\t\ttype: RefType.Head\n+\t\t\t}, {\n+\t\t\t\tname: 'origin/main',\n+\t\t\t\tremote: 'origin',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\ttype: RefType.RemoteHead\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0',\n+\t\t\t\tcommit: 'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}, {\n+\t\t\t\tname: 'v0.9',\n+\t\t\t\tcommit: 'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\tcommitDetails: undefined,\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}]);\n+\t\t});\n+\n+\t\ttest('SHA-256 hashes with commit details', function () {\n+\t\t\tconst input = 'refs/heads/main\\x009505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098\\x00\\x00' +\n+\t\t\t\t'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22\\x00\\x00' +\n+\t\t\t\t'John Doe\\x00\\x001580811030\\x00\\x00This is a commit message.\\x00\\x00[ahead 1, behind 2]';\n+\n+\t\t\tassert.deepStrictEqual(parseRefs(input), [{\n+\t\t\t\tname: 'main',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tcommitDetails: {\n+\t\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\t\tmessage: 'This is a commit message.',\n+\t\t\t\t\tparents: ['b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22'],\n+\t\t\t\t\tauthorName: 'John Doe',\n+\t\t\t\t\tcommitDate: new Date(1580811030000)\n+\t\t\t\t},\n+\t\t\t\tahead: 1,\n+\t\t\t\tbehind: 2,\n+\t\t\t\ttype: RefType.Head\n+\t\t\t}]);\n+\t\t});\n+\t});\n+\n+\tsuite('parseLsRemote', () => {\n+\t\ttest('branches and tags', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8c\\trefs/heads/main',\n+\t\t\t\t'5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d\\trefs/tags/v1.0',\n+\t\t\t\t// `ls-remote` also lists the peeled tag; the caller deduplicates these\n+\t\t\t\t'1c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d\\trefs/tags/v1.0^{}',\n+\t\t\t\t'',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseLsRemote(input), [{\n+\t\t\t\tname: 'main',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\ttype: RefType.Head\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0',\n+\t\t\t\tcommit: '5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d',\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0^{}',\n+\t\t\t\tcommit: '1c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d',\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}]);\n+\t\t});\n+\n+\t\ttest('SHA-256 hashes', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098\\trefs/heads/main',\n+\t\t\t\t'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22\\trefs/tags/v1.0',\n+\t\t\t\t'1c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d3b1a4c5e6f70819293a4b5c6\\trefs/tags/v1.0^{}',\n+\t\t\t\t'',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseLsRemote(input), [{\n+\t\t\t\tname: 'main',\n+\t\t\t\tcommit: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\ttype: RefType.Head\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0',\n+\t\t\t\tcommit: 'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}, {\n+\t\t\t\tname: 'v1.0^{}',\n+\t\t\t\tcommit: '1c6b1a1a1e5ab3d05e5ee2e7d1e0b8fd8d8f3a0d3b1a4c5e6f70819293a4b5c6',\n+\t\t\t\ttype: RefType.Tag\n+\t\t\t}]);\n+\t\t});\n+\n+\t\ttest('ignores lines that are not branches or tags', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8c\\tHEAD',\n+\t\t\t\t'5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d\\trefs/pull/1/head',\n+\t\t\t\t'',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseLsRemote(input), []);\n+\t\t});\n+\t});\n+\n+\tsuite('parseGitStashes', () => {\n+\t\t// A stash created with an explicit message has no `WIP ` prefix\n+\t\ttest('SHA-1 hashes, explicit stash message', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\t'5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d',\n+\t\t\t\t'stash@{1}',\n+\t\t\t\t'On main: my saved work',\n+\t\t\t\t'1580811030',\n+\t\t\t\t'1580811031\\x00',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseGitStashes(input), [{\n+\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8c',\n+\t\t\t\tparents: ['5b3f2c9de1e1a5f57c1f5b4c7d9c4f9f0a1b2c3d'],\n+\t\t\t\tindex: 1,\n+\t\t\t\tbranchName: 'main',\n+\t\t\t\tdescription: 'my saved work',\n+\t\t\t\tauthorDate: new Date(1580811030000),\n+\t\t\t\tcommitDate: new Date(1580811031000)\n+\t\t\t}]);\n+\t\t});\n+\n+\t\ttest('SHA-256 hashes', function () {\n+\t\t\tconst input = [\n+\t\t\t\t'9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\t'b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22',\n+\t\t\t\t'stash@{0}',\n+\t\t\t\t'WIP on main: 9505cac This is a commit message.',\n+\t\t\t\t'1580811030',\n+\t\t\t\t'1580811031\\0',\n+\t\t\t].join('\\n');\n+\n+\t\t\tassert.deepStrictEqual(parseGitStashes(input), [{\n+\t\t\t\thash: '9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098',\n+\t\t\t\tparents: ['b9469a95e64ad83017429739bd95b527100cdfec700ac1fb15d3d7d1dfd6aa22'],\n+\t\t\t\tindex: 0,\n+\t\t\t\tbranchName: 'main',\n+\t\t\t\tdescription: 'WIP (9505cac This is a commit message.)',\n+\t\t\t\tauthorDate: new Date(1580811030000),\n+\t\t\t\tcommitDate: new Date(1580811031000)\n+\t\t\t}]);\n+\t\t});\n+\t});\n+\n \tsuite('parseCoAuthors', () => {\n \t\ttest('no co-authors', function () {\n \t\t\tassert.deepStrictEqual(parseCoAuthors('This is a commit message.'), []);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4780366791,
+   "node_id": "PRR_kwDOAn8RLM8AAAABHO6bxw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds SHA-256 object ID support across the Git extension while preserving SHA-1 compatibility.\n\n**Changes:**\n- Updates Git output parsers and blame handling for 64-character IDs.\n- Corrects remote branch parsing and expands short-hash configuration.\n- Adds SHA-1/SHA-256 parser tests.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated 1 comment.\n\n| File | Description |\n| ---- | ----------- |\n| `extensions/git/src/git.ts` | Updates object ID parsing and remote ref handling. |\n| `extensions/git/src/blame.ts` | Recognizes SHA-256 IDs in blame resources. |\n| `extensions/git/src/test/git.test.ts` | Adds parser coverage for both hash formats. |\n| `extensions/git/package.json` | Raises the short-hash maximum to 64. |\n\n\n\n\n<details>\n<summary>Comments suppressed due to low confidence (2)</summary>\n\n**extensions/git/src/git.ts:1062**\n* The stash parser repeats the 40/64-character alternatives rather than consuming `OBJECT_ID`, so the supposedly centralized object-id definition can drift from this parser. Construct this regex from `OBJECT_ID` too.\n```\nconst stashRegex = /([0-9a-f]{64}|[0-9a-f]{40})\\n(.*)\\nstash@{(\\d+)}\\n(WIP\\s)?on\\s([^:]+):\\s(.*)\\n(\\d+)\\n(\\d+)(?:\\x00)/gmi;\n```\n**extensions/git/src/git.ts:1313**\n* This third copy of the object-id alternatives defeats the single-pattern design: changes to `OBJECT_ID` will not reach ref parsing. Interpolate the noncapturing `OBJECT_ID` fragment so the existing capture indexes remain unchanged.\n```\n\tconst refRegex = /^(refs\\/[^\\0]+)\\0([0-9a-f]{64}|[0-9a-f]{40})\\0([0-9a-f]{64}|[0-9a-f]{40})?(?:\\0(.*))?$/gm;\n```\n</details>\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780366791",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780366791"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-07-25T22:51:38Z",
+   "commit_id": "3107f9362e22878d909454e4ba36b9feeaa3f1f9"
+  },
+  {
+   "id": 4780390599,
+   "node_id": "PRR_kwDOAn8RLM8AAAABHO74xw",
+   "user": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?u=89992db077986d81069e39a4b6197bf554b66338&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780390599",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780390599"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-07-25T23:05:21Z",
+   "commit_id": "3107f9362e22878d909454e4ba36b9feeaa3f1f9"
+  },
+  {
+   "id": 4780393380,
+   "node_id": "PRR_kwDOAn8RLM8AAAABHO8DpA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated no new comments.\n\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780393380",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-4780393380"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-07-25T23:07:46Z",
+   "commit_id": "a07ec08ead039a1d590b6c24a7d8d8ceffc25437"
+  },
+  {
+   "id": 5407282527,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQkyVXw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟡 Changes recommended\n\nObject-ID validation still duplicates the format definition instead of using the new source of truth.\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Reuse shared object-ID pattern in validation](#discussion_r4178557585) · New\n</details>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407282527",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407282527"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-04T17:08:47Z",
+   "commit_id": "78798dee2dc409af178550512be6abe6eff3c3c2"
+  },
+  {
+   "id": 5407334036,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQk1elA",
+   "user": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?u=89992db077986d81069e39a4b6197bf554b66338&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407334036",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407334036"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-04T17:27:01Z",
+   "commit_id": "78798dee2dc409af178550512be6abe6eff3c3c2"
+  },
+  {
+   "id": 5407345584,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQk2LsA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe implementation is well-covered and correct; only the description of the `getRemoteRefs` refactor needs clarification.\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [PR description incorrectly claims a getRemoteRefs bug fix](#discussion_r4178621829) · New\n</details>\n\n<details>\n<summary><strong>Resolved since last review (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Reuse shared object-ID pattern in validation](#discussion_r4178557585)\n</details>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407345584",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407345584"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-04T17:31:13Z",
+   "commit_id": "46141b8ee43b9cceb0bf36982ffceb3722a04fbf"
+  },
+  {
+   "id": 5407377087,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQk4Gvw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe focused parser updates consistently use the shared pattern and include comprehensive regression coverage.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>Resolved since last review (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [PR description incorrectly claims a getRemoteRefs bug fix](#discussion_r4178621829)\n</details>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407377087",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407377087"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-04T17:40:12Z",
+   "commit_id": "46141b8ee43b9cceb0bf36982ffceb3722a04fbf"
+  },
+  {
+   "id": 5407441829,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQk8DpQ",
+   "user": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?u=89992db077986d81069e39a4b6197bf554b66338&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407441829",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5407441829"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-04T18:02:59Z",
+   "commit_id": "46141b8ee43b9cceb0bf36982ffceb3722a04fbf"
+  },
+  {
+   "id": 5441148116,
+   "node_id": "PRR_kwDOAn8RLM8AAAABRFFU1A",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe implementation consistently supports both object-ID formats with focused regression coverage and no unresolved defects.\n\n**Review effort:** Balanced  \n**Findings:** None",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5441148116",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/327494",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/327494#pullrequestreview-5441148116"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/327494"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-07T10:45:49Z",
+   "commit_id": "ad091e3ba914b6f27d91e3042732df5575d066f3"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5080911329",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#issuecomment-5080911329",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/327494",
+   "id": 5080911329,
+   "node_id": "IC_kwDOAn8RLM8AAAABLtiN4Q",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-25T22:50:05Z",
+   "updated_at": "2026-10-07T10:42:05Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `extensions/git/package.json`\n- `extensions/git/src/blame.ts`\n- `extensions/git/src/git.ts`\n- `extensions/git/src/test/git.test.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5080911329/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5080925461",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#issuecomment-5080925461",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/327494",
+   "id": 5080925461,
+   "node_id": "IC_kwDOAn8RLM8AAAABLtjFFQ",
+   "user": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-25T22:55:00Z",
+   "updated_at": "2026-07-25T22:55:00Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5080925461/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5982636636",
+   "html_url": "https://github.com/microsoft/vscode/pull/327494#issuecomment-5982636636",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/327494",
+   "id": 5982636636,
+   "node_id": "IC_kwDOAn8RLM8AAAABZJfKXA",
+   "user": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-04T17:35:57Z",
+   "updated_at": "2026-10-04T17:35:57Z",
+   "body": "Improved description according to the current state and Copilot code review comment.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5982636636/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "a88a8b702deb276e4bcd5374c653da890c78ae65",
+   "node_id": "C_kwDOTjhY9NoAKGE4OGE4YjcwMmRlYjI3NmU0YmNkNTM3NGM2NTNkYTg5MGM3OGFlNjU",
+   "commit": {
+    "author": {
+     "name": "PositroniumJS",
+     "email": "150566116+PositroniumJS@users.noreply.github.com",
+     "date": "2026-05-19T19:02:53Z"
+    },
+    "committer": {
+     "name": "Rostislav Krasny",
+     "email": "45571812+rostidev@users.noreply.github.com",
+     "date": "2026-10-07T10:41:14Z"
+    },
+    "message": "fix: Git - change regexp to be compatible with SHA256 commits (#227281)",
+    "tree": {
+     "sha": "354e3ab2be4721b2023ec6e164c055673fc65b0d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/354e3ab2be4721b2023ec6e164c055673fc65b0d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a88a8b702deb276e4bcd5374c653da890c78ae65",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a88a8b702deb276e4bcd5374c653da890c78ae65",
+   "html_url": "https://github.com/microsoft/vscode/commit/a88a8b702deb276e4bcd5374c653da890c78ae65",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a88a8b702deb276e4bcd5374c653da890c78ae65/comments",
+   "author": {
+    "login": "PositroniumJS",
+    "id": 150566116,
+    "node_id": "U_kgDOCPl05A",
+    "avatar_url": "https://avatars.githubusercontent.com/u/150566116?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PositroniumJS",
+    "html_url": "https://github.com/PositroniumJS",
+    "followers_url": "https://api.github.com/users/PositroniumJS/followers",
+    "following_url": "https://api.github.com/users/PositroniumJS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PositroniumJS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PositroniumJS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PositroniumJS/subscriptions",
+    "organizations_url": "https://api.github.com/users/PositroniumJS/orgs",
+    "repos_url": "https://api.github.com/users/PositroniumJS/repos",
+    "events_url": "https://api.github.com/users/PositroniumJS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PositroniumJS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "50f37bcc26c75b91937883a8974c969af300d4d4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/50f37bcc26c75b91937883a8974c969af300d4d4",
+     "html_url": "https://github.com/microsoft/vscode/commit/50f37bcc26c75b91937883a8974c969af300d4d4"
+    }
+   ]
+  },
+  {
+   "sha": "0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+   "node_id": "C_kwDOTjhY9NoAKDBmMDg2MGZkM2I2YWM2NzZhNGU0ZGI4YTQ0ZmFkNTI0NDgzYjYwMjc",
+   "commit": {
+    "author": {
+     "name": "PositroniumJS",
+     "email": "150566116+PositroniumJS@users.noreply.github.com",
+     "date": "2026-05-19T21:01:46Z"
+    },
+    "committer": {
+     "name": "Rostislav Krasny",
+     "email": "45571812+rostidev@users.noreply.github.com",
+     "date": "2026-10-07T10:41:14Z"
+    },
+    "message": "Add tests for SHA-256 hash commits",
+    "tree": {
+     "sha": "13f9220f5d6d3f6ad260745039b1bfbcaef2b7b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/13f9220f5d6d3f6ad260745039b1bfbcaef2b7b9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+   "html_url": "https://github.com/microsoft/vscode/commit/0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0f0860fd3b6ac676a4e4db8a44fad524483b6027/comments",
+   "author": {
+    "login": "PositroniumJS",
+    "id": 150566116,
+    "node_id": "U_kgDOCPl05A",
+    "avatar_url": "https://avatars.githubusercontent.com/u/150566116?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/PositroniumJS",
+    "html_url": "https://github.com/PositroniumJS",
+    "followers_url": "https://api.github.com/users/PositroniumJS/followers",
+    "following_url": "https://api.github.com/users/PositroniumJS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/PositroniumJS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/PositroniumJS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/PositroniumJS/subscriptions",
+    "organizations_url": "https://api.github.com/users/PositroniumJS/orgs",
+    "repos_url": "https://api.github.com/users/PositroniumJS/repos",
+    "events_url": "https://api.github.com/users/PositroniumJS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/PositroniumJS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a88a8b702deb276e4bcd5374c653da890c78ae65",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a88a8b702deb276e4bcd5374c653da890c78ae65",
+     "html_url": "https://github.com/microsoft/vscode/commit/a88a8b702deb276e4bcd5374c653da890c78ae65"
+    }
+   ]
+  },
+  {
+   "sha": "ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "node_id": "C_kwDOTjhY9NoAKGFkMDkxZTNiYTkxNGI2ZjI3ZDkxZTMwNDI3MzJkZjU1NzVkMDY2ZjM",
+   "commit": {
+    "author": {
+     "name": "Rostislav Krasny",
+     "email": "rostiprodev@gmail.com",
+     "date": "2026-07-25T22:47:54Z"
+    },
+    "committer": {
+     "name": "Rostislav Krasny",
+     "email": "45571812+rostidev@users.noreply.github.com",
+     "date": "2026-10-07T10:41:14Z"
+    },
+    "message": "fix: preserve full SHA-256 object IDs in blame\n\nMatch the 64-character alternative first so SHA-256 blame hashes are not\ntruncated to 40 characters. Keeping full hashes restores comparisons with\ngetUnpublishedCommits and prevents remote hover commands from appearing\nfor unpublished commits.\n\nShare a grouped OBJECT_ID pattern across the commit, stash, blame, ref,\nremote-ref and detached-HEAD parsers. Reuse objectIdRegex for Git operation\nvalidation and blame's full-hash checks. The pattern uses separate 64- and\n40-character alternatives.\n\nExtract getRemoteRefs parsing into parseLsRemote and add direct parser\ntests, preserving the existing branch-name and commit-hash mapping.\n\nAllow git.commitShortHashLength values up to 64. Add SHA-1 and SHA-256\nregression tests for object IDs, blame ranges, refs, remote refs and\nstashes.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "233485f3774d86c4e5228255e60e0ebd5fdf402e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/233485f3774d86c4e5228255e60e0ebd5fdf402e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ad091e3ba914b6f27d91e3042732df5575d066f3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "html_url": "https://github.com/microsoft/vscode/commit/ad091e3ba914b6f27d91e3042732df5575d066f3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ad091e3ba914b6f27d91e3042732df5575d066f3/comments",
+   "author": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "rostidev",
+    "id": 45571812,
+    "node_id": "MDQ6VXNlcjQ1NTcxODEy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45571812?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/rostidev",
+    "html_url": "https://github.com/rostidev",
+    "followers_url": "https://api.github.com/users/rostidev/followers",
+    "following_url": "https://api.github.com/users/rostidev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/rostidev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/rostidev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/rostidev/subscriptions",
+    "organizations_url": "https://api.github.com/users/rostidev/orgs",
+    "repos_url": "https://api.github.com/users/rostidev/repos",
+    "events_url": "https://api.github.com/users/rostidev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/rostidev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0f0860fd3b6ac676a4e4db8a44fad524483b6027",
+     "html_url": "https://github.com/microsoft/vscode/commit/0f0860fd3b6ac676a4e4db8a44fad524483b6027"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1844 @@
+{
+ "fetchedAt": "2026-11-01T00:51:03.551Z",
+ "pr": {
+  "number": 134146,
+  "title": "Make MSYS2 git compatible (not only Git for Windows)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2021-09-29T17:19:54Z",
+  "updated_at": "2026-03-01T15:27:27Z",
+  "user": "zcsizmadia",
+  "author_association": "NONE",
+  "additions": 7,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 6,
+  "review_comments": 0,
+  "commits_count": 24,
+  "labels": [
+   "git"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-msys2-git-rev-parse",
+   "sha": "121b40d954686c63c5ea8923ac84228ebe7010d4",
+   "repo": "zcsizmadia/vscode",
+   "label": "zcsizmadia:fix-msys2-git-rev-parse"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "**Problem:**\r\nWhen MSYS2 git is used with Visual Code (instead of Git for Windows), the vscode built-in git extension fails to initialize:\r\n\r\n```\r\nValidating found git in: C:\\msys64\\usr\\bin\\git.exe\r\nUsing git 2.33.0 from C:\\msys64\\usr\\bin\\git.exe\r\n> git rev-parse --git-dir\r\nOpening repository for path='c:\\Project' failed; ex=spawn C:\\msys64\\usr\\bin\\git.exe ENOENT {\r\n  \"gitErrorCode\": \"NotAGitRepository\"\r\n}Error: spawn C:\\msys64\\usr\\bin\\git.exe ENOENT\r\n```\r\n\r\n**Issue:**\r\nMSYS2 git rev-parse --show-toplevel returns cygwin style path vs Git for Windows, which returns  Windows style path.\r\n\r\n**Solution:**\r\nIf Cygwin style path is detected convert it to Windows style\r\n\r\n**References:**\r\nhttps://github.com/microsoft/vscode/issues/111504\r\nhttps://github.com/microsoft/vscode/issues/4651\r\nhttps://github.com/microsoft/vscode/issues/17461\r\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "9c934fa1df799cb6c72bd2cea04a5f018fbab8bc",
+   "filename": "extensions/git/src/git.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 0,
+   "changes": 7,
+   "blob_url": "https://github.com/microsoft/vscode/blob/121b40d954686c63c5ea8923ac84228ebe7010d4/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/121b40d954686c63c5ea8923ac84228ebe7010d4/extensions%2Fgit%2Fsrc%2Fgit.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Fgit.ts?ref=121b40d954686c63c5ea8923ac84228ebe7010d4",
+   "patch": "@@ -529,6 +529,13 @@ export class Git {\n \n \t\t\t\treturn path.normalize(pathUri.fsPath);\n \t\t\t}\n+\n+\t\t\t// MSYS2 Git (not Git for Windows) rev-parse returns Cygwin style path. (Git for Windows returns Windows style path with rev-parse)\n+\t\t\t// Convert Cygwin style path -> Windows style path\n+\t\t\tconst cygpathRegex = /^\\\\([a-z])\\\\/;\n+\t\t\tif (cygpathRegex.test(repositoryRootPath)) {\n+\t\t\t\treturn repositoryRootPath.replace(cygpathRegex, '$1:\\\\');\n+\t\t\t}\n \t\t}\n \n \t\treturn repositoryRootPath;"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 767197751,
+   "node_id": "PRR_kwDOAn8RLM4tuoI3",
+   "user": {
+    "login": "Nirzak",
+    "id": 11460645,
+    "node_id": "MDQ6VXNlcjExNDYwNjQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/11460645?u=84c62cef92d13e25f74674f0bbdc674e2159c8bd&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Nirzak",
+    "html_url": "https://github.com/Nirzak",
+    "followers_url": "https://api.github.com/users/Nirzak/followers",
+    "following_url": "https://api.github.com/users/Nirzak/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Nirzak/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Nirzak/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Nirzak/subscriptions",
+    "organizations_url": "https://api.github.com/users/Nirzak/orgs",
+    "repos_url": "https://api.github.com/users/Nirzak/repos",
+    "events_url": "https://api.github.com/users/Nirzak/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Nirzak/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "DISMISSED",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-767197751",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/134146",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-767197751"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/134146"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2021-09-29T21:17:43Z",
+   "commit_id": "4785ae7d1aabbdee5303819cff1d7f294fc9446e"
+  },
+  {
+   "id": 1235906870,
+   "node_id": "PRR_kwDOAn8RLM5JqnE2",
+   "user": {
+    "login": "richmondb",
+    "id": 34915422,
+    "node_id": "MDQ6VXNlcjM0OTE1NDIy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/34915422?u=592bc65c20a743923c9599c493d6bdd898b51f59&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/richmondb",
+    "html_url": "https://github.com/richmondb",
+    "followers_url": "https://api.github.com/users/richmondb/followers",
+    "following_url": "https://api.github.com/users/richmondb/following{/other_user}",
+    "gists_url": "https://api.github.com/users/richmondb/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/richmondb/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/richmondb/subscriptions",
+    "organizations_url": "https://api.github.com/users/richmondb/orgs",
+    "repos_url": "https://api.github.com/users/richmondb/repos",
+    "events_url": "https://api.github.com/users/richmondb/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/richmondb/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "looks good to me",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-1235906870",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/134146",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-1235906870"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/134146"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2023-01-04T13:47:52Z",
+   "commit_id": "b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f"
+  },
+  {
+   "id": 2050943174,
+   "node_id": "PRR_kwDOAn8RLM56PujG",
+   "user": {
+    "login": "ProditorMagnus",
+    "id": 7848963,
+    "node_id": "MDQ6VXNlcjc4NDg5NjM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7848963?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ProditorMagnus",
+    "html_url": "https://github.com/ProditorMagnus",
+    "followers_url": "https://api.github.com/users/ProditorMagnus/followers",
+    "following_url": "https://api.github.com/users/ProditorMagnus/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ProditorMagnus/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ProditorMagnus/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ProditorMagnus/subscriptions",
+    "organizations_url": "https://api.github.com/users/ProditorMagnus/orgs",
+    "repos_url": "https://api.github.com/users/ProditorMagnus/repos",
+    "events_url": "https://api.github.com/users/ProditorMagnus/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ProditorMagnus/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2050943174",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/134146",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2050943174"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/134146"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-05-10T22:22:42Z",
+   "commit_id": "121b40d954686c63c5ea8923ac84228ebe7010d4"
+  },
+  {
+   "id": 2050943688,
+   "node_id": "PRR_kwDOAn8RLM56PurI",
+   "user": {
+    "login": "ProditorMagnus",
+    "id": 7848963,
+    "node_id": "MDQ6VXNlcjc4NDg5NjM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7848963?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ProditorMagnus",
+    "html_url": "https://github.com/ProditorMagnus",
+    "followers_url": "https://api.github.com/users/ProditorMagnus/followers",
+    "following_url": "https://api.github.com/users/ProditorMagnus/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ProditorMagnus/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ProditorMagnus/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ProditorMagnus/subscriptions",
+    "organizations_url": "https://api.github.com/users/ProditorMagnus/orgs",
+    "repos_url": "https://api.github.com/users/ProditorMagnus/repos",
+    "events_url": "https://api.github.com/users/ProditorMagnus/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ProditorMagnus/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2050943688",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/134146",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2050943688"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/134146"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-05-10T22:23:34Z",
+   "commit_id": "121b40d954686c63c5ea8923ac84228ebe7010d4"
+  },
+  {
+   "id": 2063578217,
+   "node_id": "PRR_kwDOAn8RLM56_7Rp",
+   "user": {
+    "login": "ProditorMagnus",
+    "id": 7848963,
+    "node_id": "MDQ6VXNlcjc4NDg5NjM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7848963?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ProditorMagnus",
+    "html_url": "https://github.com/ProditorMagnus",
+    "followers_url": "https://api.github.com/users/ProditorMagnus/followers",
+    "following_url": "https://api.github.com/users/ProditorMagnus/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ProditorMagnus/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ProditorMagnus/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ProditorMagnus/subscriptions",
+    "organizations_url": "https://api.github.com/users/ProditorMagnus/orgs",
+    "repos_url": "https://api.github.com/users/ProditorMagnus/repos",
+    "events_url": "https://api.github.com/users/ProditorMagnus/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ProditorMagnus/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2063578217",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/134146",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/134146#pullrequestreview-2063578217"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/134146"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-05-17T14:22:01Z",
+   "commit_id": "121b40d954686c63c5ea8923ac84228ebe7010d4"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/930462717",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-930462717",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 930462717,
+   "node_id": "IC_kwDOAn8RLM43dbv9",
+   "user": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2021-09-29T19:05:57Z",
+   "updated_at": "2021-09-29T19:05:57Z",
+   "body": "Similar PR can be made to https://github.com/eamodio/vscode-gitlens to fix https://github.com/eamodio/vscode-gitlens/issues/965",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/930462717/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1230113415",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-1230113415",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 1230113415,
+   "node_id": "IC_kwDOAn8RLM5JUgqH",
+   "user": {
+    "login": "haipengpan",
+    "id": 1856880,
+    "node_id": "MDQ6VXNlcjE4NTY4ODA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1856880?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/haipengpan",
+    "html_url": "https://github.com/haipengpan",
+    "followers_url": "https://api.github.com/users/haipengpan/followers",
+    "following_url": "https://api.github.com/users/haipengpan/following{/other_user}",
+    "gists_url": "https://api.github.com/users/haipengpan/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/haipengpan/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/haipengpan/subscriptions",
+    "organizations_url": "https://api.github.com/users/haipengpan/orgs",
+    "repos_url": "https://api.github.com/users/haipengpan/repos",
+    "events_url": "https://api.github.com/users/haipengpan/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/haipengpan/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2022-08-29T10:44:16Z",
+   "updated_at": "2022-08-29T10:44:16Z",
+   "body": "Will it be merged and fix the problem? I using Cygwin64 git, and meet this problem \"spawn C:\\cygwin64\\bin\\git.exe ENOENT\"",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1230113415/reactions",
+    "total_count": 2,
+    "+1": 2,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2047360196",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-2047360196",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 2047360196,
+   "node_id": "IC_kwDOAn8RLM56CDzE",
+   "user": {
+    "login": "RivenSkaye",
+    "id": 14993038,
+    "node_id": "MDQ6VXNlcjE0OTkzMDM4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/14993038?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RivenSkaye",
+    "html_url": "https://github.com/RivenSkaye",
+    "followers_url": "https://api.github.com/users/RivenSkaye/followers",
+    "following_url": "https://api.github.com/users/RivenSkaye/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RivenSkaye/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RivenSkaye/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RivenSkaye/subscriptions",
+    "organizations_url": "https://api.github.com/users/RivenSkaye/orgs",
+    "repos_url": "https://api.github.com/users/RivenSkaye/repos",
+    "events_url": "https://api.github.com/users/RivenSkaye/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RivenSkaye/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-04-10T12:00:07Z",
+   "updated_at": "2024-04-10T12:00:07Z",
+   "body": "So is there any current status on this? I see one approval, which is not enough for the Community PR Approvals workflow, and the last activity has by now been over a year ago...",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2047360196/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2692791497",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-2692791497",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 2692791497,
+   "node_id": "IC_kwDOAn8RLM6ggLzJ",
+   "user": {
+    "login": "RichardLuo0",
+    "id": 22096448,
+    "node_id": "MDQ6VXNlcjIyMDk2NDQ4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22096448?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RichardLuo0",
+    "html_url": "https://github.com/RichardLuo0",
+    "followers_url": "https://api.github.com/users/RichardLuo0/followers",
+    "following_url": "https://api.github.com/users/RichardLuo0/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RichardLuo0/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RichardLuo0/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RichardLuo0/subscriptions",
+    "organizations_url": "https://api.github.com/users/RichardLuo0/orgs",
+    "repos_url": "https://api.github.com/users/RichardLuo0/repos",
+    "events_url": "https://api.github.com/users/RichardLuo0/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RichardLuo0/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-02T15:53:16Z",
+   "updated_at": "2025-03-02T15:53:16Z",
+   "body": "Plz approve this? Almost another year...",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2692791497/reactions",
+    "total_count": 1,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 1,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3346720086",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-3346720086",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 3346720086,
+   "node_id": "IC_kwDOAn8RLM7HeuVW",
+   "user": {
+    "login": "steveviuv",
+    "id": 98368396,
+    "node_id": "U_kgDOBdz7jA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/98368396?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/steveviuv",
+    "html_url": "https://github.com/steveviuv",
+    "followers_url": "https://api.github.com/users/steveviuv/followers",
+    "following_url": "https://api.github.com/users/steveviuv/following{/other_user}",
+    "gists_url": "https://api.github.com/users/steveviuv/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/steveviuv/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/steveviuv/subscriptions",
+    "organizations_url": "https://api.github.com/users/steveviuv/orgs",
+    "repos_url": "https://api.github.com/users/steveviuv/repos",
+    "events_url": "https://api.github.com/users/steveviuv/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/steveviuv/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-09-29T12:41:15Z",
+   "updated_at": "2025-09-29T12:41:15Z",
+   "body": "please approve this, we realllllllllllllllllllllllly need this feature!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3346720086/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3980292098",
+   "html_url": "https://github.com/microsoft/vscode/pull/134146#issuecomment-3980292098",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/134146",
+   "id": 3980292098,
+   "node_id": "IC_kwDOAn8RLM7tPnAC",
+   "user": {
+    "login": "RivenSkaye",
+    "id": 14993038,
+    "node_id": "MDQ6VXNlcjE0OTkzMDM4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/14993038?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RivenSkaye",
+    "html_url": "https://github.com/RivenSkaye",
+    "followers_url": "https://api.github.com/users/RivenSkaye/followers",
+    "following_url": "https://api.github.com/users/RivenSkaye/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RivenSkaye/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RivenSkaye/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RivenSkaye/subscriptions",
+    "organizations_url": "https://api.github.com/users/RivenSkaye/orgs",
+    "repos_url": "https://api.github.com/users/RivenSkaye/repos",
+    "events_url": "https://api.github.com/users/RivenSkaye/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RivenSkaye/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-01T15:27:27Z",
+   "updated_at": "2026-03-01T15:27:27Z",
+   "body": "This seems to no longer be required as of [this MSYS2 PR](https://github.com/msys2/MINGW-packages/pull/26470) that finally unifies the MSYS2/MINGW64 and Git-for-Windows `git` packages",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3980292098/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+   "node_id": "C_kwDOGIp9NtoAKDJjY2ZiZjQwMzg4NGIyZTk2NTUyYzQ2YzVmOGFjNmMwYzk3ZDA0ZDM",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2021-09-29T17:04:21Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2021-09-29T17:04:21Z"
+    },
+    "message": "AE-0001: Convert cygwin style path to Windows path style (returned by rev-parse)",
+    "tree": {
+     "sha": "84aa59b91edb19a1a1ddfa73c3b16a8653614084",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/84aa59b91edb19a1a1ddfa73c3b16a8653614084"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+   "html_url": "https://github.com/microsoft/vscode/commit/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "4756d1ba7d396eac333697d02a39cfe51e040d2f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4756d1ba7d396eac333697d02a39cfe51e040d2f",
+     "html_url": "https://github.com/microsoft/vscode/commit/4756d1ba7d396eac333697d02a39cfe51e040d2f"
+    }
+   ]
+  },
+  {
+   "sha": "4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+   "node_id": "C_kwDOGIp9NtoAKDQ3ODVhZTdkMWFhYmJkZWU1MzAzODE5Y2ZmMWQ3ZjI5NGZjOTQ0NmU",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2021-09-29T18:30:40Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2021-09-29T18:30:40Z"
+    },
+    "message": ": Fix variable anme",
+    "tree": {
+     "sha": "6ddfc7ae72896cc93ed8869165a03dbae9e2d757",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6ddfc7ae72896cc93ed8869165a03dbae9e2d757"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+   "html_url": "https://github.com/microsoft/vscode/commit/4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4785ae7d1aabbdee5303819cff1d7f294fc9446e/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3",
+     "html_url": "https://github.com/microsoft/vscode/commit/2ccfbf403884b2e96552c46c5f8ac6c0c97d04d3"
+    }
+   ]
+  },
+  {
+   "sha": "330593c4380200f1be095ff470ad39850f7a90d9",
+   "node_id": "C_kwDOGIp9NtoAKDMzMDU5M2M0MzgwMjAwZjFiZTA5NWZmNDcwYWQzOTg1MGY3YTkwZDk",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:47:56Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:47:56Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "982a24fdb5975dfe2d95d4c5e3115c1e3dd7914e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/982a24fdb5975dfe2d95d4c5e3115c1e3dd7914e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/330593c4380200f1be095ff470ad39850f7a90d9",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/330593c4380200f1be095ff470ad39850f7a90d9",
+   "html_url": "https://github.com/microsoft/vscode/commit/330593c4380200f1be095ff470ad39850f7a90d9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/330593c4380200f1be095ff470ad39850f7a90d9/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4785ae7d1aabbdee5303819cff1d7f294fc9446e",
+     "html_url": "https://github.com/microsoft/vscode/commit/4785ae7d1aabbdee5303819cff1d7f294fc9446e"
+    },
+    {
+     "sha": "29ee89a28173d167abe6b0b18bb600ed1275cfe2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/29ee89a28173d167abe6b0b18bb600ed1275cfe2",
+     "html_url": "https://github.com/microsoft/vscode/commit/29ee89a28173d167abe6b0b18bb600ed1275cfe2"
+    }
+   ]
+  },
+  {
+   "sha": "0253e81b519c8be6b1e19af4906a44f41886edfe",
+   "node_id": "C_kwDOGIp9NtoAKDAyNTNlODFiNTE5YzhiZTZiMWUxOWFmNDkwNmE0NGY0MTg4NmVkZmU",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:51:48Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:51:48Z"
+    },
+    "message": "Revert merge issue",
+    "tree": {
+     "sha": "5ba39f793a2b055f070c45d2079951298a27d82d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5ba39f793a2b055f070c45d2079951298a27d82d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0253e81b519c8be6b1e19af4906a44f41886edfe",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0253e81b519c8be6b1e19af4906a44f41886edfe",
+   "html_url": "https://github.com/microsoft/vscode/commit/0253e81b519c8be6b1e19af4906a44f41886edfe",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0253e81b519c8be6b1e19af4906a44f41886edfe/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "330593c4380200f1be095ff470ad39850f7a90d9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/330593c4380200f1be095ff470ad39850f7a90d9",
+     "html_url": "https://github.com/microsoft/vscode/commit/330593c4380200f1be095ff470ad39850f7a90d9"
+    }
+   ]
+  },
+  {
+   "sha": "245f01ab0208553d97f57bb420e47c1482ed0b4d",
+   "node_id": "C_kwDOGIp9NtoAKDI0NWYwMWFiMDIwODU1M2Q5N2Y1N2JiNDIwZTQ3YzE0ODJlZDBiNGQ",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:52:51Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T13:52:51Z"
+    },
+    "message": "Revert merge problem",
+    "tree": {
+     "sha": "c733e99b1849f46853c5cb8f0f0070302d704c03",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c733e99b1849f46853c5cb8f0f0070302d704c03"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/245f01ab0208553d97f57bb420e47c1482ed0b4d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/245f01ab0208553d97f57bb420e47c1482ed0b4d",
+   "html_url": "https://github.com/microsoft/vscode/commit/245f01ab0208553d97f57bb420e47c1482ed0b4d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/245f01ab0208553d97f57bb420e47c1482ed0b4d/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "0253e81b519c8be6b1e19af4906a44f41886edfe",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0253e81b519c8be6b1e19af4906a44f41886edfe",
+     "html_url": "https://github.com/microsoft/vscode/commit/0253e81b519c8be6b1e19af4906a44f41886edfe"
+    }
+   ]
+  },
+  {
+   "sha": "6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+   "node_id": "C_kwDOGIp9NtoAKDZjNTVlNDhlMjYwYjVjZTcwODgzNTU1MGJmYjcyYmY4ODU0ZTRjZDg",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "zcsizmadia@gmail.com",
+     "date": "2022-08-29T13:54:28Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2022-08-29T13:54:28Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "07aee4fba09d92db918c9c337fd6f476ff76c41e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/07aee4fba09d92db918c9c337fd6f476ff76c41e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjDMUUCRBK7hj4Ov3rIwAANk0IAEEOjiIHMkAl2CgD8nvooPtV\nAWyQpquz+n1e5EuBjeK4GkeOJUSDmZnoLmhNHkWIEnJjdKfac/4Css4My5zzo1mM\nbscA1oiuYww5E8SiQeYHV+pklL9GyvZHkSy1uiYaznRxkLSQwl9vNkAVEpidgW1u\nJbYU9DLnr6mqidte6teuaWmbRZ26W1L5RjsCFwGFetqFJuDzEZ1ETm8R4O8SCwqv\nMsnTYfn1lBxdu6ZULg5jRysB1wn6XEzM4ohksI7e7pvKlX+UgnDwI8pWjWjd5+ry\nIgT3rMGaYPCQ2J0wcJjjA+gApYqhhWgzaRu/l43Ub8bbmsswCwbtik6gPg1gJbc=\n=lnuy\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 07aee4fba09d92db918c9c337fd6f476ff76c41e\nparent 245f01ab0208553d97f57bb420e47c1482ed0b4d\nparent c1dd46c2f4e494d74542fbd48aeda5b2b67a7c4d\nauthor Zoltan Csizmadia <zcsizmadia@gmail.com> 1661781268 -0500\ncommitter GitHub <noreply@github.com> 1661781268 -0500\n\nMerge branch 'main' into fix-msys2-git-rev-parse",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+   "html_url": "https://github.com/microsoft/vscode/commit/6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6c55e48e260b5ce708835550bfb72bf8854e4cd8/comments",
+   "author": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "245f01ab0208553d97f57bb420e47c1482ed0b4d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/245f01ab0208553d97f57bb420e47c1482ed0b4d",
+     "html_url": "https://github.com/microsoft/vscode/commit/245f01ab0208553d97f57bb420e47c1482ed0b4d"
+    },
+    {
+     "sha": "c1dd46c2f4e494d74542fbd48aeda5b2b67a7c4d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c1dd46c2f4e494d74542fbd48aeda5b2b67a7c4d",
+     "html_url": "https://github.com/microsoft/vscode/commit/c1dd46c2f4e494d74542fbd48aeda5b2b67a7c4d"
+    }
+   ]
+  },
+  {
+   "sha": "9619c8c485728bd602471c935e8641905c7b968b",
+   "node_id": "C_kwDOGIp9NtoAKDk2MTljOGM0ODU3MjhiZDYwMjQ3MWM5MzVlODY0MTkwNWM3Yjk2OGI",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T14:49:54Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T17:02:09Z"
+    },
+    "message": "Remove warning",
+    "tree": {
+     "sha": "a3faade9f8aa44963c1b938b1448cd3f8a8bc179",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a3faade9f8aa44963c1b938b1448cd3f8a8bc179"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9619c8c485728bd602471c935e8641905c7b968b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9619c8c485728bd602471c935e8641905c7b968b",
+   "html_url": "https://github.com/microsoft/vscode/commit/9619c8c485728bd602471c935e8641905c7b968b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9619c8c485728bd602471c935e8641905c7b968b/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6c55e48e260b5ce708835550bfb72bf8854e4cd8",
+     "html_url": "https://github.com/microsoft/vscode/commit/6c55e48e260b5ce708835550bfb72bf8854e4cd8"
+    }
+   ]
+  },
+  {
+   "sha": "cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+   "node_id": "C_kwDOGIp9NtoAKGNkMTQ0NzhhOWM1ZGQ0NjUzYjgyYmMxNDkwNjUxZjNlN2VlMDdjYTU",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "zcsizmadia@gmail.com",
+     "date": "2022-08-29T17:02:23Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2022-08-29T17:02:23Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "db9f337b4cf59bad9f26be3a82d57131f1ed8308",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/db9f337b4cf59bad9f26be3a82d57131f1ed8308"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjDPEfCRBK7hj4Ov3rIwAAioIIAH6o2unhb5eFZDVsg6/miLCw\nVLWK07ZCKcjFxzxAvXrp1XVee1huhHEtHNEor9uqi2TWL0/KOd2ho9oiAXVBs0ku\nLVcutdjJLbPPhbcRxnyhCPnqJ+Vi0F6cgUKIPP7wz9+SjT5i85rQDcU0mTLnkIsm\nEDkyLeoz3nEGJnP3A2lrrV7R83KBiKSHob+x1nStHsU0BQV91V3FAJEKHdGIy6/f\njFnli8xZxk9p4SlRsdmnpbbin4Ddc1yy1Zm+y6wqh10LCPz8ht8Z8/9Dd3ud5q39\nBijtJn9eMXo28Hua1K8q4lnjNv1BJMzfPUb1L0Uf1P2lU83Dq9uinsEl4Wj7mlY=\n=CMAn\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree db9f337b4cf59bad9f26be3a82d57131f1ed8308\nparent 9619c8c485728bd602471c935e8641905c7b968b\nparent 5b21c7f28b3f945bd9f199b5bfea2c05c8d976f4\nauthor Zoltan Csizmadia <zcsizmadia@gmail.com> 1661792543 -0500\ncommitter GitHub <noreply@github.com> 1661792543 -0500\n\nMerge branch 'main' into fix-msys2-git-rev-parse",
+     "verified_at": "2024-11-05T18:25:58Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+   "html_url": "https://github.com/microsoft/vscode/commit/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5/comments",
+   "author": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9619c8c485728bd602471c935e8641905c7b968b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9619c8c485728bd602471c935e8641905c7b968b",
+     "html_url": "https://github.com/microsoft/vscode/commit/9619c8c485728bd602471c935e8641905c7b968b"
+    },
+    {
+     "sha": "5b21c7f28b3f945bd9f199b5bfea2c05c8d976f4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5b21c7f28b3f945bd9f199b5bfea2c05c8d976f4",
+     "html_url": "https://github.com/microsoft/vscode/commit/5b21c7f28b3f945bd9f199b5bfea2c05c8d976f4"
+    }
+   ]
+  },
+  {
+   "sha": "6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+   "node_id": "C_kwDOGIp9NtoAKDZlNTg2M2Q4YWEzYWNhNzBhMjEyMzUzMWE5MWRkYjBkZGNmNWM3MDU",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T18:54:43Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T22:02:11Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "5df1ff55ce75554e419948032a1a9dca835aa8fc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5df1ff55ce75554e419948032a1a9dca835aa8fc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+   "html_url": "https://github.com/microsoft/vscode/commit/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5",
+     "html_url": "https://github.com/microsoft/vscode/commit/cd14478a9c5dd4653b82bc1490651f3e7ee07ca5"
+    },
+    {
+     "sha": "9e5248072aa783958d41308f515d6d04aa5f3ebe",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9e5248072aa783958d41308f515d6d04aa5f3ebe",
+     "html_url": "https://github.com/microsoft/vscode/commit/9e5248072aa783958d41308f515d6d04aa5f3ebe"
+    }
+   ]
+  },
+  {
+   "sha": "3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+   "node_id": "C_kwDOGIp9NtoAKDNlMTNhNmI5OGI0NmI3NjI2NGVmYTU1YTZkODcxYmVhZjBhMDQ5ZDg",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T22:01:38Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-29T22:02:13Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "3edd0e5da84ea22fc1d96a388b324225656aca92",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3edd0e5da84ea22fc1d96a388b324225656aca92"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+   "html_url": "https://github.com/microsoft/vscode/commit/3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3e13a6b98b46b76264efa55a6d871beaf0a049d8/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705",
+     "html_url": "https://github.com/microsoft/vscode/commit/6e5863d8aa3aca70a2123531a91ddb0ddcf5c705"
+    },
+    {
+     "sha": "212af8702db15a621195906375ab699044cedf4c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/212af8702db15a621195906375ab699044cedf4c",
+     "html_url": "https://github.com/microsoft/vscode/commit/212af8702db15a621195906375ab699044cedf4c"
+    }
+   ]
+  },
+  {
+   "sha": "a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+   "node_id": "C_kwDOGIp9NtoAKGE2OGNmNDZkYWQ4MDNkMWYxN2NjMGRhNWFmOWIxNTBmMzY3ZjdkM2Q",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-30T21:52:37Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-08-30T21:52:37Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "6279a936cbcc318fd2f5ac5fd87f9dea0b92ffc8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6279a936cbcc318fd2f5ac5fd87f9dea0b92ffc8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+   "html_url": "https://github.com/microsoft/vscode/commit/a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a68cf46dad803d1f17cc0da5af9b150f367f7d3d/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3e13a6b98b46b76264efa55a6d871beaf0a049d8",
+     "html_url": "https://github.com/microsoft/vscode/commit/3e13a6b98b46b76264efa55a6d871beaf0a049d8"
+    },
+    {
+     "sha": "ffc2374a824f337d5816b51a49b61f1477cf70af",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ffc2374a824f337d5816b51a49b61f1477cf70af",
+     "html_url": "https://github.com/microsoft/vscode/commit/ffc2374a824f337d5816b51a49b61f1477cf70af"
+    }
+   ]
+  },
+  {
+   "sha": "42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+   "node_id": "C_kwDOGIp9NtoAKDQyY2ZiZWJmY2YwYTkyODJmODE2ZTdlMTkwYzhlOGVhYzg2YjBlMWI",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "zcsizmadia@gmail.com",
+     "date": "2022-08-31T21:34:04Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2022-08-31T21:34:04Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "a6aaf73aac8775c9d2361958eb6447e3255e6883",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a6aaf73aac8775c9d2361958eb6447e3255e6883"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjD9PMCRBK7hj4Ov3rIwAAZp0IAK9xzwARC2x7WgXrjKsR0brv\nPCoqAYr9rfgRZTcuPUI8oavtmAGyhnvQwzT97BdlbyspKT0UnIviEye3xWC3EnOj\nIKk+LXe+rd1LzXnW47y1zP5w6CAKMT38m0464G5B/2ptNvkeSqzuK0rdSWPceUXb\nWkJ/CkHG5mSRHBfSQ3UkvxCA3cHAKIswYlvLqhrSOzBTKrVv6bUOZ6+ABFtww5C7\nOKIaEpjXjlHs/d0CMeOnXB+4JFn9/+BuAFsjUGjTRhprgn2gAR2LS+Trvc5VuAIO\n0BAKKbE9mxfRF3WPyKqCstbc6TeehkGf9xwoenZHQ6/mocShgSwF5B10fW8HsG0=\n=jG9x\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a6aaf73aac8775c9d2361958eb6447e3255e6883\nparent a68cf46dad803d1f17cc0da5af9b150f367f7d3d\nparent 47e556e91b4c9fb8e4f8d260ae7d7fc46d1029ca\nauthor Zoltan Csizmadia <zcsizmadia@gmail.com> 1661981644 -0500\ncommitter GitHub <noreply@github.com> 1661981644 -0500\n\nMerge branch 'main' into fix-msys2-git-rev-parse",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+   "html_url": "https://github.com/microsoft/vscode/commit/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b/comments",
+   "author": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a68cf46dad803d1f17cc0da5af9b150f367f7d3d",
+     "html_url": "https://github.com/microsoft/vscode/commit/a68cf46dad803d1f17cc0da5af9b150f367f7d3d"
+    },
+    {
+     "sha": "47e556e91b4c9fb8e4f8d260ae7d7fc46d1029ca",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/47e556e91b4c9fb8e4f8d260ae7d7fc46d1029ca",
+     "html_url": "https://github.com/microsoft/vscode/commit/47e556e91b4c9fb8e4f8d260ae7d7fc46d1029ca"
+    }
+   ]
+  },
+  {
+   "sha": "336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+   "node_id": "C_kwDOGIp9NtoAKDMzNmM2MmUwNmQ5YzllMGM4OTBhNGNjYmFmOTI0NzZkYmVkOGQzMzk",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "zcsizmadia@gmail.com",
+     "date": "2022-09-04T23:27:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2022-09-04T23:27:14Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "ba739ae91482638e551a7aabd1c3db544c257125",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ba739ae91482638e551a7aabd1c3db544c257125"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJjFTRSCRBK7hj4Ov3rIwAA0sAIAJvf/33bfSOqChBs61OhUx26\nWbo0Bo0FJ3v3CCImMX1XpMM7in6jT6YeBkXUZ9pmI9yzl2XnnLPWS7QxBDYSSvaO\nl3ODy/0nZL+cvQm1k021C8SRs/10mgU9tA55oDR3oG5ggCBV40bE7qlrX+wPrqDZ\n7SmMnymSkVWtjlcs2umtt6xXBpQrn7m5WqA/qEZfYeU2M3Xq8N81+qqLJmj13A0t\nn8bluyxwD5NIbH++dlK5PsDxkUwvIO5mHPrSNz7U5LvcBe1soO9+h+lUlUP8kwI7\nTLtjNBAmxfxOMb9WgYBV0NsVCswxWB7LKovS6b6h3XpkvXaHy9veaTDOnNCtWxc=\n=vvgH\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ba739ae91482638e551a7aabd1c3db544c257125\nparent 42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b\nparent d17726fe4beae5abe87ba9e9429cd298be8b53c4\nauthor Zoltan Csizmadia <zcsizmadia@gmail.com> 1662334034 -0500\ncommitter GitHub <noreply@github.com> 1662334034 -0500\n\nMerge branch 'main' into fix-msys2-git-rev-parse",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+   "html_url": "https://github.com/microsoft/vscode/commit/336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/336c62e06d9c9e0c890a4ccbaf92476dbed8d339/comments",
+   "author": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b",
+     "html_url": "https://github.com/microsoft/vscode/commit/42cfbebfcf0a9282f816e7e190c8e8eac86b0e1b"
+    },
+    {
+     "sha": "d17726fe4beae5abe87ba9e9429cd298be8b53c4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d17726fe4beae5abe87ba9e9429cd298be8b53c4",
+     "html_url": "https://github.com/microsoft/vscode/commit/d17726fe4beae5abe87ba9e9429cd298be8b53c4"
+    }
+   ]
+  },
+  {
+   "sha": "a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+   "node_id": "C_kwDOGIp9NtoAKGE1N2ViYTdlN2E3MDE1OTRlMTk3OTM0YTBiYzlhMjgyY2RmMDhjYTk",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T13:58:24Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T13:58:24Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "ab5c2e40a98a20548e7b0f7276459e26c0ca21cb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ab5c2e40a98a20548e7b0f7276459e26c0ca21cb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+   "html_url": "https://github.com/microsoft/vscode/commit/a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a57eba7e7a701594e197934a0bc9a282cdf08ca9/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/336c62e06d9c9e0c890a4ccbaf92476dbed8d339",
+     "html_url": "https://github.com/microsoft/vscode/commit/336c62e06d9c9e0c890a4ccbaf92476dbed8d339"
+    },
+    {
+     "sha": "4ccf2d729bbb47ad30be9dea6ccfadf4c11cfdab",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4ccf2d729bbb47ad30be9dea6ccfadf4c11cfdab",
+     "html_url": "https://github.com/microsoft/vscode/commit/4ccf2d729bbb47ad30be9dea6ccfadf4c11cfdab"
+    }
+   ]
+  },
+  {
+   "sha": "964ba7c59f65456b9b5850142818361ce13e9069",
+   "node_id": "C_kwDOGIp9NtoAKDk2NGJhN2M1OWY2NTQ1NmI5YjU4NTAxNDI4MTgzNjFjZTEzZTkwNjk",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T14:34:32Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T14:34:32Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "2a57779f65a5282e4f49a52b1a29c63f498e463d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2a57779f65a5282e4f49a52b1a29c63f498e463d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/964ba7c59f65456b9b5850142818361ce13e9069",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/964ba7c59f65456b9b5850142818361ce13e9069",
+   "html_url": "https://github.com/microsoft/vscode/commit/964ba7c59f65456b9b5850142818361ce13e9069",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/964ba7c59f65456b9b5850142818361ce13e9069/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a57eba7e7a701594e197934a0bc9a282cdf08ca9",
+     "html_url": "https://github.com/microsoft/vscode/commit/a57eba7e7a701594e197934a0bc9a282cdf08ca9"
+    },
+    {
+     "sha": "741f5b480a3ec00c956956d2c66f3e2d6221c893",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/741f5b480a3ec00c956956d2c66f3e2d6221c893",
+     "html_url": "https://github.com/microsoft/vscode/commit/741f5b480a3ec00c956956d2c66f3e2d6221c893"
+    }
+   ]
+  },
+  {
+   "sha": "10ef708048aa44be1b02146758f13c6f46747e26",
+   "node_id": "C_kwDOGIp9NtoAKDEwZWY3MDgwNDhhYTQ0YmUxYjAyMTQ2NzU4ZjEzYzZmNDY3NDdlMjY",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T15:40:26Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-09T15:40:26Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "ffdcf5d7249f9c9bb3970b6e0eb2c664a84a5e7c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ffdcf5d7249f9c9bb3970b6e0eb2c664a84a5e7c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/10ef708048aa44be1b02146758f13c6f46747e26",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/10ef708048aa44be1b02146758f13c6f46747e26",
+   "html_url": "https://github.com/microsoft/vscode/commit/10ef708048aa44be1b02146758f13c6f46747e26",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/10ef708048aa44be1b02146758f13c6f46747e26/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "964ba7c59f65456b9b5850142818361ce13e9069",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/964ba7c59f65456b9b5850142818361ce13e9069",
+     "html_url": "https://github.com/microsoft/vscode/commit/964ba7c59f65456b9b5850142818361ce13e9069"
+    },
+    {
+     "sha": "06a8378a662d6a6fe86a2c69d6078df6dd3ebb9b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/06a8378a662d6a6fe86a2c69d6078df6dd3ebb9b",
+     "html_url": "https://github.com/microsoft/vscode/commit/06a8378a662d6a6fe86a2c69d6078df6dd3ebb9b"
+    }
+   ]
+  },
+  {
+   "sha": "04ca5240e3df0724e0d2a75c01de8775adc037fb",
+   "node_id": "C_kwDOGIp9NtoAKDA0Y2E1MjQwZTNkZjA3MjRlMGQyYTc1YzAxZGU4Nzc1YWRjMDM3ZmI",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-19T15:47:21Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2022-12-19T15:47:21Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "b57db83b9270cc1816b05a81e4ec9f31b6f9a632",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b57db83b9270cc1816b05a81e4ec9f31b6f9a632"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/04ca5240e3df0724e0d2a75c01de8775adc037fb",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/04ca5240e3df0724e0d2a75c01de8775adc037fb",
+   "html_url": "https://github.com/microsoft/vscode/commit/04ca5240e3df0724e0d2a75c01de8775adc037fb",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/04ca5240e3df0724e0d2a75c01de8775adc037fb/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "10ef708048aa44be1b02146758f13c6f46747e26",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/10ef708048aa44be1b02146758f13c6f46747e26",
+     "html_url": "https://github.com/microsoft/vscode/commit/10ef708048aa44be1b02146758f13c6f46747e26"
+    },
+    {
+     "sha": "82ba981835aeeff0f64c9175be7d87d4451d9b3e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/82ba981835aeeff0f64c9175be7d87d4451d9b3e",
+     "html_url": "https://github.com/microsoft/vscode/commit/82ba981835aeeff0f64c9175be7d87d4451d9b3e"
+    }
+   ]
+  },
+  {
+   "sha": "4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+   "node_id": "C_kwDOGIp9NtoAKDRkZTU2OThhZWRjMGY1YTNjY2UyMzRjNWM0YzEwY2M1ZjQxNTkzY2E",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2023-01-17T19:50:28Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2023-01-17T19:50:28Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "5cb7adec41aa7b3553ba4bc77efb56acdae5bd71",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5cb7adec41aa7b3553ba4bc77efb56acdae5bd71"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+   "html_url": "https://github.com/microsoft/vscode/commit/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "04ca5240e3df0724e0d2a75c01de8775adc037fb",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/04ca5240e3df0724e0d2a75c01de8775adc037fb",
+     "html_url": "https://github.com/microsoft/vscode/commit/04ca5240e3df0724e0d2a75c01de8775adc037fb"
+    },
+    {
+     "sha": "817c5fd7f9995e3658cf16a500bd4abe513b82db",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/817c5fd7f9995e3658cf16a500bd4abe513b82db",
+     "html_url": "https://github.com/microsoft/vscode/commit/817c5fd7f9995e3658cf16a500bd4abe513b82db"
+    }
+   ]
+  },
+  {
+   "sha": "4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+   "node_id": "C_kwDOGIp9NtoAKDRlMDljMWI2MjdiNmNhNGJkMjgyNGM0YWRlZWY5MzEyMzAzNTE3ZTQ",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2023-02-27T01:13:33Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "CsizmadiaZ@valassis.com",
+     "date": "2023-02-27T01:13:33Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "de8edb5e7b1721d907c3b80c60ba7942b5e9abd4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/de8edb5e7b1721d907c3b80c60ba7942b5e9abd4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+   "html_url": "https://github.com/microsoft/vscode/commit/4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4e09c1b627b6ca4bd2824c4adeef9312303517e4/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca",
+     "html_url": "https://github.com/microsoft/vscode/commit/4de5698aedc0f5a3cce234c5c4c10cc5f41593ca"
+    },
+    {
+     "sha": "0f9d0328ebe1eccd28e4de11ece14f4b0db3e818",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0f9d0328ebe1eccd28e4de11ece14f4b0db3e818",
+     "html_url": "https://github.com/microsoft/vscode/commit/0f9d0328ebe1eccd28e4de11ece14f4b0db3e818"
+    }
+   ]
+  },
+  {
+   "sha": "b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+   "node_id": "C_kwDOGIp9NtoAKGI0ZjJiMGI1M2I4YmQ5N2NjNTgwYmI3ZmE2NWYzOWMzNWJmMTFiNGY",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-04-10T12:47:42Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-04-10T12:47:42Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "46e768e201e0025171d71d8f7118a3196962f854",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/46e768e201e0025171d71d8f7118a3196962f854"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+   "html_url": "https://github.com/microsoft/vscode/commit/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4e09c1b627b6ca4bd2824c4adeef9312303517e4",
+     "html_url": "https://github.com/microsoft/vscode/commit/4e09c1b627b6ca4bd2824c4adeef9312303517e4"
+    },
+    {
+     "sha": "6a06de0033d052521f03079aabb356ca7916145c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6a06de0033d052521f03079aabb356ca7916145c",
+     "html_url": "https://github.com/microsoft/vscode/commit/6a06de0033d052521f03079aabb356ca7916145c"
+    }
+   ]
+  },
+  {
+   "sha": "246ea6671d3181e7f041fe92652be7b7e23ca410",
+   "node_id": "C_kwDOGIp9NtoAKDI0NmVhNjY3MWQzMTgxZTdmMDQxZmU5MjY1MmJlN2I3ZTIzY2E0MTA",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-04-10T15:02:10Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-04-10T15:02:10Z"
+    },
+    "message": "Rename repoPath to repositoryRootPath",
+    "tree": {
+     "sha": "f52758d6ccb92893dc0f72fc3c536be5742ccd69",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f52758d6ccb92893dc0f72fc3c536be5742ccd69"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/246ea6671d3181e7f041fe92652be7b7e23ca410",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/246ea6671d3181e7f041fe92652be7b7e23ca410",
+   "html_url": "https://github.com/microsoft/vscode/commit/246ea6671d3181e7f041fe92652be7b7e23ca410",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/246ea6671d3181e7f041fe92652be7b7e23ca410/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f",
+     "html_url": "https://github.com/microsoft/vscode/commit/b4f2b0b53b8bd97cc580bb7fa65f39c35bf11b4f"
+    }
+   ]
+  },
+  {
+   "sha": "52154492458c526a97b57dc63244f7fd0e0ada7f",
+   "node_id": "C_kwDOGIp9NtoAKDUyMTU0NDkyNDU4YzUyNmE5N2I1N2RjNjMyNDRmN2ZkMGUwYWRhN2Y",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "zcsizmadia@gmail.com",
+     "date": "2024-04-10T15:45:50Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-04-10T15:45:50Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "657597a007018e1661f42e6764861a98335d3bfc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/657597a007018e1661f42e6764861a98335d3bfc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/52154492458c526a97b57dc63244f7fd0e0ada7f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmFrQuCRC1aQ7uu5UhlAAA4h8QAIBX5piw7QKVFO3NW9NH6zd0\nBY2JrEiQ4XRgtdjclYEEJqlaSk9pkkUSnZVpivud4oCIIKrIApiwsR/l6Htc9eZv\n5e4Ctu9wsUx97c73N4y7YYpEMNSHXvGZo0LZn5fADA+TF6xV1JLxwT4yjZiYVtcN\nUfmRmUAQarS6s/OxrJAPAZPLZDwjz1v99RiLM5EfXRI/rjdYxmZj9Qf7VnjksXpZ\ntH4JSg2Yp5vBFmccfMy4yNVDXoZirp2FfZdfc4LYsOdZMtWspS9p073NME4+VaQt\neFuwX8lIt1OKRfayL7YzHKuudvqdPQbZPD33YL1ONoX4IbDQcTWjdWwhR1iMVvZq\nO0zZhYwywgkqwS01+dcEqxDCBQ+ImwrPjdrbqCW4gDNrwaV0b0m7zu/HSoi+s/OJ\nAFGRUG+PlSjkGJxfkjx9p69swRseTv8bhvMzKspi6UTSRzmdS/1merUO5SxxGyj4\nh8ND2iUxkRxqcDWBzBlOs3Q67MpKSZAzUUMkTtpkE4EhJXUbmjIFetTqjw17Q1Yg\nJDF+kxSULvAmeZpnFJEESD3ppiV6Mm+oL5iO6q0vJSvMVyt1U06ZFkkeUeTDtr4g\nb/EoSTwG9dxwK2zYzYd9YvA/BWsYyDoockbC9EykX5EGd5GSWjIoSkYlDGIv08nT\npMIxGW/gIEpKaZlYd2mK\n=xFro\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 657597a007018e1661f42e6764861a98335d3bfc\nparent 246ea6671d3181e7f041fe92652be7b7e23ca410\nparent 67f1ea89063dbb67e3a27fc4687b75196d486657\nauthor Zoltan Csizmadia <zcsizmadia@gmail.com> 1712763950 -0500\ncommitter GitHub <noreply@github.com> 1712763950 -0500\n\nMerge branch 'main' into fix-msys2-git-rev-parse",
+     "verified_at": "2024-11-05T18:25:58Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/52154492458c526a97b57dc63244f7fd0e0ada7f",
+   "html_url": "https://github.com/microsoft/vscode/commit/52154492458c526a97b57dc63244f7fd0e0ada7f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/52154492458c526a97b57dc63244f7fd0e0ada7f/comments",
+   "author": {
+    "login": "zcsizmadia",
+    "id": 8504099,
+    "node_id": "MDQ6VXNlcjg1MDQwOTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8504099?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zcsizmadia",
+    "html_url": "https://github.com/zcsizmadia",
+    "followers_url": "https://api.github.com/users/zcsizmadia/followers",
+    "following_url": "https://api.github.com/users/zcsizmadia/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zcsizmadia/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zcsizmadia/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zcsizmadia/subscriptions",
+    "organizations_url": "https://api.github.com/users/zcsizmadia/orgs",
+    "repos_url": "https://api.github.com/users/zcsizmadia/repos",
+    "events_url": "https://api.github.com/users/zcsizmadia/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zcsizmadia/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "246ea6671d3181e7f041fe92652be7b7e23ca410",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/246ea6671d3181e7f041fe92652be7b7e23ca410",
+     "html_url": "https://github.com/microsoft/vscode/commit/246ea6671d3181e7f041fe92652be7b7e23ca410"
+    },
+    {
+     "sha": "67f1ea89063dbb67e3a27fc4687b75196d486657",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/67f1ea89063dbb67e3a27fc4687b75196d486657",
+     "html_url": "https://github.com/microsoft/vscode/commit/67f1ea89063dbb67e3a27fc4687b75196d486657"
+    }
+   ]
+  },
+  {
+   "sha": "88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+   "node_id": "C_kwDOGIp9NtoAKDg4NzI3ZjZmZmM2YmFiMTYyNWVjYjNjMThkYTA2NGU0NDU5OGQ1YzI",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-05-17T14:00:05Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-05-17T14:00:05Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "18656909a207dba42b8ec8ea5a7f840ca4655ecb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/18656909a207dba42b8ec8ea5a7f840ca4655ecb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+   "html_url": "https://github.com/microsoft/vscode/commit/88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/88727f6ffc6bab1625ecb3c18da064e44598d5c2/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "52154492458c526a97b57dc63244f7fd0e0ada7f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/52154492458c526a97b57dc63244f7fd0e0ada7f",
+     "html_url": "https://github.com/microsoft/vscode/commit/52154492458c526a97b57dc63244f7fd0e0ada7f"
+    },
+    {
+     "sha": "577eca457b3dd3e96862653664b2b8afa75861ce",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/577eca457b3dd3e96862653664b2b8afa75861ce",
+     "html_url": "https://github.com/microsoft/vscode/commit/577eca457b3dd3e96862653664b2b8afa75861ce"
+    }
+   ]
+  },
+  {
+   "sha": "121b40d954686c63c5ea8923ac84228ebe7010d4",
+   "node_id": "C_kwDOGIp9NtoAKDEyMWI0MGQ5NTQ2ODZjNjNjNWVhODkyM2FjODQyMjhlYmU3MDEwZDQ",
+   "commit": {
+    "author": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-10-03T23:00:59Z"
+    },
+    "committer": {
+     "name": "Zoltan Csizmadia",
+     "email": "Zoltan.Csizmadia@vericast.com",
+     "date": "2024-10-03T23:00:59Z"
+    },
+    "message": "Merge branch 'main' into fix-msys2-git-rev-parse",
+    "tree": {
+     "sha": "d20b90b823da675bf789a225c492a251569f67c7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d20b90b823da675bf789a225c492a251569f67c7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/121b40d954686c63c5ea8923ac84228ebe7010d4",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/121b40d954686c63c5ea8923ac84228ebe7010d4",
+   "html_url": "https://github.com/microsoft/vscode/commit/121b40d954686c63c5ea8923ac84228ebe7010d4",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/121b40d954686c63c5ea8923ac84228ebe7010d4/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/88727f6ffc6bab1625ecb3c18da064e44598d5c2",
+     "html_url": "https://github.com/microsoft/vscode/commit/88727f6ffc6bab1625ecb3c18da064e44598d5c2"
+    },
+    {
+     "sha": "c623dcfaeb074d96318bed0b790e02f8eb62b5ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c623dcfaeb074d96318bed0b790e02f8eb62b5ea",
+     "html_url": "https://github.com/microsoft/vscode/commit/c623dcfaeb074d96318bed0b790e02f8eb62b5ea"
+    }
+   ]
+  }
+ ]
+}

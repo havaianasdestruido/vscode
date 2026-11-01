@@ -1,0 +1,705 @@
+{
+ "fetchedAt": "2026-11-01T00:54:54.780Z",
+ "pr": {
+  "number": 334532,
+  "title": "Fix terminal prompt duplication when resizing the terminal panel",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-04T15:41:21Z",
+  "updated_at": "2026-10-18T05:04:30Z",
+  "user": "Fahad090NP",
+  "author_association": "NONE",
+  "additions": 56,
+  "deletions": 25,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 1,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/terminal-resize-duplicated-prompt",
+   "sha": "9758e378d4291c1af80c701771b697cb3ae1c75b",
+   "repo": "Fahad090NP/vscode",
+   "label": "Fahad090NP:fix/terminal-resize-duplicated-prompt"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "df835a713adfcd37c4b6c73c534e4afff3e82753"
+  },
+  "body": "Fixes #329946 (partial — see \"Known limitations\" below)\r\n\r\n## Summary\r\n\r\nWhen the terminal panel is resized, the shell prompt can be duplicated / new prompt lines created on every resize instead of the buffer reflowing cleanly. Two causes in the terminal resize path:\r\n\r\n1. **Redundant PTY resizes on every layout event.** `TerminalResizeDebouncer.resize()` fired a resize even when the grid dimensions did not change (e.g. while dragging the panel), sending a PTY resize (SIGWINCH) on every layout event. Shells repaint the prompt on SIGWINCH, so this produced a storm of prompt redraws while dragging.\r\n\r\n2. **Horizontal resizes debounced too briefly.** The debounced horizontal resize fired after 100ms, but shells such as zsh need longer than that to fully process a prompt redraw after a resize. When resizes arrived back-to-back, the shell computed its prompt redraw from a stale terminal width, which misplaces the erase/rewrite and leaves duplicated prompt fragments in the buffer.\r\n\r\n## Changes\r\n\r\n`src/vs/workbench/contrib/terminal/browser/terminalResizeDebouncer.ts`:\r\n- Skip the resize entirely (and cancel any pending debounced resize) when the requested `cols`/`rows` equal the current grid — no more redundant PTY resizes / SIGWINCH storms while dragging.\r\n- Only fire the immediate Y-resize when `rows` actually changed, and only schedule the debounced X-resize when `cols` actually changed.\r\n- Increase `DebounceResizeXDelay` from 100ms to 300ms so the shell's prompt redraw is fully processed between consecutive resizes.\r\n\r\n## Verification\r\n\r\n- Reproduced the duplication headlessly with a real zsh 5.9 and bash shell in a pty driving the bundled xterm.js: with the 100ms debounce the buffer ended with 3 prompt copies after a shrink/grow/shrink cycle; with 300ms exactly 1 copy.\r\n- Verified in a running Code OSS instance (launched with playwright over CDP): resizing the bottom-panel terminal (long prompt, shrink/grow cycles, continuous drags) reflows cleanly with no duplication.\r\n\r\n## Known limitations (honest assessment)\r\n\r\nThis fixes the common cases (panel resizing at moderate widths, continuous drags). It does **not** fix every duplication scenario:\r\n\r\n- **Extreme-narrow terminals with colored prompts** (e.g. terminal docked in the side panel and shrunk to its minimum width, ~15-20 columns, with a colored `PS1`/`PROMPT`): the prompt can still duplicate. Root cause: xterm.js deliberately does not reflow the cursor line on non-Windows (`reflowCursorLine=false`), so the prompt is a single buffer row rendered wrapped across several visual rows. The shell's redraw (readline/zsh) operates on visual rows, so its erase/rewrite misses rows and fragments accumulate. Enabling `reflowCursorLine` makes this worse due to https://github.com/xtermjs/xterm.js/issues/5295 (cursor mispositioned on reflow of cursor line), which the xterm.js maintainers have declined to fix. Upstream VS Code has no fix for this either; it would require a change in xterm.js or readline.\r\n\r\n---\r\n\r\n**Restored PR:** This replaces #330040, which was closed automatically when my fork was deleted from GitHub. GitHub cannot reopen a PR whose head repository was deleted, so the branch was rebuilt from the original commit (same message and authorship) on top of the current `main`. Please review this PR in place of #330040.\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "9538b0a67483562b679ea7fd6629324dd468a3a4",
+   "filename": "src/vs/workbench/contrib/terminal/browser/terminalResizeDebouncer.ts",
+   "status": "modified",
+   "additions": 56,
+   "deletions": 25,
+   "changes": 81,
+   "blob_url": "https://github.com/microsoft/vscode/blob/9758e378d4291c1af80c701771b697cb3ae1c75b/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalResizeDebouncer.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/9758e378d4291c1af80c701771b697cb3ae1c75b/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalResizeDebouncer.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fbrowser%2FterminalResizeDebouncer.ts?ref=9758e378d4291c1af80c701771b697cb3ae1c75b",
+   "patch": "@@ -13,7 +13,13 @@ const enum Constants {\n \t * The _normal_ buffer length threshold at which point resizing starts being debounced.\n \t */\n \tStartDebouncingThreshold = 200,\n-\tDebounceResizeXDelay = 100,\n+\t/**\n+\t * Delay before a horizontal (reflowing) resize is applied. Must be long enough that the\n+\t * shell's prompt redraw after the previous resize has been fully processed: shells such as\n+\t * zsh compute their prompt redraw from a stale terminal width when resizes arrive back to\n+\t * back, which duplicates the prompt line. (microsoft/vscode#329946)\n+\t */\n+\tDebounceResizeXDelay = 300,\n }\n \n export class TerminalResizeDebouncer extends Disposable {\n@@ -44,47 +50,72 @@ export class TerminalResizeDebouncer extends Disposable {\n \t\tif (this._store.isDisposed) {\n \t\t\treturn;\n \t\t}\n+\t\tconst xterm = this._getXterm();\n+\t\tif (!xterm) {\n+\t\t\treturn;\n+\t\t}\n \t\tthis._latestX = cols;\n \t\tthis._latestY = rows;\n \n \t\t// Resize immediately if requested explicitly or if the buffer is small\n-\t\tif (immediate || this._getXterm()!.raw.buffer.normal.length < Constants.StartDebouncingThreshold) {\n+\t\tif (immediate || xterm.raw.buffer.normal.length < Constants.StartDebouncingThreshold) {\n \t\t\tthis._resizeXJob.clear();\n \t\t\tthis._resizeYJob.clear();\n \t\t\tthis._debounceResizeXScheduler.cancel();\n-\t\t\tthis._resizeBothCallback(cols, rows);\n+\t\t\tif (cols !== xterm.raw.cols || rows !== xterm.raw.rows) {\n+\t\t\t\tthis._resizeBothCallback(cols, rows);\n+\t\t\t}\n \t\t\treturn;\n \t\t}\n \n-\t\t// Resize in an idle callback if the terminal is not visible\n-\t\tconst win = getWindow(this._getXterm()!.raw.element);\n+\t\t// Resize in an idle callback if the terminal is not visible.\n+\t\t// Only queue callbacks for axes whose dimensions actually changed to avoid\n+\t\t// redundant PTY resizes (same reasoning as the visible path below).\n+\t\tconst win = getWindow(xterm.raw.element);\n \t\tif (win && !this._isVisible()) {\n-\t\t\tif (!this._resizeXJob.value) {\n-\t\t\t\tthis._resizeXJob.value = runWhenWindowIdle(win, async () => {\n-\t\t\t\t\tif (this._store.isDisposed) {\n-\t\t\t\t\t\treturn;\n-\t\t\t\t\t}\n-\t\t\t\t\tthis._resizeXCallback(this._latestX);\n-\t\t\t\t\tthis._resizeXJob.clear();\n-\t\t\t\t});\n+\t\t\tif (rows !== xterm.raw.rows) {\n+\t\t\t\tif (!this._resizeYJob.value) {\n+\t\t\t\t\tthis._resizeYJob.value = runWhenWindowIdle(win, async () => {\n+\t\t\t\t\t\tif (this._store.isDisposed) {\n+\t\t\t\t\t\t\treturn;\n+\t\t\t\t\t\t}\n+\t\t\t\t\t\tthis._resizeYCallback(this._latestY);\n+\t\t\t\t\t\tthis._resizeYJob.clear();\n+\t\t\t\t\t});\n+\t\t\t\t}\n+\t\t\t} else {\n+\t\t\t\tthis._resizeYJob.clear();\n \t\t\t}\n-\t\t\tif (!this._resizeYJob.value) {\n-\t\t\t\tthis._resizeYJob.value = runWhenWindowIdle(win, async () => {\n-\t\t\t\t\tif (this._store.isDisposed) {\n-\t\t\t\t\t\treturn;\n-\t\t\t\t\t}\n-\t\t\t\t\tthis._resizeYCallback(this._latestY);\n-\t\t\t\t\tthis._resizeYJob.clear();\n-\t\t\t\t});\n+\t\t\tif (cols !== xterm.raw.cols) {\n+\t\t\t\tif (!this._resizeXJob.value) {\n+\t\t\t\t\tthis._resizeXJob.value = runWhenWindowIdle(win, async () => {\n+\t\t\t\t\t\tif (this._store.isDisposed) {\n+\t\t\t\t\t\t\treturn;\n+\t\t\t\t\t\t}\n+\t\t\t\t\t\tthis._resizeXCallback(this._latestX);\n+\t\t\t\t\t\tthis._resizeXJob.clear();\n+\t\t\t\t\t});\n+\t\t\t\t}\n+\t\t\t} else {\n+\t\t\t\tthis._resizeXJob.clear();\n \t\t\t}\n \t\t\treturn;\n \t\t}\n \n \t\t// Update dimensions independently as vertical resize is cheap and horizontal resize is\n-\t\t// expensive due to reflow.\n-\t\tthis._resizeYCallback(rows);\n-\t\tthis._latestX = cols;\n-\t\tthis._debounceResizeXScheduler.schedule();\n+\t\t// expensive due to reflow. Skip axes whose dimensions did not change to avoid sending\n+\t\t// redundant PTY resizes, which trigger SIGWINCH in the shell and cause the prompt to be\n+\t\t// redrawn/duplicated on every layout event while the terminal panel is being resized.\n+\t\tif (rows !== xterm.raw.rows) {\n+\t\t\tthis._resizeYCallback(rows);\n+\t\t}\n+\t\tif (cols !== xterm.raw.cols) {\n+\t\t\tthis._debounceResizeXScheduler.schedule();\n+\t\t} else {\n+\t\t\t// The latest requested width matches the current grid, cancel a pending debounced\n+\t\t\t// resize so it cannot fire a redundant PTY resize afterwards.\n+\t\t\tthis._debounceResizeXScheduler.cancel();\n+\t\t}\n \t}\n \n \tflush(): void {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5115099515,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMOI5ew",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟡 Changes recommended\n\nHidden terminals still schedule redundant resize callbacks for unchanged axes.\n\n*Once you've addressed the issues Copilot identified, you can request another Copilot review.*\n\n<details>\n<summary>Pull request overview</summary>\n\nReduces terminal prompt duplication during panel resizing by avoiding unnecessary PTY resize signals and lengthening horizontal resize debounce timing.\n\n**Changes:**\n- Skips unchanged visible-terminal dimensions.\n- Debounces horizontal resizing for 300ms.\n- Cancels pending horizontal resizes when width returns to the current value.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `terminalResizeDebouncer.ts` | Refines terminal resize scheduling and dimension checks. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 1\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/334532#pullrequestreview-5115099515",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/334532",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/334532#pullrequestreview-5115099515"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/334532"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-04T15:46:26Z",
+   "commit_id": "47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5542924320",
+   "html_url": "https://github.com/microsoft/vscode/pull/334532#issuecomment-5542924320",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/334532",
+   "id": 5542924320,
+   "node_id": "IC_kwDOAn8RLM8AAAABSmJQIA",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-04T15:42:27Z",
+   "updated_at": "2026-10-18T05:04:30Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @anthonykim1\n\nMatched files:\n- `src/vs/workbench/contrib/terminal/browser/terminalResizeDebouncer.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5542924320/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5542936691",
+   "html_url": "https://github.com/microsoft/vscode/pull/334532#issuecomment-5542936691",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/334532",
+   "id": 5542936691,
+   "node_id": "IC_kwDOAn8RLM8AAAABSmKAcw",
+   "user": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-04T15:43:27Z",
+   "updated_at": "2026-09-04T15:43:27Z",
+   "body": "﻿**Context:** this PR replaces #330040, which was closed automatically when my fork was deleted from GitHub. GitHub cannot reopen a PR whose head repository was deleted, so the branch was rebuilt from the original commit (same message and authorship) on top of the current main.\n\nMaintainers: please judge this PR in place of the closed #330040. Thank you!\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5542936691/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5739622722",
+   "html_url": "https://github.com/microsoft/vscode/pull/334532#issuecomment-5739622722",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/334532",
+   "id": 5739622722,
+   "node_id": "IC_kwDOAn8RLM8AAAABVhuxQg",
+   "user": {
+    "login": "saitanallensantiago26-beep",
+    "id": 308763364,
+    "node_id": "U_kgDOEmda5A",
+    "avatar_url": "https://avatars.githubusercontent.com/u/308763364?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/saitanallensantiago26-beep",
+    "html_url": "https://github.com/saitanallensantiago26-beep",
+    "followers_url": "https://api.github.com/users/saitanallensantiago26-beep/followers",
+    "following_url": "https://api.github.com/users/saitanallensantiago26-beep/following{/other_user}",
+    "gists_url": "https://api.github.com/users/saitanallensantiago26-beep/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/saitanallensantiago26-beep/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/saitanallensantiago26-beep/subscriptions",
+    "organizations_url": "https://api.github.com/users/saitanallensantiago26-beep/orgs",
+    "repos_url": "https://api.github.com/users/saitanallensantiago26-beep/repos",
+    "events_url": "https://api.github.com/users/saitanallensantiago26-beep/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/saitanallensantiago26-beep/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-19T05:21:39Z",
+   "updated_at": "2026-09-19T05:21:39Z",
+   "body": "> Fixes #329946 (partial — see \"Known limitations\" below)\n> \n> ## Summary\n> \n> When the terminal panel is resized, the shell prompt can be duplicated / new prompt lines created on every resize instead of the buffer reflowing cleanly. Two causes in the terminal resize path:\n> \n> 1. **Redundant PTY resizes on every layout event.** `TerminalResizeDebouncer.resize()` fired a resize even when the grid dimensions did not change (e.g. while dragging the panel), sending a PTY resize (SIGWINCH) on every layout event. Shells repaint the prompt on SIGWINCH, so this produced a storm of prompt redraws while dragging.\n> \n> 2. **Horizontal resizes debounced too briefly.** The debounced horizontal resize fired after 100ms, but shells such as zsh need longer than that to fully process a prompt redraw after a resize. When resizes arrived back-to-back, the shell computed its prompt redraw from a stale terminal width, which misplaces the erase/rewrite and leaves duplicated prompt fragments in the buffer.\n> \n> ## Changes\n> \n> `src/vs/workbench/contrib/terminal/browser/terminalResizeDebouncer.ts`:\n> - Skip the resize entirely (and cancel any pending debounced resize) when the requested `cols`/`rows` equal the current grid — no more redundant PTY resizes / SIGWINCH storms while dragging.\n> - Only fire the immediate Y-resize when `rows` actually changed, and only schedule the debounced X-resize when `cols` actually changed.\n> - Increase `DebounceResizeXDelay` from 100ms to 300ms so the shell's prompt redraw is fully processed between consecutive resizes.\n> \n> ## Verification\n> \n> - Reproduced the duplication headlessly with a real zsh 5.9 and bash shell in a pty driving the bundled xterm.js: with the 100ms debounce the buffer ended with 3 prompt copies after a shrink/grow/shrink cycle; with 300ms exactly 1 copy.\n> - Verified in a running Code OSS instance (launched with playwright over CDP): resizing the bottom-panel terminal (long prompt, shrink/grow cycles, continuous drags) reflows cleanly with no duplication.\n> \n> ## Known limitations (honest assessment)\n> \n> This fixes the common cases (panel resizing at moderate widths, continuous drags). It does **not** fix every duplication scenario:\n> \n> - **Extreme-narrow terminals with colored prompts** (e.g. terminal docked in the side panel and shrunk to its minimum width, ~15-20 columns, with a colored `PS1`/`PROMPT`): the prompt can still duplicate. Root cause: xterm.js deliberately does not reflow the cursor line on non-Windows (`reflowCursorLine=false`), so the prompt is a single buffer row rendered wrapped across several visual rows. The shell's redraw (readline/zsh) operates on visual rows, so its erase/rewrite misses rows and fragments accumulate. Enabling `reflowCursorLine` makes this worse due to https://github.com/xtermjs/xterm.js/issues/5295 (cursor mispositioned on reflow of cursor line), which the xterm.js maintainers have declined to fix. Upstream VS Code has no fix for this either; it would require a change in xterm.js or readline.\n> \n> ---\n> \n> **Restored PR:** This replaces #330040, which was closed automatically when my fork was deleted from GitHub. GitHub cannot reopen a PR whose head repository was deleted, so the branch was rebuilt from the original commit (same message and authorship) on top of the current `main`. Please review this PR in place of #330040.\n> \n\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5739622722/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+   "node_id": "C_kwDOUOPXW9oAKDQ3ZjJjZThlMjMxZmVhMWUzOWNiY2NmNmU4MjY1ZjZjNGYzYTczMDk",
+   "commit": {
+    "author": {
+     "name": "Fahad Iftikhar",
+     "email": "fahad090np@gmail.com",
+     "date": "2026-08-10T17:39:22Z"
+    },
+    "committer": {
+     "name": "Fahad Iftikhar",
+     "email": "Fahad090NP@users.noreply.github.com",
+     "date": "2026-09-04T15:35:56Z"
+    },
+    "message": "Fix terminal prompt duplication when resizing the terminal panel\n\nThe terminal resize debouncer sent a PTY resize on every layout event even\nwhen the grid dimensions did not change, triggering SIGWINCH storms that\nmade shells redraw the prompt repeatedly. Additionally, the horizontal\nresize debounce was too short (100ms) for shells such as zsh to finish\ntheir prompt redraw, so consecutive resizes were processed with a stale\nterminal width and duplicated the prompt line.\n\nSkip resizes whose dimensions are unchanged and debounce horizontal\nresizes for 300ms instead of 100ms.\n\nFixes microsoft/vscode#329946",
+    "tree": {
+     "sha": "f92630bc6e6c383a84d6dc1466f1f2b11d0158c9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f92630bc6e6c383a84d6dc1466f1f2b11d0158c9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+   "html_url": "https://github.com/microsoft/vscode/commit/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309/comments",
+   "author": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2e12155dfa05dfe3cd24e6624cb1489ac8a62907",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2e12155dfa05dfe3cd24e6624cb1489ac8a62907",
+     "html_url": "https://github.com/microsoft/vscode/commit/2e12155dfa05dfe3cd24e6624cb1489ac8a62907"
+    }
+   ]
+  },
+  {
+   "sha": "fcc88202e0593a71689b293cb01828b3d7b054cc",
+   "node_id": "C_kwDOUOPXW9oAKGZjYzg4MjAyZTA1OTNhNzE2ODliMjkzY2IwMTgyOGIzZDdiMDU0Y2M",
+   "commit": {
+    "author": {
+     "name": "Fahad Iftikhar",
+     "email": "Fahad090NP@users.noreply.github.com",
+     "date": "2026-09-05T05:35:01Z"
+    },
+    "committer": {
+     "name": "Fahad Iftikhar",
+     "email": "Fahad090NP@users.noreply.github.com",
+     "date": "2026-09-05T05:35:01Z"
+    },
+    "message": "fix: gate hidden-terminal idle callbacks per axis to prevent redundant resizes\n\nApply the same per-axis dimension checks to the hidden terminal path\nthat the visible path already uses. Only queue idle callbacks for axes\nwhose dimensions actually changed, and clear pending jobs for axes that\nmatch the current grid, preventing redundant PTY resizes.",
+    "tree": {
+     "sha": "31520ce2ac73e256a598740a5d2995614d5ff0df",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/31520ce2ac73e256a598740a5d2995614d5ff0df"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/fcc88202e0593a71689b293cb01828b3d7b054cc",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/fcc88202e0593a71689b293cb01828b3d7b054cc",
+   "html_url": "https://github.com/microsoft/vscode/commit/fcc88202e0593a71689b293cb01828b3d7b054cc",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/fcc88202e0593a71689b293cb01828b3d7b054cc/comments",
+   "author": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309",
+     "html_url": "https://github.com/microsoft/vscode/commit/47f2ce8e231fea1e39cbccf6e8265f6c4f3a7309"
+    }
+   ]
+  },
+  {
+   "sha": "211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+   "node_id": "C_kwDOUOPXW9oAKDIxMWZhZDVhYjg5YzBiMDJiMGIyNTI3MmUwYTNjNTkxMTljNmE2OTY",
+   "commit": {
+    "author": {
+     "name": "Fahad Iftikhar",
+     "email": "fahad090np@gmail.com",
+     "date": "2026-09-05T06:42:27Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-05T06:42:27Z"
+    },
+    "message": "Merge branch 'main' into fix/terminal-resize-duplicated-prompt",
+    "tree": {
+     "sha": "989306676a56c350640fcd403a2b95fed3b307ef",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/989306676a56c350640fcd403a2b95fed3b307ef"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqm7nTCRC1aQ7uu5UhlAAAqCQQAGBX5yXqV6hDtUs0w/M7IDVX\nSmTx/xdWSIOBhmjigAn7ycNX2Ub2HDOJ+0XYVtURbAV+C85mSw1lVXzLAQpf6jXw\nQga9u/ABiCPjyEQ4fkHcerf7fike0CNlNYXJYJnn9EBpIpHZbXXsae74qDLcXBqJ\nacUfPXh4I4F8rN4YMu7sGrKvh739j6L+z+gDz+bPWqAg6TBzagZCr0LvPLPB7c04\ny8pBuqq8Ku/+Wb4SttypsmNQ+uroYOWJeLRwtebjBAEhj4qFlYJTj7HqBNV8J6iQ\nkpYr3633qHrZ5H1+02QpJM8fan2bT/fdYw+HHWCnMqCZFpihgROlsvSyjuCHsGoP\nNVWJUvnsXoLmb1hv6Ft7WsRefWWfYTrVSKKSB3yWhO6J4PgtDURmn0fDQve+kElm\nfUOsjm6dhiBKdY5RWs0oSjsJxdAIH3q7R7aYlRlCNiI88JXQZa/GFqhhMR/f2G+m\n4Y6fG1E/Gcdf9eAqytmHb8FJZQ6yktrRYbUcVim/aUzuhcwz1NH74faLinqDRAvU\nDfnY3lIvJTBHWU11jyCEDRXiflpqpWFyij0e6GmkTLQhJ1LyoR8EhIAORHaUCO69\nWRcyWk94nD/I+lPV3Jv4toamnck1pYXOBVqlQOjsUL1Ajc/5Rznuq31Y0vURa48T\nBGZagBBJKZ2MvrD3xML+\n=ZItV\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 989306676a56c350640fcd403a2b95fed3b307ef\nparent fcc88202e0593a71689b293cb01828b3d7b054cc\nparent fc0a9e94576224c89cc08d390b38ab760a261f1f\nauthor Fahad Iftikhar <fahad090np@gmail.com> 1788590547 +0500\ncommitter GitHub <noreply@github.com> 1788590547 +0500\n\nMerge branch 'main' into fix/terminal-resize-duplicated-prompt",
+     "verified_at": "2026-09-05T06:42:28Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+   "html_url": "https://github.com/microsoft/vscode/commit/211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/211fad5ab89c0b02b0b25272e0a3c59119c6a696/comments",
+   "author": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "fcc88202e0593a71689b293cb01828b3d7b054cc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fcc88202e0593a71689b293cb01828b3d7b054cc",
+     "html_url": "https://github.com/microsoft/vscode/commit/fcc88202e0593a71689b293cb01828b3d7b054cc"
+    },
+    {
+     "sha": "fc0a9e94576224c89cc08d390b38ab760a261f1f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fc0a9e94576224c89cc08d390b38ab760a261f1f",
+     "html_url": "https://github.com/microsoft/vscode/commit/fc0a9e94576224c89cc08d390b38ab760a261f1f"
+    }
+   ]
+  },
+  {
+   "sha": "24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+   "node_id": "C_kwDOUOPXW9oAKDI0NTMwYmUwMGY2ZjBmZDIyNjVlNDVkYTI4YjRlYjc1YWI5YTdhNTA",
+   "commit": {
+    "author": {
+     "name": "Fahad Iftikhar",
+     "email": "fahad090np@gmail.com",
+     "date": "2026-09-19T03:40:33Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-19T03:40:33Z"
+    },
+    "message": "Merge branch 'main' into fix/terminal-resize-duplicated-prompt",
+    "tree": {
+     "sha": "9add489984e4b2034dd513922adecc5d9a128077",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9add489984e4b2034dd513922adecc5d9a128077"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqrgQxCRC1aQ7uu5UhlAAAMy0QADmhcyC3bUs5HEgsGuUgc0ye\nNG/1XI4Vi9pcQcHE00uVe8cgUavSOb7WALXFnZ12FHw6wXJHn00ui2EAmKXLD4ao\nwY8w+JgM423BilHQNgUeK6wHEAZiFjvMq2lMF+/t+qLhXGCev8yekkvEd9qCdFrI\nmNFQGTP/fYNMqnUFhDACGDqaLalaFFdDvHyCCT65HsBLoKBMVUHjaoqRypCyZGXB\n848kr7t/D/NK3cm4mQz37swUCaFE2ZaNv0TEaVEK3YHidT4yoBldHFHHwtbk4OPT\nmP1L96D4QUiwwMPLu/O013tFv3kVg6DBALqsXAsKEb89jOxEYG11RKPRiisKwfeW\nEifGYHjrFpgwmNg5/hbJojW40XK5Z7UGXSqZfiswt4pxbczthmzpuUAH13YrGBMX\nSQ+SElA0Uchr4RQtcDPIwM/yuPfMGmbCqc3d/B9txMCiepz0uIi2NEBRLV1lnyNJ\n7CTK7zISVhbbmVgunqkILUBcpKVkqZKS5Sr5K59RB7Uf1Do1sVqJHb64wgSmBFfX\nrzqJvmrfnFNjHbltXYi0z0FVl97KTfneDUX71a6dLXPr8RJEGhrkR0CnYXtKrK8y\nnKe4w22lpoz5m8o6COP2zSGezwmMXACrN2S8Zwlt6SASjk1x1bC3072W7NYcSeI7\ndmvKnsZJlZgB2yhc8KRJ\n=tkgu\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9add489984e4b2034dd513922adecc5d9a128077\nparent 211fad5ab89c0b02b0b25272e0a3c59119c6a696\nparent fb20064c0f4bda98ede67f594727503329370d1f\nauthor Fahad Iftikhar <fahad090np@gmail.com> 1789789233 +0500\ncommitter GitHub <noreply@github.com> 1789789233 +0500\n\nMerge branch 'main' into fix/terminal-resize-duplicated-prompt",
+     "verified_at": "2026-09-19T03:40:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+   "html_url": "https://github.com/microsoft/vscode/commit/24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/24530be00f6f0fd2265e45da28b4eb75ab9a7a50/comments",
+   "author": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/211fad5ab89c0b02b0b25272e0a3c59119c6a696",
+     "html_url": "https://github.com/microsoft/vscode/commit/211fad5ab89c0b02b0b25272e0a3c59119c6a696"
+    },
+    {
+     "sha": "fb20064c0f4bda98ede67f594727503329370d1f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fb20064c0f4bda98ede67f594727503329370d1f",
+     "html_url": "https://github.com/microsoft/vscode/commit/fb20064c0f4bda98ede67f594727503329370d1f"
+    }
+   ]
+  },
+  {
+   "sha": "9758e378d4291c1af80c701771b697cb3ae1c75b",
+   "node_id": "C_kwDOUOPXW9oAKDk3NThlMzc4ZDQyOTFjMWFmODBjNzAxNzcxYjY5N2NiM2FlMWM3NWI",
+   "commit": {
+    "author": {
+     "name": "Fahad Iftikhar",
+     "email": "fahad090np@gmail.com",
+     "date": "2026-10-18T05:03:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-18T05:03:46Z"
+    },
+    "message": "Merge branch 'main' into fix/terminal-resize-duplicated-prompt",
+    "tree": {
+     "sha": "c5568e7d8ed239d710c81f1cc762558b1a32c0a8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c5568e7d8ed239d710c81f1cc762558b1a32c0a8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9758e378d4291c1af80c701771b697cb3ae1c75b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq1FMzCRC1aQ7uu5UhlAAAJEgQAAuXBYN4yOfGko0XRKqDq950\nVFDAobc47C8laM+TPJ35fUEX/WWO0ZePYWWYDsl0obxTWJSMbD1irqaha9zCZb5A\n0dRIHED9b+At+Z3gijvGKKm41wuDIv2zMVwbJZuKJVYPlv1UFowu6CwHJobRJuyA\nrA21rJjnZ5JLsaJ2nreIgOKhLUJ2z4qZKSAkn73IIdcMyHSvrz7Rv8jdvNmP1zts\n/U8AfpBrBU8AoU/nc81XYegCAQstfMKFf8jwiRYQ/XfpLJUgySR3ah2449qFZiWC\nYTQlIbHWIOm7na2HMhyFCQaBv9CAs4gtZkMPiZuYF7dBlyRXzKXh104XmCN+7xOu\ntp2dyNT5uJxED7vrKqQzt+5/irCTQT5Crb/c9g9Q8Bm8/cJJskKXfH6oLQxsL4Rk\n0aBIM+uP6GkcGWy+aL5JIAJnzU56gq0eaeBuImE45wG4Pguo0LyA9OZB72xCT5Ck\nWMM/D/SEr08zQYpSnYU9jmpFOqQhd6JbORODMTRFh105HDvzcogGZKCcQAgLazJ1\nSy1kdlRRE01VEK3qampZJRzlvwminF0Lfzj9rAgGhRmH4TYxYbbKJuEpQ2JEdoA6\nObQy2xQTPrcFZoEnbt/cHvsIaSwTxzItghYLuMU+xVTjr6euBJStseFRztF33+1y\niFoSHe+LncRpZa1kSHOA\n=hNUA\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c5568e7d8ed239d710c81f1cc762558b1a32c0a8\nparent 24530be00f6f0fd2265e45da28b4eb75ab9a7a50\nparent df835a713adfcd37c4b6c73c534e4afff3e82753\nauthor Fahad Iftikhar <fahad090np@gmail.com> 1792299826 +0500\ncommitter GitHub <noreply@github.com> 1792299826 +0500\n\nMerge branch 'main' into fix/terminal-resize-duplicated-prompt",
+     "verified_at": "2026-10-18T05:03:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9758e378d4291c1af80c701771b697cb3ae1c75b",
+   "html_url": "https://github.com/microsoft/vscode/commit/9758e378d4291c1af80c701771b697cb3ae1c75b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9758e378d4291c1af80c701771b697cb3ae1c75b/comments",
+   "author": {
+    "login": "Fahad090NP",
+    "id": 170220150,
+    "node_id": "U_kgDOCiVadg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/170220150?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fahad090NP",
+    "html_url": "https://github.com/Fahad090NP",
+    "followers_url": "https://api.github.com/users/Fahad090NP/followers",
+    "following_url": "https://api.github.com/users/Fahad090NP/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fahad090NP/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fahad090NP/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fahad090NP/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fahad090NP/orgs",
+    "repos_url": "https://api.github.com/users/Fahad090NP/repos",
+    "events_url": "https://api.github.com/users/Fahad090NP/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fahad090NP/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/24530be00f6f0fd2265e45da28b4eb75ab9a7a50",
+     "html_url": "https://github.com/microsoft/vscode/commit/24530be00f6f0fd2265e45da28b4eb75ab9a7a50"
+    },
+    {
+     "sha": "df835a713adfcd37c4b6c73c534e4afff3e82753",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df835a713adfcd37c4b6c73c534e4afff3e82753",
+     "html_url": "https://github.com/microsoft/vscode/commit/df835a713adfcd37c4b6c73c534e4afff3e82753"
+    }
+   ]
+  }
+ ]
+}

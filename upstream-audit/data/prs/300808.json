@@ -1,0 +1,543 @@
+{
+ "fetchedAt": "2026-11-01T00:53:03.160Z",
+ "pr": {
+  "number": 300808,
+  "title": "test: add findFiles2 multiple pattern and exclude coverage",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-03-11T15:03:11Z",
+  "updated_at": "2026-07-29T07:01:02Z",
+  "user": "Muszic",
+  "author_association": "CONTRIBUTOR",
+  "additions": 68,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 5,
+  "review_comments": 0,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "add-findfiles2-tests",
+   "sha": "ebfbf62db4edc8a507d5d4b905ec913716d28241",
+   "repo": "Muszic/vscode",
+   "label": "Muszic:add-findfiles2-tests"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "03d87f6b18e2b33ca6b195ebf6b4763d7892c11b"
+  },
+  "body": "This PR addresses the `// todo: add tests with multiple filePatterns and excludes` comment in `src/vs/workbench/api/test/browser/extHostWorkspace.test.ts`.\r\n\r\nIt adds three new tests to the `findFiles2 -` suite to verify:\r\n1. Multiple file patterns trigger multiple parallel `$startFileSearch` calls.\r\n2. Multiple exclude settings are correctly passed to every search query.\r\n3. `useIgnoreFiles` settings are respected across multiple patterns.\r\n\r\nAll tests run successfully locally.",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "1f80ec46272fd21cf8023ed4d40248bcfd86199f",
+   "filename": "src/vs/workbench/api/test/browser/extHostWorkspace.test.ts",
+   "status": "modified",
+   "additions": 68,
+   "deletions": 1,
+   "changes": 69,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ebfbf62db4edc8a507d5d4b905ec913716d28241/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fbrowser%2FextHostWorkspace.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ebfbf62db4edc8a507d5d4b905ec913716d28241/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fbrowser%2FextHostWorkspace.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fbrowser%2FextHostWorkspace.test.ts?ref=ebfbf62db4edc8a507d5d4b905ec913716d28241",
+   "patch": "@@ -883,7 +883,74 @@ suite('ExtHostWorkspace', function () {\n \t\t\t});\n \t\t});\n \n-\t\t// todo: add tests with multiple filePatterns and excludes\n+\t\ttest('multiple filePatterns trigger multiple searches', () => {\n+\t\t\tconst root = '/project/foo';\n+\t\t\tconst rpcProtocol = new TestRPCProtocol();\n+\n+\t\t\tlet searchCallCount = 0;\n+\t\t\tconst requestedPatterns: (string | undefined)[] = [];\n+\n+\t\t\trpcProtocol.set(MainContext.MainThreadWorkspace, new class extends mock<MainThreadWorkspace>() {\n+\t\t\t\toverride $startFileSearch(_includeFolder: UriComponents | null, options: IFileQueryBuilderOptions, token: CancellationToken): Promise<URI[] | null> {\n+\t\t\t\t\tsearchCallCount++;\n+\t\t\t\t\trequestedPatterns.push(options.filePattern);\n+\t\t\t\t\treturn Promise.resolve(null);\n+\t\t\t\t}\n+\t\t\t});\n+\n+\t\t\tconst ws = createExtHostWorkspace(rpcProtocol, { id: 'foo', folders: [aWorkspaceFolderData(URI.file(root), 0)], name: 'Test' }, new NullLogService());\n+\n+\t\t\treturn ws.findFiles2(['**/*.ts', '**/*.js'], {}, new ExtensionIdentifier('test')).then(() => {\n+\t\t\t\tassert.strictEqual(searchCallCount, 2);\n+\t\t\t\tassert.deepStrictEqual(requestedPatterns, ['**/*.ts', '**/*.js']);\n+\t\t\t});\n+\t\t});\n+\n+\t\ttest('multiple filePatterns and multiple excludes', () => {\n+\t\t\tconst root = '/project/foo';\n+\t\t\tconst rpcProtocol = new TestRPCProtocol();\n+\n+\t\t\tlet searchCallCount = 0;\n+\n+\t\t\trpcProtocol.set(MainContext.MainThreadWorkspace, new class extends mock<MainThreadWorkspace>() {\n+\t\t\t\toverride $startFileSearch(_includeFolder: UriComponents | null, options: IFileQueryBuilderOptions, token: CancellationToken): Promise<URI[] | null> {\n+\t\t\t\t\tsearchCallCount++;\n+\t\t\t\t\tassert.strictEqual(options.excludePattern?.length, 2);\n+\t\t\t\t\tassert.strictEqual(options.excludePattern[0].pattern, '*.txt');\n+\t\t\t\t\tassert.strictEqual(options.excludePattern[1].pattern, '*.md');\n+\t\t\t\t\treturn Promise.resolve(null);\n+\t\t\t\t}\n+\t\t\t});\n+\n+\t\t\tconst ws = createExtHostWorkspace(rpcProtocol, { id: 'foo', folders: [aWorkspaceFolderData(URI.file(root), 0)], name: 'Test' }, new NullLogService());\n+\n+\t\t\treturn ws.findFiles2(['**/*.ts', '**/*.js'], { exclude: ['*.txt', '*.md'] }, new ExtensionIdentifier('test')).then(() => {\n+\t\t\t\tassert.strictEqual(searchCallCount, 2);\n+\t\t\t});\n+\t\t});\n+\n+\t\ttest('multiple filePatterns combined with useIgnoreFiles', () => {\n+\t\t\tconst root = '/project/foo';\n+\t\t\tconst rpcProtocol = new TestRPCProtocol();\n+\n+\t\t\tlet searchCallCount = 0;\n+\n+\t\t\trpcProtocol.set(MainContext.MainThreadWorkspace, new class extends mock<MainThreadWorkspace>() {\n+\t\t\t\toverride $startFileSearch(_includeFolder: UriComponents | null, options: IFileQueryBuilderOptions, token: CancellationToken): Promise<URI[] | null> {\n+\t\t\t\t\tsearchCallCount++;\n+\t\t\t\t\tassert.strictEqual(options.disregardIgnoreFiles, false);\n+\t\t\t\t\tassert.strictEqual(options.disregardGlobalIgnoreFiles, false);\n+\t\t\t\t\tassert.strictEqual(options.disregardParentIgnoreFiles, false);\n+\t\t\t\t\treturn Promise.resolve(null);\n+\t\t\t\t}\n+\t\t\t});\n+\n+\t\t\tconst ws = createExtHostWorkspace(rpcProtocol, { id: 'foo', folders: [aWorkspaceFolderData(URI.file(root), 0)], name: 'Test' }, new NullLogService());\n+\n+\t\t\treturn ws.findFiles2(['**/*.ts', '**/*.js'], { useIgnoreFiles: { local: true, parent: true, global: true } }, new ExtensionIdentifier('test')).then(() => {\n+\t\t\t\tassert.strictEqual(searchCallCount, 2);\n+\t\t\t});\n+\t\t});\n \n \t});\n "
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4074362950",
+   "html_url": "https://github.com/microsoft/vscode/pull/300808#issuecomment-4074362950",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/300808",
+   "id": 4074362950,
+   "node_id": "IC_kwDOAn8RLM7y2dhG",
+   "user": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-17T11:43:26Z",
+   "updated_at": "2026-03-17T11:43:26Z",
+   "body": "@osortega Please review the PR.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4074362950/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4075393857",
+   "html_url": "https://github.com/microsoft/vscode/pull/300808#issuecomment-4075393857",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/300808",
+   "id": 4075393857,
+   "node_id": "IC_kwDOAn8RLM7y6ZNB",
+   "user": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-17T14:27:35Z",
+   "updated_at": "2026-03-17T14:27:35Z",
+   "body": "@osortega Please review the PR.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4075393857/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4122405163",
+   "html_url": "https://github.com/microsoft/vscode/pull/300808#issuecomment-4122405163",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/300808",
+   "id": 4122405163,
+   "node_id": "IC_kwDOAn8RLM71tukr",
+   "user": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-25T00:52:12Z",
+   "updated_at": "2026-03-25T00:52:12Z",
+   "body": "@osortega Please review the PR.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4122405163/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4464416162",
+   "html_url": "https://github.com/microsoft/vscode/pull/300808#issuecomment-4464416162",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/300808",
+   "id": 4464416162,
+   "node_id": "IC_kwDOAn8RLM8AAAABChmVog",
+   "user": {
+    "login": "osortega",
+    "id": 48293249,
+    "node_id": "MDQ6VXNlcjQ4MjkzMjQ5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/48293249?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/osortega",
+    "html_url": "https://github.com/osortega",
+    "followers_url": "https://api.github.com/users/osortega/followers",
+    "following_url": "https://api.github.com/users/osortega/following{/other_user}",
+    "gists_url": "https://api.github.com/users/osortega/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/osortega/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/osortega/subscriptions",
+    "organizations_url": "https://api.github.com/users/osortega/orgs",
+    "repos_url": "https://api.github.com/users/osortega/repos",
+    "events_url": "https://api.github.com/users/osortega/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/osortega/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-05-15T23:08:32Z",
+   "updated_at": "2026-05-15T23:08:32Z",
+   "body": "Is this intended to only add tests?",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4464416162/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5114270900",
+   "html_url": "https://github.com/microsoft/vscode/pull/300808#issuecomment-5114270900",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/300808",
+   "id": 5114270900,
+   "node_id": "IC_kwDOAn8RLM8AAAABMNWUtA",
+   "user": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-29T07:01:01Z",
+   "updated_at": "2026-07-29T07:01:01Z",
+   "body": "@osortega PLease approve the PR , its intended to add the tests .",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5114270900/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+   "node_id": "C_kwDORkOTE9oAKDMyMjQyOTljY2IzYjFhYjBkMWJmZjdiYmQ4ZWNmYTAyYjk0MWI4NDU",
+   "commit": {
+    "author": {
+     "name": "Muszic",
+     "email": "allaboutsangit@gmail.com",
+     "date": "2026-03-11T15:01:26Z"
+    },
+    "committer": {
+     "name": "Muszic",
+     "email": "allaboutsangit@gmail.com",
+     "date": "2026-03-11T15:01:26Z"
+    },
+    "message": "test: add findFiles2 multiple pattern and exclude coverage",
+    "tree": {
+     "sha": "a7ffd046de3605bf63cb2ee31e611f1605612b97",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a7ffd046de3605bf63cb2ee31e611f1605612b97"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+   "html_url": "https://github.com/microsoft/vscode/commit/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845/comments",
+   "author": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a5cf4ddbfef23dff75e36087893748bc6e0ae569",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a5cf4ddbfef23dff75e36087893748bc6e0ae569",
+     "html_url": "https://github.com/microsoft/vscode/commit/a5cf4ddbfef23dff75e36087893748bc6e0ae569"
+    }
+   ]
+  },
+  {
+   "sha": "855bb0c7e8bc031259ba06a4f6a098e79393faba",
+   "node_id": "C_kwDORkOTE9oAKDg1NWJiMGM3ZThiYzAzMTI1OWJhMDZhNGY2YTA5OGU3OTM5M2ZhYmE",
+   "commit": {
+    "author": {
+     "name": "Sangeet",
+     "email": "140734912+Muszic@users.noreply.github.com",
+     "date": "2026-03-11T15:04:36Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-11T15:04:36Z"
+    },
+    "message": "Merge branch 'main' into add-findfiles2-tests",
+    "tree": {
+     "sha": "44634d3512f1540c196abb4cca733b1ff6fec164",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/44634d3512f1540c196abb4cca733b1ff6fec164"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/855bb0c7e8bc031259ba06a4f6a098e79393faba",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpsYSECRC1aQ7uu5UhlAAAoLoQAJZH2sdNasn20ZsVT46Mgxwr\nv6bJvbJhgZI5x/HYv7WX9h118yXfHO35bWxBL4fpeDW5YHMUsax8Y1eEBN4alHM5\nkMUrhZ8fzCoAHgOsTVAzZRQiN2E9JDpIjR8TdgWf7RZJR5DNJafddxf7fnFWsPXc\ndkE7uu8vpNabPQH8pWyqPDPgD3e3bYLs/vINVplYpHCzBHlnIJ7FdbN2/JRGAa6B\n4O7pcAeTEtcISq3I2fVGF131loQ+rCZjLiyRL/Y49t7rYW0mccaIjIfjBpyxA0eV\nSlzHjknlOLDM9PngMqMDfG7aoqHhWso0Hic8u7nR0ALkxwMY3ZjhSVx1pBPLh9JT\nrT8jMKpRTu3DECQCi6RlVtzrGmSG2vBk6+SwNnXpcrhQ8gSh77aTgUzBu5JklPiC\n0kUs0GcOv+WdxtqXACybNdikvnb8ZoWOqeS2yxXP4j1f7tCL6j6V6q4hwOkvzeI+\nJ7SagYq+yPQpEYn8IJIUa1lx/eOpgW+7Ox2Yo2zUFTJbcEGBhjCd60yYJp4LIupD\nf7Et/tv1dAvWf8izWZPqVMgtC7eiDAf3j5B3F71OG6zYVglK2cRbRZ8m2/xy+Zeo\nN+xC5nG1lCcKGsoskb064xZE3X/mXDfFDYuncBMWFVZK+NIEOFZTv5Gcv+KIf1D9\ncxbZKR/Py9jh2vMeVulc\n=hoJX\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 44634d3512f1540c196abb4cca733b1ff6fec164\nparent 3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845\nparent 2f1d77a9a2b866dd57fe9e890f29142590c8e0b4\nauthor Sangeet <140734912+Muszic@users.noreply.github.com> 1773241476 +0530\ncommitter GitHub <noreply@github.com> 1773241476 +0530\n\nMerge branch 'main' into add-findfiles2-tests",
+     "verified_at": "2026-03-11T15:04:37Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/855bb0c7e8bc031259ba06a4f6a098e79393faba",
+   "html_url": "https://github.com/microsoft/vscode/commit/855bb0c7e8bc031259ba06a4f6a098e79393faba",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/855bb0c7e8bc031259ba06a4f6a098e79393faba/comments",
+   "author": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845",
+     "html_url": "https://github.com/microsoft/vscode/commit/3224299ccb3b1ab0d1bff7bbd8ecfa02b941b845"
+    },
+    {
+     "sha": "2f1d77a9a2b866dd57fe9e890f29142590c8e0b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2f1d77a9a2b866dd57fe9e890f29142590c8e0b4",
+     "html_url": "https://github.com/microsoft/vscode/commit/2f1d77a9a2b866dd57fe9e890f29142590c8e0b4"
+    }
+   ]
+  },
+  {
+   "sha": "ebfbf62db4edc8a507d5d4b905ec913716d28241",
+   "node_id": "C_kwDORkOTE9oAKGViZmJmNjJkYjRlZGM4YTUwN2Q1ZDRiOTA1ZWM5MTM3MTZkMjgyNDE",
+   "commit": {
+    "author": {
+     "name": "Sangeet",
+     "email": "140734912+Muszic@users.noreply.github.com",
+     "date": "2026-03-12T08:46:17Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-12T08:46:17Z"
+    },
+    "message": "Merge branch 'main' into add-findfiles2-tests",
+    "tree": {
+     "sha": "eadc7fa597cb4fde6f8efb04fa7d2a59272a13b5",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/eadc7fa597cb4fde6f8efb04fa7d2a59272a13b5"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ebfbf62db4edc8a507d5d4b905ec913716d28241",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpsn1aCRC1aQ7uu5UhlAAAErYQABEF86/rKWSA/6h3VAsUdswH\nuMHOSjvypuSaHgFyBLZxU0/ghQ+6X0L9q4uDdmym/nEYIW6nG0FqHHFZhOUXno3w\nTzV3eXOMGrE1cSbA0PStyRZ12QKhAX2QEvvRwSMTdXc4JwSoID9zBc+yJWt9bkxF\n+TdSElYFd/xsvd7Z4OwPuRP0DR/QXgEnCc2VixTb4dQ96juFQyx76nY8sSC0kKGe\n3GSAPkXLrZh6upowxbE2yHJUkCOoqFw/2bMv7KScWgJx3NDh4FgFOo/RUAx7/ivr\nDa1CAM9Ro0vrwHLJMbcy6Gv8kozYs4pQKujHZIZ9aGCOBSzGNjYSW4W7ENVpj76L\nWUmNRsH5luLdIHN53k0zGu585MdhkpNTcOzbQzU0np5+UCDQukwy8NSb8rU45YPA\nGQgIMbx+4sZyx//91OIJeRzB51A0xsU+0FzlfyX3ljJyfCM6SYN8wWcXZuzCheuR\nA7Sti6FkbIxArPGM8UsAVEpy7XkgaaJ3FPBRc0KJ4M/BpUJD7XmxL75k9SX6IrBK\ne9q9ULZOG9ahyCtfzGKgCfgfxzqlMRzhimuSdRrkGhla9Q84s92l6KbZ272DMUtP\nthMI+qNj94xXf3BfMR2ST89F7fOoFP5pkDZY85tvh20GBU09DAZSZl309vtjkn2F\nTQdAFyGcOCvtPuvevvXJ\n=9VlB\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree eadc7fa597cb4fde6f8efb04fa7d2a59272a13b5\nparent 855bb0c7e8bc031259ba06a4f6a098e79393faba\nparent 03d87f6b18e2b33ca6b195ebf6b4763d7892c11b\nauthor Sangeet <140734912+Muszic@users.noreply.github.com> 1773305177 +0530\ncommitter GitHub <noreply@github.com> 1773305177 +0530\n\nMerge branch 'main' into add-findfiles2-tests",
+     "verified_at": "2026-03-12T08:46:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ebfbf62db4edc8a507d5d4b905ec913716d28241",
+   "html_url": "https://github.com/microsoft/vscode/commit/ebfbf62db4edc8a507d5d4b905ec913716d28241",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ebfbf62db4edc8a507d5d4b905ec913716d28241/comments",
+   "author": {
+    "login": "Muszic",
+    "id": 140734912,
+    "node_id": "U_kgDOCGNxwA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/140734912?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Muszic",
+    "html_url": "https://github.com/Muszic",
+    "followers_url": "https://api.github.com/users/Muszic/followers",
+    "following_url": "https://api.github.com/users/Muszic/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Muszic/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Muszic/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Muszic/subscriptions",
+    "organizations_url": "https://api.github.com/users/Muszic/orgs",
+    "repos_url": "https://api.github.com/users/Muszic/repos",
+    "events_url": "https://api.github.com/users/Muszic/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Muszic/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "855bb0c7e8bc031259ba06a4f6a098e79393faba",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/855bb0c7e8bc031259ba06a4f6a098e79393faba",
+     "html_url": "https://github.com/microsoft/vscode/commit/855bb0c7e8bc031259ba06a4f6a098e79393faba"
+    },
+    {
+     "sha": "03d87f6b18e2b33ca6b195ebf6b4763d7892c11b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/03d87f6b18e2b33ca6b195ebf6b4763d7892c11b",
+     "html_url": "https://github.com/microsoft/vscode/commit/03d87f6b18e2b33ca6b195ebf6b4763d7892c11b"
+    }
+   ]
+  }
+ ]
+}

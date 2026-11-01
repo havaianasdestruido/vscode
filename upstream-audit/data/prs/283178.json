@@ -1,0 +1,913 @@
+{
+ "fetchedAt": "2026-11-01T00:52:45.009Z",
+ "pr": {
+  "number": 283178,
+  "title": "Terminal: allow PowerShell 7.4+ constrained language audit mode to work with shell integrations",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-12-12T21:58:01Z",
+  "updated_at": "2026-04-25T11:25:55Z",
+  "user": "skbtwiz",
+  "author_association": "NONE",
+  "additions": 13,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 7,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": "Backlog",
+  "requested_reviewers": [
+   "Tyriar"
+  ],
+  "head": {
+   "ref": "skbtwiz/shell-integration-constrained-mode-audit",
+   "sha": "30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+   "repo": "skbtwiz/vscode",
+   "label": "skbtwiz:skbtwiz/shell-integration-constrained-mode-audit"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "# Fixes https://github.com/microsoft/vscode/issues/283151\r\n\r\n## Description\r\nPowerShell 7.4 introduced **Constrained Language Audit Mode**, where `$ExecutionContext.SessionState.LanguageMode` reports `ConstrainedLanguage` but runtime behavior is equivalent to `FullLanguage` Mode. This is intended only for logging what _would_ be blocked were ConstrainedLanguage mode actually being enforced seriously.\r\n\r\nThe PowerShell VSCode shell integration guard currently aborts unless `LanguageMode == FullLanguage`. This logic predates the existence of audit-only constrained language mode and was correct for its time. Presently however, it falsely blocks the shell integration from working in audit scenarios, even though PowerShell execution is fully functional.\r\n\r\nThis change updates the guard to allow shell integration when:\r\n\r\n- `LanguageMode == FullLanguage`, or\r\n- `LanguageMode == ConstrainedLanguage` **and** system lockdown policy is `Audit`\r\n\r\nEnforced constrained language mode continues to be blocked.\r\n\r\n## Why this change is safe\r\n- Audit CLM is explicitly non-restrictive by design\r\n- Enforced CLM behavior remains unchanged\r\n- Backward compatible with all older PowerShell versions\r\n- No elevation or system configuration changes required\r\n- Uses PowerShell’s official `SystemPolicy.GetSystemLockdownPolicy()` API\r\n\r\n## How to test\r\n**Audit CLM scenario**\r\n1. On Windows 11, enable a WDAC / App Control **audit-only** policy\r\n2. Install PowerShell 7.4+. If step 1 went correctly, pwsh should be in ConstrainedLanguage Audit Mode\r\n3. Open VS Code\r\n4. Open the integrated terminal using `pwsh`\r\n5. Verify shell integration initializes correctly (prompt tracking, command boundaries)\r\n\r\n**Enforced CLM scenario**\r\n1. Enable an enforced WDAC / App Control policy\r\n2. Open the integrated terminal using `pwsh`\r\n3. Verify shell integration does **not** initialize\r\n\r\n**Baseline**\r\n- Windows PowerShell 5.1 (FullLanguage) continues to work unchanged because it is too old to understand Audit Mode.\r\n\r\n## Notes\r\nThe original language mode guard was introduced in #158548 and was correct at the time. This change adapts that logic to newer PowerShell semantics introduced in 7.4 without weakening security guarantees.\r\n\r\n<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "78b04147ce9f768f6e3576d803413b78f8128b87",
+   "filename": "src/vs/workbench/contrib/terminal/common/scripts/shellIntegration.ps1",
+   "status": "modified",
+   "additions": 13,
+   "deletions": 1,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/30e3e402f6e8d1f16077fb4cd294b702af3952e9/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fcommon%2Fscripts%2FshellIntegration.ps1",
+   "raw_url": "https://github.com/microsoft/vscode/raw/30e3e402f6e8d1f16077fb4cd294b702af3952e9/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fcommon%2Fscripts%2FshellIntegration.ps1",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fterminal%2Fcommon%2Fscripts%2FshellIntegration.ps1?ref=30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+   "patch": "@@ -10,7 +10,19 @@ if ((Test-Path variable:global:__VSCodeState) -and $null -ne $Global:__VSCodeSta\n \n # Disable shell integration when the language mode is restricted\n if ($ExecutionContext.SessionState.LanguageMode -ne \"FullLanguage\") {\n-\treturn;\n+\t$LanguageMode = $ExecutionContext.SessionState.LanguageMode\n+\tif (-not $IsWindows -or $LanguageMode -ne \"ConstrainedLanguage\") {\n+\t\treturn;\n+\t}\n+\ttry {\n+\t\t# Allow ConstrainedLanguage only when Windows lockdown policy is Audit (PS 7.4+).\n+\t\t$Lockdown = [System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy()\n+\t\tif ($Lockdown -and $Lockdown -ne \"Audit\") {\n+\t\t\treturn;\n+\t\t}\n+\t} catch {\n+\t\treturn;\n+\t}\n }\n \n $Global:__VSCodeState = @{"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3598662220,
+   "node_id": "PRR_kwDOAn8RLM7WfzpM",
+   "user": {
+    "login": "Tyriar",
+    "id": 2193314,
+    "node_id": "MDQ6VXNlcjIxOTMzMTQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2193314?u=03015ba1ecf722f545d2776764d61ccab7909f92&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Tyriar",
+    "html_url": "https://github.com/Tyriar",
+    "followers_url": "https://api.github.com/users/Tyriar/followers",
+    "following_url": "https://api.github.com/users/Tyriar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Tyriar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Tyriar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Tyriar/subscriptions",
+    "organizations_url": "https://api.github.com/users/Tyriar/orgs",
+    "repos_url": "https://api.github.com/users/Tyriar/repos",
+    "events_url": "https://api.github.com/users/Tyriar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Tyriar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "@andyleejordan could you review this when you get a chance? 🙏 ",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3598662220",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3598662220"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-12-19T13:41:27Z",
+   "commit_id": "d00c1cfd39069c525c6a1ecf9c46f13a039106b8"
+  },
+  {
+   "id": 3741390603,
+   "node_id": "PRR_kwDOAn8RLM7fARcL",
+   "user": {
+    "login": "daxian-dbw",
+    "id": 127450,
+    "node_id": "MDQ6VXNlcjEyNzQ1MA==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/127450?u=889a059ca6cde97e77cb4adad949dda9d37d8d56&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/daxian-dbw",
+    "html_url": "https://github.com/daxian-dbw",
+    "followers_url": "https://api.github.com/users/daxian-dbw/followers",
+    "following_url": "https://api.github.com/users/daxian-dbw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/daxian-dbw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/daxian-dbw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/daxian-dbw/subscriptions",
+    "organizations_url": "https://api.github.com/users/daxian-dbw/orgs",
+    "repos_url": "https://api.github.com/users/daxian-dbw/repos",
+    "events_url": "https://api.github.com/users/daxian-dbw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/daxian-dbw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3741390603",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3741390603"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-02T19:20:56Z",
+   "commit_id": "d00c1cfd39069c525c6a1ecf9c46f13a039106b8"
+  },
+  {
+   "id": 3758970489,
+   "node_id": "PRR_kwDOAn8RLM7gDVZ5",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?u=ea905c63275374f6c8b2d88e3ceab4f8bf1af188&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3758970489",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3758970489"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-05T19:23:54Z",
+   "commit_id": "1206ff00bafbc1913de30401a00b55c75939a221"
+  },
+  {
+   "id": 3805934714,
+   "node_id": "PRR_kwDOAn8RLM7i2fR6",
+   "user": {
+    "login": "daxian-dbw",
+    "id": 127450,
+    "node_id": "MDQ6VXNlcjEyNzQ1MA==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/127450?u=889a059ca6cde97e77cb4adad949dda9d37d8d56&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/daxian-dbw",
+    "html_url": "https://github.com/daxian-dbw",
+    "followers_url": "https://api.github.com/users/daxian-dbw/followers",
+    "following_url": "https://api.github.com/users/daxian-dbw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/daxian-dbw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/daxian-dbw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/daxian-dbw/subscriptions",
+    "organizations_url": "https://api.github.com/users/daxian-dbw/orgs",
+    "repos_url": "https://api.github.com/users/daxian-dbw/repos",
+    "events_url": "https://api.github.com/users/daxian-dbw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/daxian-dbw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3805934714",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3805934714"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-16T00:15:56Z",
+   "commit_id": "1206ff00bafbc1913de30401a00b55c75939a221"
+  },
+  {
+   "id": 3807417896,
+   "node_id": "PRR_kwDOAn8RLM7i8JYo",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?u=ea905c63275374f6c8b2d88e3ceab4f8bf1af188&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3807417896",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3807417896"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-16T09:06:53Z",
+   "commit_id": "1206ff00bafbc1913de30401a00b55c75939a221"
+  },
+  {
+   "id": 3807462004,
+   "node_id": "PRR_kwDOAn8RLM7i8UJ0",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?u=ea905c63275374f6c8b2d88e3ceab4f8bf1af188&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3807462004",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3807462004"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-16T09:15:57Z",
+   "commit_id": "1206ff00bafbc1913de30401a00b55c75939a221"
+  },
+  {
+   "id": 3815432971,
+   "node_id": "PRR_kwDOAn8RLM7jauML",
+   "user": {
+    "login": "daxian-dbw",
+    "id": 127450,
+    "node_id": "MDQ6VXNlcjEyNzQ1MA==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/127450?u=889a059ca6cde97e77cb4adad949dda9d37d8d56&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/daxian-dbw",
+    "html_url": "https://github.com/daxian-dbw",
+    "followers_url": "https://api.github.com/users/daxian-dbw/followers",
+    "following_url": "https://api.github.com/users/daxian-dbw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/daxian-dbw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/daxian-dbw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/daxian-dbw/subscriptions",
+    "organizations_url": "https://api.github.com/users/daxian-dbw/orgs",
+    "repos_url": "https://api.github.com/users/daxian-dbw/repos",
+    "events_url": "https://api.github.com/users/daxian-dbw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/daxian-dbw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3815432971",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3815432971"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-17T17:53:46Z",
+   "commit_id": "30e3e402f6e8d1f16077fb4cd294b702af3952e9"
+  },
+  {
+   "id": 3815434104,
+   "node_id": "PRR_kwDOAn8RLM7jaud4",
+   "user": {
+    "login": "daxian-dbw",
+    "id": 127450,
+    "node_id": "MDQ6VXNlcjEyNzQ1MA==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/127450?u=889a059ca6cde97e77cb4adad949dda9d37d8d56&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/daxian-dbw",
+    "html_url": "https://github.com/daxian-dbw",
+    "followers_url": "https://api.github.com/users/daxian-dbw/followers",
+    "following_url": "https://api.github.com/users/daxian-dbw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/daxian-dbw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/daxian-dbw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/daxian-dbw/subscriptions",
+    "organizations_url": "https://api.github.com/users/daxian-dbw/orgs",
+    "repos_url": "https://api.github.com/users/daxian-dbw/repos",
+    "events_url": "https://api.github.com/users/daxian-dbw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/daxian-dbw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "LGTM!",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3815434104",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/283178",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/283178#pullrequestreview-3815434104"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/283178"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-17T17:53:59Z",
+   "commit_id": "30e3e402f6e8d1f16077fb4cd294b702af3952e9"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3648283256",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#issuecomment-3648283256",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/283178",
+   "id": 3648283256,
+   "node_id": "IC_kwDOAn8RLM7ZdGJ4",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-12-12T22:00:52Z",
+   "updated_at": "2025-12-12T22:00:52Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3648283256/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3694734338",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#issuecomment-3694734338",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/283178",
+   "id": 3694734338,
+   "node_id": "IC_kwDOAn8RLM7cOSwC",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-12-28T13:06:58Z",
+   "updated_at": "2025-12-28T13:06:58Z",
+   "body": "Hi @andyleejordan, just adding a bit of context for visibility.\r\n\r\nAlthough this PR is small, the guard ends up affecting a growing set of VS Code–derived IDEs on Windows that depend on PowerShell’s rich terminal integration for agentic / AI-driven workflows. As audit-only App Control and PowerShell 7.4+ become more common on developer machines, the behavior increasingly shows up across that broader ecosystem.\r\n\r\nNo urgency implied, just wanted to surface the scope for triage.\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3694734338/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3774243325",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#issuecomment-3774243325",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/283178",
+   "id": 3774243325,
+   "node_id": "IC_kwDOAn8RLM7g9mH9",
+   "user": {
+    "login": "andyleejordan",
+    "id": 2226434,
+    "node_id": "MDQ6VXNlcjIyMjY0MzQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2226434?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/andyleejordan",
+    "html_url": "https://github.com/andyleejordan",
+    "followers_url": "https://api.github.com/users/andyleejordan/followers",
+    "following_url": "https://api.github.com/users/andyleejordan/following{/other_user}",
+    "gists_url": "https://api.github.com/users/andyleejordan/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/andyleejordan/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/andyleejordan/subscriptions",
+    "organizations_url": "https://api.github.com/users/andyleejordan/orgs",
+    "repos_url": "https://api.github.com/users/andyleejordan/repos",
+    "events_url": "https://api.github.com/users/andyleejordan/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/andyleejordan/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-01-20T18:04:07Z",
+   "updated_at": "2026-01-20T18:04:07Z",
+   "body": "We are looking at it @skbtwiz! Pulling in @daxian-dbw who knows much more about this area.",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3774243325/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4319509380",
+   "html_url": "https://github.com/microsoft/vscode/pull/283178#issuecomment-4319509380",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/283178",
+   "id": 4319509380,
+   "node_id": "IC_kwDOAn8RLM8AAAABAXZ7hA",
+   "user": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-04-25T11:25:55Z",
+   "updated_at": "2026-04-25T11:25:55Z",
+   "body": "Hello @anthonykim1 ,\r\n\r\nPlease review this PR if and when you get the opportunity. Since this is my first major contribution to a large open source project, I apologise in advance if this message is out of place. This PR would significantly improve QoL on VS Code as well as its fork IDEs as currently the IDE's Rich Terminal is broken on all of them if system is on ConstrainedLanguage Audit mode, which is true for majority of the new dev machines we have received at our company that are Copilot+/Recall certified.\r\n\r\nOnce again, no urgency implied, just that my team is eager to see these fixes on their machines. Currently we are manually applying these fixes after each update.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4319509380/reactions",
+    "total_count": 2,
+    "+1": 2,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "d72899ffd035756dfce3c4f28dc93ff622af319f",
+   "node_id": "C_kwDOQnwhstoAKGQ3Mjg5OWZmZDAzNTc1NmRmY2UzYzRmMjhkYzkzZmY2MjJhZjMxOWY",
+   "commit": {
+    "author": {
+     "name": "Shivam Agarwal",
+     "email": "30232407+skbtwiz@users.noreply.github.com",
+     "date": "2025-12-12T21:30:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-12-12T21:30:44Z"
+    },
+    "message": "Add Terminal:Shell-Integration check for Pwsh 7.4 ConstrainedLanguage Audit mode\n\nEnhance shell integration checks for constrained language audit mode introduced in PowerShell 7.4 and later. This new mode is identical in behavior to FullLanguage mode and deserves to receive equal treatment.",
+    "tree": {
+     "sha": "699daa3169a7d12400e215e02d1ad716a29389bf",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/699daa3169a7d12400e215e02d1ad716a29389bf"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d72899ffd035756dfce3c4f28dc93ff622af319f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpPImECRC1aQ7uu5UhlAAAyiUQAC4RYpbUZytyrzGEhz/g6YPL\n+lIjkv5I8g4iGTt8Sbk4Q5h4993LITr1SnWzHrpyQq4L7kvYz7/ILaq1GjpqSFuG\n34ax2QeBCgYX1rwcqtfHCpXtz9CT6ep2xt+d3eBWrNi6MvQwcGEcRWeyyTfkp1Db\nI62nITpQva0ryIYHWb8d49Yszowrcfwh0slEPET2eo/oAW/gqL1N2rrYVkIDWB3i\nKud5cLotrJNNMyfDOsp+w4eDkNRFgS9wq/HGKZ+t2zWWwjru4aANTlGNVKC/cHwg\nybZFEYpVfzZHggLZXO3MASQzIe7FnJ2f3gKn+q8SqEm/D1zy/HJeMVnwQ3AuODgH\nafoJk89k2cyYbaP/2Td3gu0TB+b/wmR/VNcla6rHvOv67jFjVrAj2jzczeDgphHh\nQZY67jR/aEeh5NDDlhITivJo+91DueDuLu0jG3hTvXxUe5WvCCi4dGd7hswmqUy3\nWgr+6gWiCxZRLSnjZXAtOu3HK8r4HinfG+YtoWvy0xwl1Fw87egqmWAfL7uQBxP6\nlXkO4dOEPpHJjaxpesvI0IzBD/aHrv1c39xD+5F1ds98nlKQGEiL2DlNJ91dDCWm\nZTNWk2RjmCxkRYP4XzopiDH/bk2D3Ddt0/N/aMlIQvSRkvGYlzTMQYvHTQTpxkYq\nMgMmZs67hIdWuT1xsdpf\n=AcsB\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 699daa3169a7d12400e215e02d1ad716a29389bf\nparent 9f97f869ef4360fdeed30a530186e875cc097ab6\nauthor Shivam Agarwal <30232407+skbtwiz@users.noreply.github.com> 1765575044 +0530\ncommitter GitHub <noreply@github.com> 1765575044 +0530\n\nAdd Terminal:Shell-Integration check for Pwsh 7.4 ConstrainedLanguage Audit mode\n\nEnhance shell integration checks for constrained language audit mode introduced in PowerShell 7.4 and later. This new mode is identical in behavior to FullLanguage mode and deserves to receive equal treatment.",
+     "verified_at": "2025-12-12T21:30:45Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d72899ffd035756dfce3c4f28dc93ff622af319f",
+   "html_url": "https://github.com/microsoft/vscode/commit/d72899ffd035756dfce3c4f28dc93ff622af319f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d72899ffd035756dfce3c4f28dc93ff622af319f/comments",
+   "author": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9f97f869ef4360fdeed30a530186e875cc097ab6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9f97f869ef4360fdeed30a530186e875cc097ab6",
+     "html_url": "https://github.com/microsoft/vscode/commit/9f97f869ef4360fdeed30a530186e875cc097ab6"
+    }
+   ]
+  },
+  {
+   "sha": "d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+   "node_id": "C_kwDOQnwhstoAKGQwMGMxY2ZkMzkwNjljNTI1YzZhMWVjZjljNDZmMTNhMDM5MTA2Yjg",
+   "commit": {
+    "author": {
+     "name": "Shivam Agarwal",
+     "email": "30232407+skbtwiz@users.noreply.github.com",
+     "date": "2025-12-12T21:59:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-12-12T21:59:02Z"
+    },
+    "message": "Merge branch 'main' into skbtwiz/shell-integration-constrained-mode-audit",
+    "tree": {
+     "sha": "96a08c1d17d61b5f82a98382f0f8926daf424917",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/96a08c1d17d61b5f82a98382f0f8926daf424917"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpPJAmCRC1aQ7uu5UhlAAArroQAFBQiws9Wo4SRcqmOLg47se2\njbjlJltGOX1nZiHbrIUHNBUELDLYocPBoRl8qHtQu/AvEmksDZtJZkSozV1lQHnw\nQiNXLk9xIxsWsrWlHeLUy7sONCz5S6LANccVTur8o8O9dVS5UvChBAr4JxW/LhCO\n/DYZdwWL0r1/M2a+FqXbe8hiP9gOmGUS1BOADTf9ZIBbgfohlBTuVSSh6sYJQ567\nrImPOincifXrms9FBTEDflLUkOlEXOrItS+OO6G9yg7CJNr5ddSErSsDZyP1VEED\n//SwgFblS40UT1tdHadpJXITC3mTHPWMyHZmc+c1shz+Dd/osAcMqUfkmC70KLeX\nREXrdpv7f7QJ/+xdt1VoL1dwcPiPZJ4Kz2SwS5PmL28/vSAZ5IB4shvbfPnRbyfB\nCcX0qx/hG+Qjyr7kmnKHqYxWbDyOMlUvxpmAbyKIG7iXIIJDiM/pKXFZJyeEEMbj\n6mUsMTAccJyCJA1xoR4r4VnzYTCpMC4vxhRE76n6ftb35zRv/ZrEZcVi/VTp8tq8\ne9ObDY1/WhoQ3vCrvIBaRmjKCvncrWeZpQfWkNbULl+nL9r7c426dxMesqKTgCzk\nz1RmSW4Ao9pLuwcwMRs8u1KVQqGlWtz8RLXyHwu3r0A1qpZJUvSo1QhB7CCZwFAC\nCl+dY3Y3+IeIBWSth3fH\n=NZE4\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 96a08c1d17d61b5f82a98382f0f8926daf424917\nparent d72899ffd035756dfce3c4f28dc93ff622af319f\nparent 866d8478e3c3a46061d08f69099cf2976eb62835\nauthor Shivam Agarwal <30232407+skbtwiz@users.noreply.github.com> 1765576742 +0530\ncommitter GitHub <noreply@github.com> 1765576742 +0530\n\nMerge branch 'main' into skbtwiz/shell-integration-constrained-mode-audit",
+     "verified_at": "2025-12-12T21:59:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+   "html_url": "https://github.com/microsoft/vscode/commit/d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d00c1cfd39069c525c6a1ecf9c46f13a039106b8/comments",
+   "author": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d72899ffd035756dfce3c4f28dc93ff622af319f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d72899ffd035756dfce3c4f28dc93ff622af319f",
+     "html_url": "https://github.com/microsoft/vscode/commit/d72899ffd035756dfce3c4f28dc93ff622af319f"
+    },
+    {
+     "sha": "866d8478e3c3a46061d08f69099cf2976eb62835",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/866d8478e3c3a46061d08f69099cf2976eb62835",
+     "html_url": "https://github.com/microsoft/vscode/commit/866d8478e3c3a46061d08f69099cf2976eb62835"
+    }
+   ]
+  },
+  {
+   "sha": "1206ff00bafbc1913de30401a00b55c75939a221",
+   "node_id": "C_kwDOQnwhstoAKDEyMDZmZjAwYmFmYmMxOTEzZGUzMDQwMWEwMGI1NWM3NTkzOWEyMjE",
+   "commit": {
+    "author": {
+     "name": "Shivam Agarwal",
+     "email": "30232407+skbtwiz@users.noreply.github.com",
+     "date": "2026-02-05T19:20:36Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-02-05T19:20:36Z"
+    },
+    "message": "Improve shell integration language mode checks\n\nMade changes as per reviewer request",
+    "tree": {
+     "sha": "357b7482d06a5941de771f44f45d54b20e220ffa",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/357b7482d06a5941de771f44f45d54b20e220ffa"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1206ff00bafbc1913de30401a00b55c75939a221",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJphO2FCRC1aQ7uu5UhlAAAaY8QAGysZWnNK63l3KpnBkY0e1zB\njCNPQCHX7ZGx379gwGrpTTWDfzp/4PknRw+7kRPLtqVhOncGSRVsAEmG0MUNkgP+\nxwNI3wkZ9/WH8uI20tEtwtKBpOrfGXGcHk8iH60H0L9aSiISdOLQZKq6lHUlYeo5\n++Tn+FOTj1tkE89luKqrDqIyuylTWCE4Cs4zEFLgwKCmNNHUb95oe7OMntBXZDun\nIhNlbN0KYoFpVwXFnyG1FE+1bGGSkr0CaFl3BYfsXonzgebxzYWg8T8icRRdAlFi\npqA9Z5LOt5JO1L1Z9beOfcqq+oXbHW8fDxSSS+nuK6UkoP0h7a2JTb2x0VuTNROz\nZDHNkSYq1HrN741ZKCkx3mNbs+YBE2KM7NVx8IikIUx3M2D3xs7Z65SfsoxagLyS\nm9BePQra9/LVSJD7U93sU/NBlsRl7t6+F2HQH4HoQ3uaAZHw9AT2UvG9BWuepY4l\nqwxoLpf+vaDHHKwzZIqnBrmg8E6CHhCdFrm0dCruRkPl2I9r1Ire0Bzt482n9TOX\n9OWmqNSnEpORmcR/rIYN+ieKyIdgAcYbMFx+3v0CCRmc+0qmjOWMZNpaT1KOydhR\n4FjbIgl2C5EVuB8wuXAOUbKhyzE6uNMQ24fXr5vCdyCGg4NjxhqqVcsAxVauRTl4\nFBF2wVuyBMIianrYAuRA\n=iAF7\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 357b7482d06a5941de771f44f45d54b20e220ffa\nparent d00c1cfd39069c525c6a1ecf9c46f13a039106b8\nauthor Shivam Agarwal <30232407+skbtwiz@users.noreply.github.com> 1770319236 +0530\ncommitter GitHub <noreply@github.com> 1770319236 +0530\n\nImprove shell integration language mode checks\n\nMade changes as per reviewer request",
+     "verified_at": "2026-02-05T19:20:38Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1206ff00bafbc1913de30401a00b55c75939a221",
+   "html_url": "https://github.com/microsoft/vscode/commit/1206ff00bafbc1913de30401a00b55c75939a221",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1206ff00bafbc1913de30401a00b55c75939a221/comments",
+   "author": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d00c1cfd39069c525c6a1ecf9c46f13a039106b8",
+     "html_url": "https://github.com/microsoft/vscode/commit/d00c1cfd39069c525c6a1ecf9c46f13a039106b8"
+    }
+   ]
+  },
+  {
+   "sha": "30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+   "node_id": "C_kwDOQnwhstoAKDMwZTNlNDAyZjZlOGQxZjE2MDc3ZmI0Y2QyOTRiNzAyYWYzOTUyZTk",
+   "commit": {
+    "author": {
+     "name": "Shivam Agarwal",
+     "email": "30232407+skbtwiz@users.noreply.github.com",
+     "date": "2026-02-16T09:14:41Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-02-16T09:14:41Z"
+    },
+    "message": "Change Audit enum check to string check\r\n\r\nThis was done because the enum check only works on PS 7.4+ and compatibility with earlier versions must be maintained.\n\nCo-authored-by: Dongbo Wang <dongbow@microsoft.com>",
+    "tree": {
+     "sha": "14a2abba8ca309b2c55839501a9fb827f838893a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/14a2abba8ca309b2c55839501a9fb827f838893a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpkuABCRC1aQ7uu5UhlAAA40oQAC4pKsI4cW499MouIhEuQfyD\nvqTcw+avvTFdtHT8Xqm43FzVG6gnlgmuYxireUf17novjG2n6E0cbpOFfDvajD2e\n7eidJLb2D2cBrVCOJ21gINxivxllhZnNDWUAzF38s+Cam9cTmbqRKopWj82fJUnE\nY38InxE5AvxK5rgkvojkiUiCUxCpd4kaHynXQSQHfTRTEJOgC75aE6/oRW8gjZHo\nmENndR2+HY4l+PuJDfWhfGPRQJm2CJOt0zGn0+pqcp/elFuEEtBiWnvz71H36dbN\nwJoheVRvlJMU4QpNh4lp3kXYR+UUZd0/dAQBb9BVg87cOP1Bx+e9RA0lOEHQfxQ2\nAovw6YSZdQFcv+mftTHYtHdVndR4jHkfZ7soMpEGGo67x6B7RUvGu20WEZXDUQU/\na/djTBEX+l7BkM5dvvd+DNjiLzgS5HZMABclHzewq8wg19Mo0hoxAQCvlWguE2rB\nKpxKlY8tr7JfOd0PAR/ZcCeyVvwfFfN33iRWF8wvGLcoi1sjRAcncfm/RcmJxIXD\nX3oJnlBrMCikaobF6RHMSnVlYCeZ6iyee+UD3l5tqmM5vs6qetVgUDedgdugtQxY\nNEuC0Im+cat/lTVgHDM4mxEkI1nefOcwnNfn4TO975jP+MA522h8cl++1Cpls4c9\nEQbbhBIB1qi4Q3Dk2fLu\n=2jZz\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 14a2abba8ca309b2c55839501a9fb827f838893a\nparent 1206ff00bafbc1913de30401a00b55c75939a221\nauthor Shivam Agarwal <30232407+skbtwiz@users.noreply.github.com> 1771233281 +0530\ncommitter GitHub <noreply@github.com> 1771233281 +0530\n\nChange Audit enum check to string check\r\n\r\nThis was done because the enum check only works on PS 7.4+ and compatibility with earlier versions must be maintained.\n\nCo-authored-by: Dongbo Wang <dongbow@microsoft.com>",
+     "verified_at": "2026-02-16T09:14:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+   "html_url": "https://github.com/microsoft/vscode/commit/30e3e402f6e8d1f16077fb4cd294b702af3952e9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/30e3e402f6e8d1f16077fb4cd294b702af3952e9/comments",
+   "author": {
+    "login": "skbtwiz",
+    "id": 30232407,
+    "node_id": "MDQ6VXNlcjMwMjMyNDA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/30232407?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/skbtwiz",
+    "html_url": "https://github.com/skbtwiz",
+    "followers_url": "https://api.github.com/users/skbtwiz/followers",
+    "following_url": "https://api.github.com/users/skbtwiz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/skbtwiz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/skbtwiz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/skbtwiz/subscriptions",
+    "organizations_url": "https://api.github.com/users/skbtwiz/orgs",
+    "repos_url": "https://api.github.com/users/skbtwiz/repos",
+    "events_url": "https://api.github.com/users/skbtwiz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/skbtwiz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1206ff00bafbc1913de30401a00b55c75939a221",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1206ff00bafbc1913de30401a00b55c75939a221",
+     "html_url": "https://github.com/microsoft/vscode/commit/1206ff00bafbc1913de30401a00b55c75939a221"
+    }
+   ]
+  }
+ ]
+}

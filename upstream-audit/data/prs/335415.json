@@ -1,0 +1,787 @@
+{
+ "fetchedAt": "2026-11-01T00:55:09.849Z",
+ "pr": {
+  "number": 335415,
+  "title": "Preserve collapse state in the SCM Repositories view",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-10T08:39:53Z",
+  "updated_at": "2026-10-29T14:17:32Z",
+  "user": "JulianHock",
+  "author_association": "NONE",
+  "additions": 19,
+  "deletions": 8,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 1,
+  "commits_count": 6,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/scm-repositories-preserve-collapse-state",
+   "sha": "a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+   "repo": "JulianHock/vscode",
+   "label": "JulianHock:fix/scm-repositories-preserve-collapse-state"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "959031245ebb1fe077e0d512e1397c0ae82006e4"
+  },
+  "body": "Fixes #335411\r\n\r\nThe Source Control **Repositories** view re-expanded a repository that contains submodules every time the view became visible, so a collapsed parent repository could never stay collapsed: collapse it, switch to the Explorer, switch back, and it is expanded again.\r\n\r\nTwo things caused this, both in `scmRepositoriesViewPane.ts`:\r\n\r\n1. `renderBody` reads the persisted view state once and every later `setInput` reuses that same object. The persisted state is only written on `onWillSaveState`, so any expand/collapse the user did in between was thrown away whenever the view became visible again.\r\n\r\n2. On every visibility change all already known repositories are re-registered through `onDidAddRepository`. For a repository with a `parentId` — a submodule — that path ends in `updateParentRepository`, which expanded the parent unconditionally. So the parent was force-expanded once per submodule, every time.\r\n\r\n### Changes\r\n\r\n- Capture `tree.getViewState()` when the view becomes hidden and use it as the input view state on the next show, instead of the state loaded once at startup.\r\n- Thread an `expandParent` flag through `onDidAddRepository` / `updateRepository` / `updateParentRepository`. It is `true` for repositories that are genuinely added while the view is live and `false` for the re-registration loop.\r\n- Even when `expandParent` is `true`, only expand the parent if it was not collapsible before the update — i.e. only when it gains its *first* child repository. If it already had children, the user may have collapsed it on purpose.\r\n\r\nThe initial \"expand the parent when the first submodule shows up\" behaviour is kept, and the \"expand when there is only one repository\" logic is untouched.\r\n\r\n### Verification\r\n\r\nBuilt from source and tested manually on macOS: with `\"scm.repositories.selectionMode\": \"single\"` and the Repositories view visible, open a repository with submodules, collapse the parent, and switch between the Explorer and Source Control — the parent stays collapsed. Newly added submodules still expand the parent the first time.\r\n\n\n\n### Before / After\n\nCollapse `demo-app` in the Repositories view, switch to the Explorer and back to Source Control.\n\n| Before (VS Code 1.143.1) | After (this PR) |\n|---|---|\n| <img width=\"360\" alt=\"Parent repository is expanded again after switching views\" src=\"https://github.com/user-attachments/assets/8fe7ce08-bc2a-44d1-8cc8-e56c5761b8cf\" /> | <img width=\"360\" alt=\"Parent repository stays collapsed after switching views\" src=\"https://github.com/user-attachments/assets/d5ce0e86-2aa8-4382-be68-1fc004034aa8\" /> |\n\nThe change is limited to a single file (`scmRepositoriesViewPane.ts`, +19/−8), and that file is unchanged on `main` since this branch was created, so the PR still applies cleanly.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "91385b6981b79284fadacdfa32bdbb5e5cfa2597",
+   "filename": "src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 8,
+   "changes": 27,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a38cfc8211ecb054fa57da8bc963bf1a7fb00706/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmRepositoriesViewPane.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a38cfc8211ecb054fa57da8bc963bf1a7fb00706/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmRepositoriesViewPane.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmRepositoriesViewPane.ts?ref=a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+   "patch": "@@ -483,15 +483,19 @@ export class SCMRepositoriesViewPane extends ViewPane {\n \t\tconst viewState = this.loadTreeViewState();\n \t\tthis.createTree(treeContainer, viewState);\n \n+\t\t// Refresh this state when hidden so subsequent inputs preserve the current tree state.\n+\t\tlet treeViewState = viewState;\n+\n \t\tthis.onDidChangeBodyVisibility(async visible => {\n \t\t\tif (!visible) {\n+\t\t\t\ttreeViewState = this.tree.getViewState();\n \t\t\t\tthis.visibilityDisposables.clear();\n \t\t\t\treturn;\n \t\t\t}\n \n \t\t\tthis.treeOperationSequencer.queue(async () => {\n \t\t\t\t// Initial rendering\n-\t\t\t\tawait this.tree.setInput(this.scmViewService, viewState);\n+\t\t\t\tawait this.tree.setInput(this.scmViewService, treeViewState);\n \n \t\t\t\t// scm.repositories.visible setting\n \t\t\t\tthis.visibilityDisposables.add(autorun(reader => {\n@@ -524,7 +528,8 @@ export class SCMRepositoriesViewPane extends ViewPane {\n \t\t\t\tthis.scmService.onDidAddRepository(this.onDidAddRepository, this, this.visibilityDisposables);\n \t\t\t\tthis.scmService.onDidRemoveRepository(this.onDidRemoveRepository, this, this.visibilityDisposables);\n \t\t\t\tfor (const repository of this.scmService.repositories) {\n-\t\t\t\t\tthis.onDidAddRepository(repository);\n+\t\t\t\t\t// Re-registration only, expanding would override the user's collapse state\n+\t\t\t\t\tthis.onDidAddRepository(repository, false);\n \t\t\t\t}\n \n \t\t\t\t// Expand repository if there is only one\n@@ -628,7 +633,7 @@ export class SCMRepositoriesViewPane extends ViewPane {\n \t\tthis._register(this.tree.onDidChangeContentHeight(this.onTreeContentHeightChange, this));\n \t}\n \n-\tprivate async onDidAddRepository(repository: ISCMRepository): Promise<void> {\n+\tprivate async onDidAddRepository(repository: ISCMRepository, expandParent = true): Promise<void> {\n \t\tconst disposables = new DisposableStore();\n \n \t\t// Artifact group changed\n@@ -656,7 +661,7 @@ export class SCMRepositoriesViewPane extends ViewPane {\n \t\t\t}));\n \t\t}));\n \n-\t\tawait this.updateRepository(repository);\n+\t\tawait this.updateRepository(repository, expandParent);\n \t\tthis.repositoryDisposables.set(repository, disposables);\n \t}\n \n@@ -772,29 +777,35 @@ export class SCMRepositoriesViewPane extends ViewPane {\n \t\tawait this.treeOperationSequencer.queue(() => this.tree.expand(element, true));\n \t}\n \n-\tprivate async updateRepository(repository: ISCMRepository): Promise<void> {\n+\tprivate async updateRepository(repository: ISCMRepository, expandParent = false): Promise<void> {\n \t\tif (this.scmViewService.explorerEnabledConfig.get() === false) {\n \t\t\tif (repository.provider.parentId === undefined) {\n \t\t\t\tawait this.updateChildren();\n \t\t\t\treturn;\n \t\t\t}\n \n-\t\t\tawait this.updateParentRepository(repository);\n+\t\t\tawait this.updateParentRepository(repository, expandParent);\n \t\t}\n \n \t\t// Explorer mode\n \t\tawait this.updateChildren();\n \t}\n \n-\tprivate async updateParentRepository(repository: ISCMRepository): Promise<void> {\n+\tprivate async updateParentRepository(repository: ISCMRepository, expandParent: boolean): Promise<void> {\n \t\tconst parentRepository = this.scmViewService.repositories\n \t\t\t.find(r => r.provider.id === repository.provider.parentId);\n \t\tif (!parentRepository) {\n \t\t\treturn;\n \t\t}\n \n+\t\t// Already collapsible means this is not the first child, so it may have been collapsed by the user\n+\t\tconst parentWasCollapsible = this.tree.hasNode(parentRepository) && this.tree.isCollapsible(parentRepository);\n+\n \t\tawait this.updateChildren(parentRepository);\n-\t\tawait this.expand(parentRepository);\n+\n+\t\tif (expandParent && !parentWasCollapsible) {\n+\t\t\tawait this.expand(parentRepository);\n+\t\t}\n \t}\n \n \tprivate updateBodySize(contentHeight: number, visibleCount?: number): void {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5164896589,
+   "node_id": "PRR_kwDOAn8RLM8AAAABM9oRTQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟢 Approval recommended\n\nThe regression is correctly addressed; only minor comment-format nits remain.\n\n<details>\n<summary>Pull request overview</summary>\n\nPreserves collapsed repository state when switching views in the SCM Repositories pane.\n\n**Changes:**\n- Captures the latest tree state when hidden.\n- Prevents re-registration from expanding parents.\n- Expands parents only for their first newly added child.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts` | Updates tree-state restoration and parent-expansion behavior. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n### Suppressed comments (2)\n\n**src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts:534**\n* This inline comment exceeds the project's one-line limit for method-body comments. The same intent can be stated concisely on one line.\n```\n\t\t\t\t\t// Existing repositories are only re-registered, the parent repository\n\t\t\t\t\t// must not be expanded as that would override the user's collapse state\n```\n**src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts:805**\n* This method-body comment exceeds the project's one-line hard limit. Please condense the rationale rather than narrating it across multiple lines.\n```\n\t\t// Only expand the parent repository when it gets its first child repository. If the\n\t\t// parent repository already had children, the user might have collapsed it on purpose.\n```\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 1\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/335415#pullrequestreview-5164896589",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/335415",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/335415#pullrequestreview-5164896589"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/335415"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-10T08:45:47Z",
+   "commit_id": "183f20621235db253bac399c6b9e744c0fb006d3"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5615729827",
+   "html_url": "https://github.com/microsoft/vscode/pull/335415#issuecomment-5615729827",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/335415",
+   "id": 5615729827,
+   "node_id": "IC_kwDOAn8RLM8AAAABTrk8ow",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-10T08:41:10Z",
+   "updated_at": "2026-10-10T13:21:56Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `src/vs/workbench/contrib/scm/browser/scmRepositoriesViewPane.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5615729827/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5615741906",
+   "html_url": "https://github.com/microsoft/vscode/pull/335415#issuecomment-5615741906",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/335415",
+   "id": 5615741906,
+   "node_id": "IC_kwDOAn8RLM8AAAABTrlr0g",
+   "user": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-10T08:42:04Z",
+   "updated_at": "2026-09-10T08:42:04Z",
+   "body": "> JulianHock please read the following Contributor License Agreement(CLA). If you agree with the CLA, please reply with the following information.\r\n> \r\n> ```\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n> ```\r\n> \r\n> > Options:\r\n> > \r\n> > * (default - no company specified) I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree\r\n> > ```\r\n> > \r\n> > \r\n> >     \r\n> >       \r\n> >     \r\n> > \r\n> >       \r\n> >     \r\n> > \r\n> >     \r\n> >   \r\n> > \r\n> > * (when company given) I am making Submissions in the course of work for my employer (or my employer has intellectual property rights in my Submissions by contract or applicable law). I have permission from my employer to make Submissions and enter into this Agreement on behalf of my employer. By signing below, the defined term “You” includes me and my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree company=\"Microsoft\"\r\n> > ```\r\n> \r\n> Contributor License Agreement\r\n\r\n@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5615741906/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6097933999",
+   "html_url": "https://github.com/microsoft/vscode/pull/335415#issuecomment-6097933999",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/335415",
+   "id": 6097933999,
+   "node_id": "IC_kwDOAn8RLM8AAAABa3cWrw",
+   "user": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-10T13:21:18Z",
+   "updated_at": "2026-10-10T13:21:18Z",
+   "body": "@lszomoru pls check this PR. It's a little implementation fixing a very annoying behavior.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6097933999/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "183f20621235db253bac399c6b9e744c0fb006d3",
+   "node_id": "C_kwDOUUk1OtoAKDE4M2YyMDYyMTIzNWRiMjUzYmFjMzk5YzZiOWU3NDRjMGZiMDA2ZDM",
+   "commit": {
+    "author": {
+     "name": "Julian Hock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-10T08:38:23Z"
+    },
+    "committer": {
+     "name": "Julian Hock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-10T08:38:23Z"
+    },
+    "message": "Preserve collapse state in the SCM Repositories view\n\nThe Repositories view re-expanded a repository that has submodules every\ntime the view became visible, so a collapsed parent repository could not\nbe kept collapsed.\n\nTwo things caused this:\n\n- The tree input was always set with the view state that was read from\n  storage once in `renderBody`. That state is only written on\n  `onWillSaveState`, so any expand/collapse done in the meantime was\n  discarded when the view became visible again. Capture the current view\n  state when the view is hidden and use it on the next show instead.\n- When the view became visible, all known repositories were re-registered\n  through `onDidAddRepository`, and for a repository with a `parentId`\n  that unconditionally expanded the parent. Only expand the parent when it\n  actually gains its first child repository.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "fe199c3c7bdaaea9568df7ee95b168adb19c200c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fe199c3c7bdaaea9568df7ee95b168adb19c200c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/183f20621235db253bac399c6b9e744c0fb006d3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/183f20621235db253bac399c6b9e744c0fb006d3",
+   "html_url": "https://github.com/microsoft/vscode/commit/183f20621235db253bac399c6b9e744c0fb006d3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/183f20621235db253bac399c6b9e744c0fb006d3/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "fdd5bbeb361c72b33c4051127f8026c4332166aa",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fdd5bbeb361c72b33c4051127f8026c4332166aa",
+     "html_url": "https://github.com/microsoft/vscode/commit/fdd5bbeb361c72b33c4051127f8026c4332166aa"
+    }
+   ]
+  },
+  {
+   "sha": "fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+   "node_id": "C_kwDOUUk1OtoAKGZlN2E5YTM1OTMwZGIyOTBiMDU4ZmFmOGRjMzFmMWViOGIzMWFjZDE",
+   "commit": {
+    "author": {
+     "name": "JulianHock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-10T08:46:28Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-10T08:46:28Z"
+    },
+    "message": "Clarify tree view state refresh logic in comments\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "4bc58a3e6e63358caf8df6646a0e476aadf3e038",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4bc58a3e6e63358caf8df6646a0e476aadf3e038"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqom5kCRC1aQ7uu5UhlAAAQ0MQAFN0COXJgSKTDpthJnwYcILr\nKOfhh2kbjpdGlI+xYfnDFTANfq7Q0SDCzjBwgmyuAv++PXifNC6BlWfGp6cD6nkl\njdici9KnIrFafe/rL82WntUJjqeOn+MVT69XGWfp4VZNayrHqAo7jtWX27rrNzmB\nqItnbt45nckCAtdRoxgINao9wAp/E2FbaJ+zMTKT+I8SUKDsTmcW73RCH+jY8ZsR\n3bFTPejpddA+Dc3okMB7yMZHvq7YYynGbbLL9n0EH6yGnIwaqL5ojuwVLwQS5OBx\ntJe4uPmHmCB9O1jHxEOlRZnMuV2hAk88wSpERWK7GyJTGRoQ1A4v7vu1d1BZ8WVp\n4F8RHzh4vhd7y5WBc1k5WtuTbE/Xn0y108F7x793cATQyfCGtqVb2T+iqecSN0Sb\ncCqaAbX6RSej7hxwr4+t4/4rdgN/rsqN6JotmVgtjCXuiQLnF6EAVuGvfyxZr508\nXGdcwD8x/9p1dxrhpLo+39j1xDlZhOhLlaVh+6K9uCN6Cyxd+UCcqZGfW/q/JFDx\n0KUhsySlpyEj4u3rs3Vwo5VKmS4UnaVNpi77Jl6u5q96TrHyYtzWkCWcEmjKuHxW\nYlyGYUFa2ZV2W7dHUiVT6pvbY3tgh5ovtlOXALV4N7MmZOL/rRuSQyPKJQt4su47\nujHbwcihnTcmCBK5+zcL\n=Zdjj\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4bc58a3e6e63358caf8df6646a0e476aadf3e038\nparent 183f20621235db253bac399c6b9e744c0fb006d3\nauthor JulianHock <146723845+JulianHock@users.noreply.github.com> 1789029988 +0200\ncommitter GitHub <noreply@github.com> 1789029988 +0200\n\nClarify tree view state refresh logic in comments\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2026-09-10T08:46:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+   "html_url": "https://github.com/microsoft/vscode/commit/fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/fe7a9a35930db290b058faf8dc31f1eb8b31acd1/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "183f20621235db253bac399c6b9e744c0fb006d3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/183f20621235db253bac399c6b9e744c0fb006d3",
+     "html_url": "https://github.com/microsoft/vscode/commit/183f20621235db253bac399c6b9e744c0fb006d3"
+    }
+   ]
+  },
+  {
+   "sha": "2c18ad843e866a1909a2f220572432327aa7bf6e",
+   "node_id": "C_kwDOUUk1OtoAKDJjMThhZDg0M2U4NjZhMTkwOWEyZjIyMDU3MjQzMjMyN2FhN2JmNmU",
+   "commit": {
+    "author": {
+     "name": "Julian Hock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-10T08:52:49Z"
+    },
+    "committer": {
+     "name": "Julian Hock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-10T08:52:49Z"
+    },
+    "message": "Shorten inline comments to one line\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "c69f85590adc9a7fb8dbab544b30755f081d9aac",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c69f85590adc9a7fb8dbab544b30755f081d9aac"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2c18ad843e866a1909a2f220572432327aa7bf6e",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2c18ad843e866a1909a2f220572432327aa7bf6e",
+   "html_url": "https://github.com/microsoft/vscode/commit/2c18ad843e866a1909a2f220572432327aa7bf6e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2c18ad843e866a1909a2f220572432327aa7bf6e/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fe7a9a35930db290b058faf8dc31f1eb8b31acd1",
+     "html_url": "https://github.com/microsoft/vscode/commit/fe7a9a35930db290b058faf8dc31f1eb8b31acd1"
+    }
+   ]
+  },
+  {
+   "sha": "a2cbd16cdd7048838d17c12a3df783a5b110b123",
+   "node_id": "C_kwDOUUk1OtoAKGEyY2JkMTZjZGQ3MDQ4ODM4ZDE3YzEyYTNkZjc4M2E1YjExMGIxMjM",
+   "commit": {
+    "author": {
+     "name": "JulianHock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-13T08:41:33Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-13T08:41:33Z"
+    },
+    "message": "Merge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+    "tree": {
+     "sha": "8b50950ca8a2cc4080df08cedd0aa467092ec155",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8b50950ca8a2cc4080df08cedd0aa467092ec155"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a2cbd16cdd7048838d17c12a3df783a5b110b123",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqpmG9CRC1aQ7uu5UhlAAAMCgQAH5Br1UfJjCeusvA9Szg/XyU\nEwSaPOt+M1krDheIlOwmlEb4fieprdT9A6F6jVK4HihFugFK+MK7SlN7LlJjjoKq\nI7HdAcKJT1BDnqhaQ2UnUFUNi9TH5b8FTwldhu3+RQO+nrJdpUbfOCjAJq8ZhTdF\nBQpPk1aMNbbvFQlszw6qNbADW/vs8AzoF6UCwrnD4aSigQ1WH7F9ibVWBRuMrxDn\nJjvKHUQXNOSOzNIGKQzI0gFupjaIg990MF20QgYyDjkmALQ597B/fKmkYlBIqINh\n2J2IqQEKKTnbQJ2vNMsxl/FOv/xAgt7WRdR48zPJWNn+dMjsEoknQbnoezXasrYA\nIRi4k/al7GZPTja+cV/x7QKT7NRAmSMTw/bA5Lzs5ftb1lP/fLhWWm7pR79euAkU\nx9lLjEzR/oc7QOpItYwMv9IyvadUpvlwvaKzkyWdaQjt6oHs26i2T6JJXLm/ZFI1\nybtRcuiFajWmHBY1gRlOCV1WcP1X5osIFGhXp9DI8QEn4WLYl/tVEgfuW6t1ZnHM\nA7bf4F7NiAgDCyXQwAZa2RQdbOH2Dm6GqJKAXvbHGoui7mwCRl0ekMxg2KMqOMMs\nDJ9LkpT2qyMSg7TBD0NwBPYU1tD8G+iZqux+8h3gnLEEYp5FbPbPDPjBb2FbdZ0+\n6HoedIMnEBG9n8W4LmUD\n=F6ko\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 8b50950ca8a2cc4080df08cedd0aa467092ec155\nparent 2c18ad843e866a1909a2f220572432327aa7bf6e\nparent 8e35945bae3f2b0b3d0276963281180f1ce10cb0\nauthor JulianHock <146723845+JulianHock@users.noreply.github.com> 1789288893 +0200\ncommitter GitHub <noreply@github.com> 1789288893 +0200\n\nMerge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+     "verified_at": "2026-09-13T08:41:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a2cbd16cdd7048838d17c12a3df783a5b110b123",
+   "html_url": "https://github.com/microsoft/vscode/commit/a2cbd16cdd7048838d17c12a3df783a5b110b123",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a2cbd16cdd7048838d17c12a3df783a5b110b123/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2c18ad843e866a1909a2f220572432327aa7bf6e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2c18ad843e866a1909a2f220572432327aa7bf6e",
+     "html_url": "https://github.com/microsoft/vscode/commit/2c18ad843e866a1909a2f220572432327aa7bf6e"
+    },
+    {
+     "sha": "8e35945bae3f2b0b3d0276963281180f1ce10cb0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8e35945bae3f2b0b3d0276963281180f1ce10cb0",
+     "html_url": "https://github.com/microsoft/vscode/commit/8e35945bae3f2b0b3d0276963281180f1ce10cb0"
+    }
+   ]
+  },
+  {
+   "sha": "67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+   "node_id": "C_kwDOUUk1OtoAKDY3OTU5YmMxMDEwZjhiMDdlOWQ3ZmFmM2MxMTgwZmFiYjQxNjJiYWQ",
+   "commit": {
+    "author": {
+     "name": "JulianHock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-09-14T18:03:18Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-14T18:03:18Z"
+    },
+    "message": "Merge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+    "tree": {
+     "sha": "bb13bed88c64d299cd1675d1e0349f82e074ef11",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/bb13bed88c64d299cd1675d1e0349f82e074ef11"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqqDbmCRC1aQ7uu5UhlAAA+VsQAAz7nL5COUPW2u9jmYe+MWt/\nc77o8h7BeCNLdGdgoupK02yqv3/N3pr1Sqss9UHgflpZm4pvEbkoPYWehk6rcq1p\nUXpJQpqTk1YFqzG3KQeyH0QTScp4Yyvhz9JLL+0lr24UuflYqBTwT1VFcMhoOeyA\nuGHRp5jwou7NyjXws929ONs1Ecu6Z1CxctSqShm7RMz1LIQmieV9Zb5PtwNXI4s8\nGuEHhIP8hptwrUJpqwMG+0yLKizwG22s4xZAiqlR0dP5yhC8csjXbXYF0mJAA42o\nWbxP4BFJmLv5+hvrkdwBeEKj7uVWLrRHEZF62aOA0AA1LkiRYGEv92mUTWl9G6WL\nT4tYYU5pZ7agMwP3Mg38dfU9/TPm/xp0FXyFBx59Ycs9ZfkzQgBV+bi5lS8Jlt+X\n9D0WYn6q52wdmuM9v3OjYyKhGXCi1YzuKW+1fObfPUeMGks5waCXWVfyWtycSHQ+\nMFDlM/MiGYKNQK2jBshyEK7CpJPeTYYy8E4F8rCDpo83HQIHUfXl6B07NvFsAneW\nnifR11T0uXLHT49pv7GpzBq60YyS1U/O1SmM6EhsI64ubxoj94tSYEfJS15ScxTK\nrvtxP+Lx9Z3nAEhCUlDhaQeSuudhU1ZSuLcyckEjPtd9WuYhBpMvP7zu7K29ITw/\nzev4Yfza43xpSRsj97vJ\n=V3JQ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree bb13bed88c64d299cd1675d1e0349f82e074ef11\nparent a2cbd16cdd7048838d17c12a3df783a5b110b123\nparent af798261fc81ae77fda907fc1ab0f83e8d8e153a\nauthor JulianHock <146723845+JulianHock@users.noreply.github.com> 1789408998 +0200\ncommitter GitHub <noreply@github.com> 1789408998 +0200\n\nMerge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+     "verified_at": "2026-09-14T18:03:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+   "html_url": "https://github.com/microsoft/vscode/commit/67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/67959bc1010f8b07e9d7faf3c1180fabb4162bad/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a2cbd16cdd7048838d17c12a3df783a5b110b123",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a2cbd16cdd7048838d17c12a3df783a5b110b123",
+     "html_url": "https://github.com/microsoft/vscode/commit/a2cbd16cdd7048838d17c12a3df783a5b110b123"
+    },
+    {
+     "sha": "af798261fc81ae77fda907fc1ab0f83e8d8e153a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/af798261fc81ae77fda907fc1ab0f83e8d8e153a",
+     "html_url": "https://github.com/microsoft/vscode/commit/af798261fc81ae77fda907fc1ab0f83e8d8e153a"
+    }
+   ]
+  },
+  {
+   "sha": "a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+   "node_id": "C_kwDOUUk1OtoAKGEzOGNmYzgyMTFlY2IwNTRmYTU3ZGE4YmM5NjNiZjFhN2ZiMDA3MDY",
+   "commit": {
+    "author": {
+     "name": "JulianHock",
+     "email": "146723845+JulianHock@users.noreply.github.com",
+     "date": "2026-10-10T13:20:10Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-10T13:20:10Z"
+    },
+    "message": "Merge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+    "tree": {
+     "sha": "d9d4494720d7a57daefc1f5b0c8c4e0a74c75921",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d9d4494720d7a57daefc1f5b0c8c4e0a74c75921"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqyjuKCRC1aQ7uu5UhlAAA0o0QAAfBOL2w9KxnMxCmoqE6/3DR\nRIdPuPhy02VRFQGoHIdfpUyZCRq5FFpa5BeHI+5rVQgbSKW0SFxoftBe6P5MIatx\n9nerTwz48UmLEuEoD4WR3eDBAWhd6hQ5hl0N+tRokUfkJnGXzPavhBXzI2QJM4F+\n+dsqlHNHKmw4CH9/2U/BfJh4bMLUEnlSuq6hjrKNUscrsP7RVfPUiehhPYFklmvy\ntNQvbT/ykwCkN/KU+S/a1C+Ono0N1g7qMx/brISnHp3Nugj03Kh57ngJyqveOB3f\namS29I1N4yGusrLXXDfifxFIQN4uZRlb1W3WSwCWIHyOlAhiw91JpY+XCoTiZ6bC\nWKB0d8k1OHKJlrkutTl1urRAV1FFU+cgj/DHAAiIaiUnnjrUzRaD4v2s+Vq5hR8J\n/2kp9WNhG50liT9xdt7XImW9u1qFfItVM6Vn1ueMbBn9hOOz6OLb5+0luy2kxC63\nvOq0l9nU8bmkFIbATlL/E1VtA5eAxMrRuMyD6jK7Q9B3McM4wJAECzHmjkqIokrL\nvnq6JPD61vFlhAUopp+iNfeIOjx9TO+FZnLgMVEq8VRUaWRC4eNtIIbT1QWzwsRL\nl43NmD4mZzgqqQqayzzWgIpx7b45nfltQaSe/rfVDuyDT9ilZs+XD3hUGUHgG/HS\nLetIKp4Le6kdhQwenCcl\n=IEWs\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree d9d4494720d7a57daefc1f5b0c8c4e0a74c75921\nparent 67959bc1010f8b07e9d7faf3c1180fabb4162bad\nparent 959031245ebb1fe077e0d512e1397c0ae82006e4\nauthor JulianHock <146723845+JulianHock@users.noreply.github.com> 1791638410 +0200\ncommitter GitHub <noreply@github.com> 1791638410 +0200\n\nMerge branch 'main' into fix/scm-repositories-preserve-collapse-state",
+     "verified_at": "2026-10-10T13:20:11Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+   "html_url": "https://github.com/microsoft/vscode/commit/a38cfc8211ecb054fa57da8bc963bf1a7fb00706",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a38cfc8211ecb054fa57da8bc963bf1a7fb00706/comments",
+   "author": {
+    "login": "JulianHock",
+    "id": 146723845,
+    "node_id": "U_kgDOCL7UBQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/146723845?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/JulianHock",
+    "html_url": "https://github.com/JulianHock",
+    "followers_url": "https://api.github.com/users/JulianHock/followers",
+    "following_url": "https://api.github.com/users/JulianHock/following{/other_user}",
+    "gists_url": "https://api.github.com/users/JulianHock/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/JulianHock/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/JulianHock/subscriptions",
+    "organizations_url": "https://api.github.com/users/JulianHock/orgs",
+    "repos_url": "https://api.github.com/users/JulianHock/repos",
+    "events_url": "https://api.github.com/users/JulianHock/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/JulianHock/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/67959bc1010f8b07e9d7faf3c1180fabb4162bad",
+     "html_url": "https://github.com/microsoft/vscode/commit/67959bc1010f8b07e9d7faf3c1180fabb4162bad"
+    },
+    {
+     "sha": "959031245ebb1fe077e0d512e1397c0ae82006e4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/959031245ebb1fe077e0d512e1397c0ae82006e4",
+     "html_url": "https://github.com/microsoft/vscode/commit/959031245ebb1fe077e0d512e1397c0ae82006e4"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,502 @@
+{
+ "fetchedAt": "2026-11-01T00:52:02.416Z",
+ "pr": {
+  "number": 239473,
+  "title": "Add kitty external terminal support for macOS",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-02-03T08:57:09Z",
+  "updated_at": "2026-05-22T21:07:41Z",
+  "user": "stefan-sedlak",
+  "author_association": "NONE",
+  "additions": 10,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 6,
+  "review_comments": 19,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": "Backlog",
+  "requested_reviewers": [],
+  "head": {
+   "ref": "main",
+   "sha": "ee9ceac64dec45198febd29e5a9effa9bcce7557",
+   "repo": "stefan-sedlak/vscode",
+   "label": "stefan-sedlak:main"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "dd150098075b7aeac4832fb23b04a5426e5d82bb"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n\r\nImplemented issue: #239470\r\n\r\nImplementation includes:\r\n\r\n- Detecting the presence of a running Kitty instance via its socket.\r\n- Providing commands like \"send-text\" and \"select-window\" via the existing external terminal service or a new dedicated Kitty terminal service.\r\n- Leveraging waiting loop to ensure the terminal socket is available before attempting to execute commands.\r\n- Proper error messages when Kitty is not installed or fails to launch.\r\n\r\nExisting test cases (related to macOS external terminal) are passing\r\nNo additional tests were added.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "18771ef5f91b595240aebf16015a0b440ea6ed2a",
+   "filename": "src/vs/platform/externalTerminal/node/externalTerminalService.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ee9ceac64dec45198febd29e5a9effa9bcce7557/src%2Fvs%2Fplatform%2FexternalTerminal%2Fnode%2FexternalTerminalService.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ee9ceac64dec45198febd29e5a9effa9bcce7557/src%2Fvs%2Fplatform%2FexternalTerminal%2Fnode%2FexternalTerminalService.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FexternalTerminal%2Fnode%2FexternalTerminalService.ts?ref=ee9ceac64dec45198febd29e5a9effa9bcce7557",
+   "patch": "@@ -202,6 +202,16 @@ export class MacExternalTerminalService extends ExternalTerminalService implemen\n \t\t\t\topenArgs.push('--wait-after-command=true');\n \t\t\t\topenArgs.push('-e', ...args);\n \n+\t\t\t\tconst cmd = cp.spawn('/usr/bin/open', openArgs, { env });\n+\t\t\t\tsetupSpawnErrorHandling(cmd, resolve, reject, terminalApp);\n+\t\t\t} else if (terminalApp === 'Kitty.app' || terminalApp === 'kitty.app') {\n+\t\t\t\t// Kitty can be launched via open and configured through CLI args, similar to Ghostty.\n+\t\t\t\tconst env = Object.assign({}, getSanitizedEnvironment(process), envVars);\n+\t\t\t\tconst openArgs = ['-na', 'Kitty.app', '--args'];\n+\t\t\t\topenArgs.push('--directory=' + dir);\n+\t\t\t\topenArgs.push('--hold');\n+\t\t\t\topenArgs.push('-e', ...args);\n+\n \t\t\t\tconst cmd = cp.spawn('/usr/bin/open', openArgs, { env });\n \t\t\t\tsetupSpawnErrorHandling(cmd, resolve, reject, terminalApp);\n \t\t\t} else {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2640947937,
+   "node_id": "PRR_kwDOAn8RLM6daarh",
+   "user": {
+    "login": "Fobnud-8wokpo-qivsyz",
+    "id": 118965221,
+    "node_id": "U_kgDOBxdD5Q",
+    "avatar_url": "https://avatars.githubusercontent.com/u/118965221?u=39e554cf21c6e351a19e5618c6d84686d3ec5671&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz",
+    "html_url": "https://github.com/Fobnud-8wokpo-qivsyz",
+    "followers_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/followers",
+    "following_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/subscriptions",
+    "organizations_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/orgs",
+    "repos_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/repos",
+    "events_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Fobnud-8wokpo-qivsyz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Yo",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-2640947937",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/239473",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-2640947937"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/239473"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-02-25T12:46:48Z",
+   "commit_id": "d57b84ce3029c371d216b79f517ed91b7d782e31"
+  },
+  {
+   "id": 3100149253,
+   "node_id": "PRR_kwDOAn8RLM64yIYF",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull Request Overview\n\nThis PR adds support for using Kitty terminal as an external terminal option on macOS, addressing issue #239470. The implementation detects running Kitty instances via socket communication and provides commands for terminal interaction.\n\nKey changes:\n- Added Kitty terminal detection and socket-based communication\n- Refactored macOS terminal service to support multiple terminal types\n- Added waiting mechanism for Kitty socket availability\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-3100149253",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/239473",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-3100149253"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/239473"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-08-08T09:42:02Z",
+   "commit_id": "7ba262da3e4ce274174b96fdca6f98357b5cd7f7"
+  },
+  {
+   "id": 3202623190,
+   "node_id": "PRR_kwDOAn8RLM6-5CbW",
+   "user": {
+    "login": "Tyriar",
+    "id": 2193314,
+    "node_id": "MDQ6VXNlcjIxOTMzMTQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2193314?u=03015ba1ecf722f545d2776764d61ccab7909f92&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Tyriar",
+    "html_url": "https://github.com/Tyriar",
+    "followers_url": "https://api.github.com/users/Tyriar/followers",
+    "following_url": "https://api.github.com/users/Tyriar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Tyriar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Tyriar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Tyriar/subscriptions",
+    "organizations_url": "https://api.github.com/users/Tyriar/orgs",
+    "repos_url": "https://api.github.com/users/Tyriar/repos",
+    "events_url": "https://api.github.com/users/Tyriar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Tyriar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Thanks for looking into this, there are quite a few changes needed to make it in so we didn't want to invest time doing it on our end. If you fix these up I expect we should be able to merge pretty quickly.",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-3202623190",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/239473",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/239473#pullrequestreview-3202623190"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/239473"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-09-09T17:45:16Z",
+   "commit_id": "7ba262da3e4ce274174b96fdca6f98357b5cd7f7"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2630332154",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-2630332154",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 2630332154,
+   "node_id": "IC_kwDOAn8RLM6cx676",
+   "user": {
+    "login": "stefan-sedlak",
+    "id": 5908540,
+    "node_id": "MDQ6VXNlcjU5MDg1NDA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5908540?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/stefan-sedlak",
+    "html_url": "https://github.com/stefan-sedlak",
+    "followers_url": "https://api.github.com/users/stefan-sedlak/followers",
+    "following_url": "https://api.github.com/users/stefan-sedlak/following{/other_user}",
+    "gists_url": "https://api.github.com/users/stefan-sedlak/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/stefan-sedlak/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/stefan-sedlak/subscriptions",
+    "organizations_url": "https://api.github.com/users/stefan-sedlak/orgs",
+    "repos_url": "https://api.github.com/users/stefan-sedlak/repos",
+    "events_url": "https://api.github.com/users/stefan-sedlak/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/stefan-sedlak/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-03T08:58:08Z",
+   "updated_at": "2025-02-03T08:58:08Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2630332154/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2681647017",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-2681647017",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 2681647017,
+   "node_id": "IC_kwDOAn8RLM6f1q-p",
+   "user": {
+    "login": "stefan-sedlak",
+    "id": 5908540,
+    "node_id": "MDQ6VXNlcjU5MDg1NDA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5908540?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/stefan-sedlak",
+    "html_url": "https://github.com/stefan-sedlak",
+    "followers_url": "https://api.github.com/users/stefan-sedlak/followers",
+    "following_url": "https://api.github.com/users/stefan-sedlak/following{/other_user}",
+    "gists_url": "https://api.github.com/users/stefan-sedlak/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/stefan-sedlak/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/stefan-sedlak/subscriptions",
+    "organizations_url": "https://api.github.com/users/stefan-sedlak/orgs",
+    "repos_url": "https://api.github.com/users/stefan-sedlak/repos",
+    "events_url": "https://api.github.com/users/stefan-sedlak/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/stefan-sedlak/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-25T11:30:59Z",
+   "updated_at": "2025-02-25T11:30:59Z",
+   "body": "Hi @meganrogge , @Tyriar ,\r\ncould you pease have a look on the commit and check if it requires changes?\r\nThx",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2681647017/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2746301984",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-2746301984",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 2746301984,
+   "node_id": "IC_kwDOAn8RLM6jsT4g",
+   "user": {
+    "login": "ZeckWork",
+    "id": 118849514,
+    "node_id": "U_kgDOBxV_6g",
+    "avatar_url": "https://avatars.githubusercontent.com/u/118849514?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZeckWork",
+    "html_url": "https://github.com/ZeckWork",
+    "followers_url": "https://api.github.com/users/ZeckWork/followers",
+    "following_url": "https://api.github.com/users/ZeckWork/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZeckWork/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZeckWork/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZeckWork/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZeckWork/orgs",
+    "repos_url": "https://api.github.com/users/ZeckWork/repos",
+    "events_url": "https://api.github.com/users/ZeckWork/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZeckWork/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-23T16:33:46Z",
+   "updated_at": "2025-03-23T16:33:46Z",
+   "body": "Up",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2746301984/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3167234071",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-3167234071",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 3167234071,
+   "node_id": "IC_kwDOAn8RLM68yCgX",
+   "user": {
+    "login": "Tyriar",
+    "id": 2193314,
+    "node_id": "MDQ6VXNlcjIxOTMzMTQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2193314?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Tyriar",
+    "html_url": "https://github.com/Tyriar",
+    "followers_url": "https://api.github.com/users/Tyriar/followers",
+    "following_url": "https://api.github.com/users/Tyriar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Tyriar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Tyriar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Tyriar/subscriptions",
+    "organizations_url": "https://api.github.com/users/Tyriar/orgs",
+    "repos_url": "https://api.github.com/users/Tyriar/repos",
+    "events_url": "https://api.github.com/users/Tyriar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Tyriar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-08-08T09:41:14Z",
+   "updated_at": "2025-08-08T09:41:14Z",
+   "body": "@anthonykim1 could you give this a review? When I briefly looked at it, I was a little concerned about how much is going on here and wasn't sure if all that is necessary. We can check it out together after you have a look.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3167234071/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3272107630",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-3272107630",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 3272107630,
+   "node_id": "IC_kwDOAn8RLM7DCGZu",
+   "user": {
+    "login": "stefan-sedlak",
+    "id": 5908540,
+    "node_id": "MDQ6VXNlcjU5MDg1NDA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5908540?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/stefan-sedlak",
+    "html_url": "https://github.com/stefan-sedlak",
+    "followers_url": "https://api.github.com/users/stefan-sedlak/followers",
+    "following_url": "https://api.github.com/users/stefan-sedlak/following{/other_user}",
+    "gists_url": "https://api.github.com/users/stefan-sedlak/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/stefan-sedlak/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/stefan-sedlak/subscriptions",
+    "organizations_url": "https://api.github.com/users/stefan-sedlak/orgs",
+    "repos_url": "https://api.github.com/users/stefan-sedlak/repos",
+    "events_url": "https://api.github.com/users/stefan-sedlak/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/stefan-sedlak/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-09-09T20:06:42Z",
+   "updated_at": "2025-09-09T20:06:42Z",
+   "body": "Thanks for the review. I will have a look during weekend(s) and I will try to fix all issues. I need to setup VSCode environment again and obviously learn TypeScript. I was avoiding JS/TypeScript for 15 years and finally I will learn something new to run my C pet project in kitty :-)",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3272107630/reactions",
+    "total_count": 3,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 3,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3272155957",
+   "html_url": "https://github.com/microsoft/vscode/pull/239473#issuecomment-3272155957",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/239473",
+   "id": 3272155957,
+   "node_id": "IC_kwDOAn8RLM7DCSM1",
+   "user": {
+    "login": "Tyriar",
+    "id": 2193314,
+    "node_id": "MDQ6VXNlcjIxOTMzMTQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2193314?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Tyriar",
+    "html_url": "https://github.com/Tyriar",
+    "followers_url": "https://api.github.com/users/Tyriar/followers",
+    "following_url": "https://api.github.com/users/Tyriar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Tyriar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Tyriar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Tyriar/subscriptions",
+    "organizations_url": "https://api.github.com/users/Tyriar/orgs",
+    "repos_url": "https://api.github.com/users/Tyriar/repos",
+    "events_url": "https://api.github.com/users/Tyriar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Tyriar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-09-09T20:24:33Z",
+   "updated_at": "2025-09-09T20:24:33Z",
+   "body": "@stefan-sedlak no worries, thanks!",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3272155957/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "ee9ceac64dec45198febd29e5a9effa9bcce7557",
+   "node_id": "C_kwDONynCQtoAKGVlOWNlYWM2NGRlYzQ1MTk4ZmViZDI5ZTVhOWVmZmE5YmNjZTc1NTc",
+   "commit": {
+    "author": {
+     "name": "Stefan Sedlak",
+     "email": "stefan@sed.tech",
+     "date": "2025-02-03T08:47:30Z"
+    },
+    "committer": {
+     "name": "Stefan Sedlak",
+     "email": "stefan@sedlak.eu",
+     "date": "2026-05-22T21:07:01Z"
+    },
+    "message": "Add external terminal kitty support for macOS",
+    "tree": {
+     "sha": "f0953be2842620839697cd7b061811bc1ef10895",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f0953be2842620839697cd7b061811bc1ef10895"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ee9ceac64dec45198febd29e5a9effa9bcce7557",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ee9ceac64dec45198febd29e5a9effa9bcce7557",
+   "html_url": "https://github.com/microsoft/vscode/commit/ee9ceac64dec45198febd29e5a9effa9bcce7557",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ee9ceac64dec45198febd29e5a9effa9bcce7557/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "dd150098075b7aeac4832fb23b04a5426e5d82bb",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/dd150098075b7aeac4832fb23b04a5426e5d82bb",
+     "html_url": "https://github.com/microsoft/vscode/commit/dd150098075b7aeac4832fb23b04a5426e5d82bb"
+    }
+   ]
+  }
+ ]
+}
