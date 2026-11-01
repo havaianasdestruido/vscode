@@ -193,7 +193,16 @@ export class Resource implements SourceControlResourceState {
 	get type(): Status { return this._type; }
 	get original(): Uri { return this._resourceUri; }
 	get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
-	get contextValue(): string | undefined { return this._repositoryKind; }
+	// Fork adaptation: upstream #263927 exposes the repository kind (e.g. `worktree`)
+	// via `contextValue`, while upstream PR #243245 exposes `ignorable` for the
+	// git.ignore menu. Since `scmResourceState ==` matches the full string, both
+	// callers use space-separated values matched with `=~` in package.json.
+	get contextValue(): string | undefined {
+		const values: (string)[] = [];
+		if (this._repositoryKind) { values.push(this._repositoryKind); }
+		if (this._resourceUri.path.split('/').pop() !== '.gitignore') { values.push('ignorable'); }
+		return values.length ? values.join(' ') : undefined;
+	}
 
 	private static Icons = {
 		light: {
@@ -313,10 +322,6 @@ export class Resource implements SourceControlResourceState {
 		const res = new FileDecoration(this.letter, this.tooltip, this.color);
 		res.propagate = this.type !== Status.DELETED && this.type !== Status.INDEX_DELETED;
 		return res;
-	}
-
-	get contextValue(): string | undefined {
-		return this._resourceUri.path.split('/').pop() !== '.gitignore' ? 'ignorable' : undefined;
 	}
 
 	constructor(
