@@ -13,7 +13,7 @@ import { INativeHostService } from '../../../../platform/native/common/native.js
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ITerminalService } from '../browser/terminal.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { addDisposableListener, disposableWindowInterval, EventType, getActiveWindow } from '../../../../base/browser/dom.js';
+import { addDisposableListener, disposableWindowInterval, getActiveWindow } from '../../../../base/browser/dom.js';
 
 export class TerminalNativeContribution extends Disposable implements IWorkbenchContribution {
 	declare _serviceBrand: undefined;
@@ -36,7 +36,9 @@ export class TerminalNativeContribution extends Disposable implements IWorkbench
 		// The `onDidResumeOS` event does not always fire for these scenarios
 		// (e.g. desktop switching), so we also listen for the browser-level
 		// `visibilitychange` event. See #311614.
-		this._register(addDisposableListener(getActiveWindow().document, EventType.VISIBILITY_CHANGE, () => {
+		// Fork adaptation: upstream listens with the 'visibilitychange' string
+		// literal (there is no EventType.VISIBILITY_CHANGE in dom.ts).
+		this._register(addDisposableListener(getActiveWindow().document, 'visibilitychange', () => {
 			if (getActiveWindow().document.visibilityState === 'visible') {
 				this._forceRedrawAllTerminals();
 			}
