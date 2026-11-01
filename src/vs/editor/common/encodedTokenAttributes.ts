@@ -128,7 +128,14 @@ export class TokenMetadata {
 		let className = 'mtk' + foreground;
 
 		const fontStyle = this.getFontStyle(metadata);
-		if (background) {
+		// [FORK ADAPTATION of upstream PR #212294] Only emit a background class for
+		// token backgrounds explicitly assigned by a theme. Default (untokenized)
+		// tokens carry ColorId.DefaultBackground (2) in their metadata, so without
+		// this guard every default token would get an `mtkbg2` class and a ::before
+		// pseudo-element (see getDefaultMetadata in contiguousTokensStore.ts), which
+		// changes the class-name contract asserted by existing unit tests and adds
+		// per-token DOM overhead with no visual effect.
+		if (background && background !== ColorId.DefaultBackground) {
 			className += ' mtkbg' + background;
 		}
 		if (fontStyle & FontStyle.Italic) {
