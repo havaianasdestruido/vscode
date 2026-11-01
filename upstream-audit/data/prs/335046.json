@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:55:06.728Z",
+ "pr": {
+  "number": 335046,
+  "title": "security: add strict regex validation for chat participant IDs",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-08T12:09:46Z",
+  "updated_at": "2026-09-08T13:19:37Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 25,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 2,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-35",
+   "sha": "844702f398dedd8b372d877ec73a9e9c5a09828c",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-35"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "0611f3a8d9a6e8456c75742d876bc1823b4e1df1"
+  },
+  "body": "Closes #335045 \r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "9a4fedcaba0d09bb0d749529f5cd4723f0dd977c",
+   "filename": "extensions/copilot/src/platform/chat/common/chatAgents.ts",
+   "status": "modified",
+   "additions": 25,
+   "deletions": 1,
+   "changes": 26,
+   "blob_url": "https://github.com/microsoft/vscode/blob/844702f398dedd8b372d877ec73a9e9c5a09828c/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fchat%2Fcommon%2FchatAgents.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/844702f398dedd8b372d877ec73a9e9c5a09828c/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fchat%2Fcommon%2FchatAgents.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fchat%2Fcommon%2FchatAgents.ts?ref=844702f398dedd8b372d877ec73a9e9c5a09828c",
+   "patch": "@@ -25,10 +25,34 @@ export const notebookEditorAgentName = 'notebookEditorAgent';\n export const editsAgentName = 'editsAgent';\n \n export const CHAT_PARTICIPANT_ID_PREFIX = 'github.copilot.';\n+\n export function getChatParticipantIdFromName(name: string): string {\n+ \n+\tif (!name || name === '') {\n+\t\treturn '';\n+\t}\n+\tif (name.startsWith(CHAT_PARTICIPANT_ID_PREFIX)) {\n+\t\treturn name;\n+\t}\n+ \n+\tif (!/^[a-zA-Z0-9_\\-]+$/.test(name)) {\n+\t\tthrow new Error(`Invalid participant name: ${name}`);\n+\t}\n \treturn `${CHAT_PARTICIPANT_ID_PREFIX}${name}`;\n }\n \n export function getChatParticipantNameFromId(id: string): string {\n-\treturn id.replace(/^github\\.copilot\\./, '');\n+\tif (!id) {\n+\t\treturn '';\n+\t}\n+\tconst prefixRegex = /^github\\.copilot\\./;\n+\tif (!prefixRegex.test(id)) {\n+\t\treturn id; \n+\t}\n+ \n+\tconst namePart = id.replace(prefixRegex, '');\n+\tif (!namePart || !/^[a-zA-Z0-9_\\-]+$/.test(namePart)) {\n+\t\tthrow new Error(`Invalid participant ID format: ${id}`);\n+\t}\n+\treturn namePart;\n }"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5141523094,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMnVqlg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟡 Changes recommended\n\nThe E2E regression and incomplete malformed-ID validation must be addressed.\n\n*Once you've addressed the issues Copilot identified, you can request another Copilot review.*\n\n<details>\n<summary>Pull request overview</summary>\n\nAdds stricter validation for Copilot chat participant identifiers.\n\n**Changes:**\n- Validates participant names before prefixing.\n- Adds prefix-aware participant ID parsing.\n\n**Unresolved issues:**\n- Critical: Existing E2E scenario calls now throw for prefixed or empty IDs.\n- Moderate: Malformed built-in IDs are still parsed instead of fully validated.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n|---|---|\r\n| `extensions/copilot/src/platform/chat/common/chatAgents.ts` | Updates participant ID validation and conversion utilities. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 2\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/335046#pullrequestreview-5141523094",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/335046",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/335046#pullrequestreview-5141523094"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/335046"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-08T12:14:55Z",
+   "commit_id": "8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+   "node_id": "C_kwDOTk4kkdoAKDhhZTYwZjZlMWZkNTdiYjhmNWNjODVhZDY4YmY4NjM1MjhkNjBiYzU",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-08T12:08:12Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-08T12:08:12Z"
+    },
+    "message": "security: add strict regex validation for chat participant IDs\n\nImplement strict character set validation in getChatParticipantIdFromName and improve prefix handling in getChatParticipantNameFromId to prevent malformed injections.",
+    "tree": {
+     "sha": "da74a56f4a5d8330e82c48e11ea271e1c121c487",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/da74a56f4a5d8330e82c48e11ea271e1c121c487"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqn/qtCRC1aQ7uu5UhlAAAoDYQAKxhcdJUO+AIoMtpgHE1wzpr\nAASd5khtydrpvTSLOS2K8bsRpOYuNURqQmb0WvjNVSFA64Fv9dDScneWuXphUV70\n9zy39vM3F/4y55roGZC59M5BHmgq1x/r40p6p+oeSc31VH0FMJnarkT8USHHtEo2\ngfD5i9o1gWJKRlu6qJmLczAtKvBAZH4u5Xh5NdWXv/shdHNXwg2h1ugF2yaIT6XA\nhF5ZdeaSDAgJ3W4LXPAu+IfynAvhjnFktjFiFgmU95VNJoj1Z32xZm8NXibAc4xB\nkVUv2YiqQZvHdMRKoJDAqA7Z5tWrnY6UeN7nAxVBGVisMM6MrRSE5TY5UE6Xq+0e\nd60IvXKBE7Nwozvb2DpR4t0vcQwuW4zD2xD5WpmhAOEx80KMeiRFqAVXhqI1MQdU\nWkPAm4Zk8dg22E10+X+cZPvwWC+WYVX9t7yNEqpmby4vhbg90vuHoLCc0QeNgL0y\n9ksWdcdIX5jcMKG5jNsV1cQD+gxjUjihcJ9DZO3xE0Zev+j1tBGhg9YmQKkgRvBp\nd/u68Jby9sZBC4f/IwOY8SQnpgQhq14M+EaMyjRvhRukQ1NVh795eG1ZCBx8gD1N\nJhOob7m9FRzzR89aPax4rsGDVa/ljFPkFYcl5pjion41PCPJvJddlTVCBQwUaaXx\n0DHbXHDROHk8lwT85pfA\n=AqCE\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree da74a56f4a5d8330e82c48e11ea271e1c121c487\nparent 0611f3a8d9a6e8456c75742d876bc1823b4e1df1\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788869292 +0300\ncommitter GitHub <noreply@github.com> 1788869292 +0300\n\nsecurity: add strict regex validation for chat participant IDs\n\nImplement strict character set validation in getChatParticipantIdFromName and improve prefix handling in getChatParticipantNameFromId to prevent malformed injections.",
+     "verified_at": "2026-09-08T12:08:13Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+   "html_url": "https://github.com/microsoft/vscode/commit/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0611f3a8d9a6e8456c75742d876bc1823b4e1df1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0611f3a8d9a6e8456c75742d876bc1823b4e1df1",
+     "html_url": "https://github.com/microsoft/vscode/commit/0611f3a8d9a6e8456c75742d876bc1823b4e1df1"
+    }
+   ]
+  },
+  {
+   "sha": "844702f398dedd8b372d877ec73a9e9c5a09828c",
+   "node_id": "C_kwDOTk4kkdoAKDg0NDcwMmYzOThkZWRkOGIzNzJkODc3ZWM3M2E5ZTljNWEwOTgyOGM",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-08T12:19:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-08T12:19:14Z"
+    },
+    "message": "Enhance chat participant ID handling with validation\n\nFix E2E scenario test failures by allowing pre-fixed or empty IDs, and add strict validation for malformed participant IDs.",
+    "tree": {
+     "sha": "0182ad0b0b0834fcbf425d9daecc9cec7953e567",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0182ad0b0b0834fcbf425d9daecc9cec7953e567"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/844702f398dedd8b372d877ec73a9e9c5a09828c",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqn/1CCRC1aQ7uu5UhlAAAPcMQAFBO6Pwy6pF0CKUyuH3Temfz\nDqj9NW1Vu99m1bIaqgyP2C4990kuvfkOWnZtZw9at2EFHFgZZV+FhnVuAoVI2/5G\ncZkYR5XIwvidv1gg37yLsMgTt02zhyQEhNAIQeS4ehY36eg0L4b63aVpKx5oqA1l\nLURbybqqtjfr7cuo/cwGvkoexRSVDQPf5+J3phoT50NYpc4ICtxj/per+E6r1RqI\n3Gcquf2Y1rrn1n8Kv6SqAoG06Susw6GizH+K2HHtl+HWC0/rBgsUo/OlbQ7hTnPJ\naDyCEKgLXlC1vQ77KBeY4JJ40u+rg1EysUHWsEngUSjdh/AyYqvsoNAeuA/ZBkPj\nms4h3OZO/xNz0edeQkpmXm+Zk2qAQ7u8PiHNt6AUyaUPdPN8LFstbWUngASEbQn0\n62nlhLw+qFb3/7Fgc/DicB0Pd+C4vnsAgBX5+O92EKP5yKp8swBYaQjqvHMUBLae\nN1Ta6ujWl0HmfKF7kuYA5755nXJf+KF6BuZ0D2nJac74zvdYERgsv5s8wKLtK57t\n75+xqGjk2UfD8C83ZlLln234kVgEq12z6NyW82lY00CLATMi8ob061FQyMG1/5ki\nFEwTG7iX5wdHVTo8VtCel9YC3phl3IIgrjbrZxSsDM2utBqFO2bFG2myYC9Cm+1o\nzCT2T7yoHAqW1FJullZt\n=qVvH\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0182ad0b0b0834fcbf425d9daecc9cec7953e567\nparent 8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788869954 +0300\ncommitter GitHub <noreply@github.com> 1788869954 +0300\n\nEnhance chat participant ID handling with validation\n\nFix E2E scenario test failures by allowing pre-fixed or empty IDs, and add strict validation for malformed participant IDs.",
+     "verified_at": "2026-09-08T12:19:15Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/844702f398dedd8b372d877ec73a9e9c5a09828c",
+   "html_url": "https://github.com/microsoft/vscode/commit/844702f398dedd8b372d877ec73a9e9c5a09828c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/844702f398dedd8b372d877ec73a9e9c5a09828c/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5",
+     "html_url": "https://github.com/microsoft/vscode/commit/8ae60f6e1fd57bb8f5cc85ad68bf863528d60bc5"
+    }
+   ]
+  }
+ ]
+}

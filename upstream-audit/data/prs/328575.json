@@ -1,0 +1,230 @@
+{
+ "fetchedAt": "2026-11-01T00:54:21.734Z",
+ "pr": {
+  "number": 328575,
+  "title": "Fix Windows-style path handling in getDiagnostics test's Uri.parse mock",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-08-01T18:04:15Z",
+  "updated_at": "2026-08-13T04:23:23Z",
+  "user": "jadefr",
+  "author_association": "CONTRIBUTOR",
+  "additions": 19,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/getdiagnostics-test-mock-windows-path",
+   "sha": "92290a596dd84697633c0097578a88fc3e6f8927",
+   "repo": "jadefr/vscode",
+   "label": "jadefr:fix/getdiagnostics-test-mock-windows-path"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "7234ef01c2cace7cfa911d792ce9c5b1f333fca5"
+  },
+  "body": "# Fix Windows-style path handling in getDiagnostics test's Uri.parse mock\r\n\r\n## The problem\r\n\r\nThe mocked `Uri.parse()` converts a file URL into a filesystem path incorrectly for Windows. E.g, `file:///C:/Users/test.ts` turns into `/C:/Users/test.ts`. \r\nThen it just fails **silently**, no error or crash, just a wrong value.\r\n\r\nThe bug is currently dormant: all the existing fixtures are POSIX-style, so the 8 existing tests pass. \r\nAdding a drive-letter test exposes it: `fsPath` resolves to `\"/C:/Users/test/file.ts\"` instead of `C:\\Users\\test\\file.ts`.\r\n\r\nA plain `fileURLToPath(str)` isn't a safe fix either — it resolves by host OS, so on Windows it throws on the existing POSIX-style fixtures, 5 of 9 tests failing:\r\n```\r\nTypeError: File URL path must be absolute\r\n ❯ Object.parse .../getDiagnostics.spec.ts:38:13\r\n     fsPath: fileURLToPath(str),\r\nTest Files  1 failed (1)\r\n     Tests  5 failed | 4 passed (9)\r\n```\r\n\r\n## The fix\r\n\r\nDetect the URI's own convention instead of relying on the host OS: if the path looks like a drive letter, parse it as Windows; otherwise as POSIX.\r\n\r\nAlso added a test asserting the resolved `filePath` for a drive-letter URI, since no existing test covered that case.\r\n\r\n## How to test\r\n\r\n```bash\r\ncd extensions/copilot\r\nnpx vitest run src/extension/chatSessions/copilotcli/vscode-node/test/getDiagnostics.spec.ts\r\n```\r\nExpect `9 passed`.\r\n\r\nThis specifically needs to run **on Windows** to be meaningful — on Linux/macOS, `fileURLToPath()`'s host-OS default already matches the POSIX-style fixtures, so the regression this PR fixes never surfaces there. \r\n\r\nThe new drive-letter test passes on any OS, since the fix no longer depends on the host at all.\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "d0841874a25a2ed2c1f2521ee71f2182484042a5",
+   "filename": "extensions/copilot/src/extension/chatSessions/copilotcli/vscode-node/test/getDiagnostics.spec.ts",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 1,
+   "changes": 20,
+   "blob_url": "https://github.com/microsoft/vscode/blob/92290a596dd84697633c0097578a88fc3e6f8927/extensions%2Fcopilot%2Fsrc%2Fextension%2FchatSessions%2Fcopilotcli%2Fvscode-node%2Ftest%2FgetDiagnostics.spec.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/92290a596dd84697633c0097578a88fc3e6f8927/extensions%2Fcopilot%2Fsrc%2Fextension%2FchatSessions%2Fcopilotcli%2Fvscode-node%2Ftest%2FgetDiagnostics.spec.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fextension%2FchatSessions%2Fcopilotcli%2Fvscode-node%2Ftest%2FgetDiagnostics.spec.ts?ref=92290a596dd84697633c0097578a88fc3e6f8927",
+   "patch": "@@ -4,13 +4,21 @@\n  *--------------------------------------------------------------------------------------------*/\n \n import { beforeEach, describe, expect, it, vi } from 'vitest';\n+import { fileURLToPath } from 'node:url';\n import { TestLogService } from '../../../../../platform/testing/common/testLogService';\n import { MockMcpServer, parseToolResult, createMockUri, createMockDiagnostic } from './testHelpers';\n \n const { mockGetDiagnostics } = vi.hoisted(() => ({\n \tmockGetDiagnostics: vi.fn(),\n }));\n \n+// Fixtures are POSIX-style URIs, but a fixture can also be a drive-letter\n+// path — detect which from the URL itself, not fileURLToPath()'s host-OS default.\n+function uriToFsPath(str: string): string {\n+\tconst isWindowsPath = /^file:\\/\\/\\/[A-Za-z]:\\//.test(str);\n+\treturn fileURLToPath(str, { windows: isWindowsPath });\n+}\n+\n vi.mock('vscode', () => {\n \tconst DiagnosticSeverity = {\n \t\tError: 0,\n@@ -27,7 +35,7 @@ vi.mock('vscode', () => {\n \t\tUri: {\n \t\t\tparse: (str: string) => ({\n \t\t\t\ttoString: () => str,\n-\t\t\t\tfsPath: str.replace('file://', ''),\n+\t\t\t\tfsPath: uriToFsPath(str),\n \t\t\t\tscheme: 'file',\n \t\t\t}),\n \t\t},\n@@ -81,6 +89,16 @@ describe('getDiagnostics tool', () => {\n \t\texpect(result[0].diagnostics).toHaveLength(1);\n \t});\n \n+\tit('should resolve filePath correctly for a Windows drive-letter URI', async () => {\n+\t\tconst mockDiag = createMockDiagnostic('Test error', 0, 0, 0, 0, 10, 'test-source', 'TEST001');\n+\t\tmockGetDiagnostics.mockReturnValue([mockDiag]);\n+\n+\t\tconst handler = server.getToolHandler('get_diagnostics')!;\n+\t\tconst result = parseToolResult<DiagnosticsFileResult[]>(await handler({ uri: 'file:///C:/Users/test/file.ts' }));\n+\n+\t\texpect(result[0].filePath).toBe('C:\\\\Users\\\\test\\\\file.ts');\n+\t});\n+\n \tit('should return empty array when no diagnostics exist for URI', async () => {\n \t\tmockGetDiagnostics.mockReturnValue([]);\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4835330013,
+   "node_id": "PRR_kwDOAn8RLM8AAAABIDVH3Q",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes cross-platform filesystem path resolution in the `getDiagnostics` test mock.\n\n**Changes:**\n- Detects Windows drive-letter file URIs before calling `fileURLToPath`.\n- Adds coverage for Windows-style paths across host operating systems.\n\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/328575#pullrequestreview-4835330013",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/328575",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/328575#pullrequestreview-4835330013"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/328575"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-08-01T18:06:14Z",
+   "commit_id": "92290a596dd84697633c0097578a88fc3e6f8927"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5152931904",
+   "html_url": "https://github.com/microsoft/vscode/pull/328575#issuecomment-5152931904",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/328575",
+   "id": 5152931904,
+   "node_id": "IC_kwDOAn8RLM8AAAABMyOAQA",
+   "user": {
+    "login": "jadefr",
+    "id": 31088084,
+    "node_id": "MDQ6VXNlcjMxMDg4MDg0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31088084?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jadefr",
+    "html_url": "https://github.com/jadefr",
+    "followers_url": "https://api.github.com/users/jadefr/followers",
+    "following_url": "https://api.github.com/users/jadefr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jadefr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jadefr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jadefr/subscriptions",
+    "organizations_url": "https://api.github.com/users/jadefr/orgs",
+    "repos_url": "https://api.github.com/users/jadefr/repos",
+    "events_url": "https://api.github.com/users/jadefr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jadefr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-01T18:59:49Z",
+   "updated_at": "2026-08-01T18:59:49Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5152931904/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "92290a596dd84697633c0097578a88fc3e6f8927",
+   "node_id": "C_kwDOTolP_toAKDkyMjkwYTU5NmRkODQ2OTc2MzNjMDA5NzU3OGE4OGZjM2U2Zjg5Mjc",
+   "commit": {
+    "author": {
+     "name": "Jade Ferreira Vieira",
+     "email": "jadeferreiravieira@gmail.com",
+     "date": "2026-07-31T22:16:31Z"
+    },
+    "committer": {
+     "name": "Jade",
+     "email": "jadeferreiravieira@gmail.com",
+     "date": "2026-08-01T13:56:44Z"
+    },
+    "message": "Fix Windows-style path handling in getDiagnostics test's Uri.parse mock\n\nfsPath: str.replace('file://', '') left a leading slash before the\ndrive letter (/C:/...) for Windows-style file URIs, same class of bug\nfixed in html-language-features/esbuild.browser.mts. Unlike that case,\nthis one isn't tied to which OS runs the test: the input is a\nhardcoded fixture string, not something Node generates from the host\nOS.\n\nfileURLToPath() fixes this, but it interprets its input according to\nthe host OS by default, and existing fixtures here are POSIX-style\n(file:///test/file.ts) regardless of host - so a plain fileURLToPath()\ncall throws \"File URL path must be absolute\" when run on Windows,\nsince a path with no drive letter isn't valid there. Detect the URI's\nown convention instead of relying on the host OS: if it looks like a\ndrive-letter path, parse as Windows; otherwise as POSIX.\n\nAdded a test asserting the resolved filePath for a drive-letter URI,\nsince no existing test covered that case.",
+    "tree": {
+     "sha": "50bc3614aa655bf4d0b092759b55d0fcdf0f9c4b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/50bc3614aa655bf4d0b092759b55d0fcdf0f9c4b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/92290a596dd84697633c0097578a88fc3e6f8927",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/92290a596dd84697633c0097578a88fc3e6f8927",
+   "html_url": "https://github.com/microsoft/vscode/commit/92290a596dd84697633c0097578a88fc3e6f8927",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/92290a596dd84697633c0097578a88fc3e6f8927/comments",
+   "author": {
+    "login": "jadefr",
+    "id": 31088084,
+    "node_id": "MDQ6VXNlcjMxMDg4MDg0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31088084?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jadefr",
+    "html_url": "https://github.com/jadefr",
+    "followers_url": "https://api.github.com/users/jadefr/followers",
+    "following_url": "https://api.github.com/users/jadefr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jadefr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jadefr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jadefr/subscriptions",
+    "organizations_url": "https://api.github.com/users/jadefr/orgs",
+    "repos_url": "https://api.github.com/users/jadefr/repos",
+    "events_url": "https://api.github.com/users/jadefr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jadefr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "jadefr",
+    "id": 31088084,
+    "node_id": "MDQ6VXNlcjMxMDg4MDg0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31088084?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jadefr",
+    "html_url": "https://github.com/jadefr",
+    "followers_url": "https://api.github.com/users/jadefr/followers",
+    "following_url": "https://api.github.com/users/jadefr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jadefr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jadefr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jadefr/subscriptions",
+    "organizations_url": "https://api.github.com/users/jadefr/orgs",
+    "repos_url": "https://api.github.com/users/jadefr/repos",
+    "events_url": "https://api.github.com/users/jadefr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jadefr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "7234ef01c2cace7cfa911d792ce9c5b1f333fca5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7234ef01c2cace7cfa911d792ce9c5b1f333fca5",
+     "html_url": "https://github.com/microsoft/vscode/commit/7234ef01c2cace7cfa911d792ce9c5b1f333fca5"
+    }
+   ]
+  }
+ ]
+}

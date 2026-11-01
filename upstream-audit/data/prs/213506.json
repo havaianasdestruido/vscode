@@ -1,0 +1,1195 @@
+{
+ "fetchedAt": "2026-11-01T00:51:43.998Z",
+ "pr": {
+  "number": 213506,
+  "title": "feature: add option to configure activity bar drag and drop",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-05-26T15:00:56Z",
+  "updated_at": "2026-06-24T10:38:54Z",
+  "user": "SimonSiefke",
+  "author_association": "CONTRIBUTOR",
+  "additions": 12,
+  "deletions": 5,
+  "changed_files": 4,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 2,
+  "commits_count": 10,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "feature/activity-bar-drag-drop-option",
+   "sha": "da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "repo": "SimonSiefke/vscode",
+   "label": "SimonSiefke:feature/activity-bar-drag-drop-option"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "d416fdd1948ed103551282572d6f1c546f2e5223"
+  },
+  "body": "\r\nfixes #176384",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8a27237203e795575438f13f8c0357c00ffbbe7f",
+   "filename": "src/vs/workbench/browser/parts/activitybar/activitybarPart.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 1,
+   "changes": 3,
+   "blob_url": "https://github.com/microsoft/vscode/blob/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts?ref=da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "patch": "@@ -410,14 +410,15 @@ export class ActivityBarCompositeBar extends PaneCompositeBar {\n \n \toverride create(parent: HTMLElement): HTMLElement {\n \t\tthis.element = parent;\n+\t\tconst draggable = this.configurationService.getValue<boolean>('workbench.activityBar.dragAndDrop.enabled') ?? true;\n \n \t\t// Install menubar if compact\n \t\tif (getMenuBarVisibility(this.configurationService) === 'compact') {\n \t\t\tthis.installMenubar();\n \t\t}\n \n \t\t// View Containers action bar\n-\t\tthis.compositeBarContainer = super.create(this.element);\n+\t\tthis.compositeBarContainer = super.create(this.element, draggable);\n \n \t\t// Global action bar\n \t\tif (this.globalCompositeBar) {"
+  },
+  {
+   "sha": "dc069ad18f21f2d7970576992b48a2eaa8ad90b0",
+   "filename": "src/vs/workbench/browser/parts/compositeBar.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBar.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBar.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBar.ts?ref=da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "patch": "@@ -283,7 +283,7 @@ export class CompositeBar extends Widget implements ICompositeBar {\n \t\treturn this.model.visibleItems;\n \t}\n \n-\tcreate(parent: HTMLElement): HTMLElement {\n+\tcreate(parent: HTMLElement, draggable = true): HTMLElement {\n \t\tconst actionBarDiv = parent.appendChild($('.composite-bar'));\n \t\tthis.compositeSwitcherBar = this._register(new ActionBar(actionBarDiv, {\n \t\t\tactionViewItemProvider: (action, options) => {\n@@ -293,7 +293,7 @@ export class CompositeBar extends Widget implements ICompositeBar {\n \t\t\t\tconst item = this.model.findItem(action.id);\n \t\t\t\treturn item && this.instantiationService.createInstance(\n \t\t\t\t\tCompositeActionViewItem,\n-\t\t\t\t\t{ ...options, draggable: true, colors: this.options.colors, icon: this.options.icon, hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },\n+\t\t\t\t\t{ ...options, draggable, colors: this.options.colors, icon: this.options.icon, hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },\n \t\t\t\t\taction as CompositeBarAction,\n \t\t\t\t\titem.pinnedAction,\n \t\t\t\t\titem.toggleBadgeAction,"
+  },
+  {
+   "sha": "585c3bae797f837319013a3c9cf8cb848f391e3d",
+   "filename": "src/vs/workbench/browser/parts/paneCompositeBar.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FpaneCompositeBar.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FpaneCompositeBar.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FpaneCompositeBar.ts?ref=da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "patch": "@@ -302,8 +302,8 @@ export class PaneCompositeBar extends Disposable {\n \t\t}\n \t}\n \n-\tcreate(parent: HTMLElement): HTMLElement {\n-\t\treturn this.compositeBar.create(parent);\n+\tcreate(parent: HTMLElement, draggable = true): HTMLElement {\n+\t\treturn this.compositeBar.create(parent, draggable);\n \t}\n \n \tprivate getCompositeActions(compositeId: string): { activityAction: ViewContainerActivityAction; pinnedAction: ToggleCompositePinnedAction; badgeAction: ToggleCompositeBadgeAction } {"
+  },
+  {
+   "sha": "477788a07646bd69027b5c4ac53ad97163a43242",
+   "filename": "src/vs/workbench/browser/workbench.contribution.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 0,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/da67b7a5920925ca3157fa2cbcf41bbd3678e671/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fworkbench.contribution.ts?ref=da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "patch": "@@ -683,6 +683,12 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con\n \t\t\t\t],\n \t\t\t\tagentsWindow: { default: 'toggle', readOnly: true },\n \t\t\t},\n+\t\t\t'workbench.activityBar.dragAndDrop.enabled': {\n+\t\t\t\t'type': 'boolean',\n+\t\t\t\t'default': true,\n+\t\t\t\t'markdownDescription':\n+\t\t\t\t\tlocalize('workbench.activityBar.dragAndDrop.enabled', \"Controls whether Activity Bar drag and drop is enabled.\")\n+\t\t\t},\n \t\t\t'workbench.view.alwaysShowHeaderActions': {\n \t\t\t\t'type': 'boolean',\n \t\t\t\t'default': false,"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2079786787,
+   "node_id": "PRR_kwDOAn8RLM579wcj",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "LGTM",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2079786787",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/213506",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2079786787"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/213506"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-05-26T21:11:04Z",
+   "commit_id": "942c7147d114c65858aa69db12fef7404752f099"
+  },
+  {
+   "id": 2397346990,
+   "node_id": "PRR_kwDOAn8RLM6O5Jyu",
+   "user": {
+    "login": "eiskalteschatten",
+    "id": 3677693,
+    "node_id": "MDQ6VXNlcjM2Nzc2OTM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3677693?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eiskalteschatten",
+    "html_url": "https://github.com/eiskalteschatten",
+    "followers_url": "https://api.github.com/users/eiskalteschatten/followers",
+    "following_url": "https://api.github.com/users/eiskalteschatten/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eiskalteschatten/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eiskalteschatten/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eiskalteschatten/subscriptions",
+    "organizations_url": "https://api.github.com/users/eiskalteschatten/orgs",
+    "repos_url": "https://api.github.com/users/eiskalteschatten/repos",
+    "events_url": "https://api.github.com/users/eiskalteschatten/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eiskalteschatten/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2397346990",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/213506",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2397346990"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/213506"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-10-26T19:36:08Z",
+   "commit_id": "a7015c3ca96d40f6d4423225989c359b18b9716d"
+  },
+  {
+   "id": 2486682117,
+   "node_id": "PRR_kwDOAn8RLM6UN8IF",
+   "user": {
+    "login": "eiskalteschatten",
+    "id": 3677693,
+    "node_id": "MDQ6VXNlcjM2Nzc2OTM=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3677693?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/eiskalteschatten",
+    "html_url": "https://github.com/eiskalteschatten",
+    "followers_url": "https://api.github.com/users/eiskalteschatten/followers",
+    "following_url": "https://api.github.com/users/eiskalteschatten/following{/other_user}",
+    "gists_url": "https://api.github.com/users/eiskalteschatten/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/eiskalteschatten/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/eiskalteschatten/subscriptions",
+    "organizations_url": "https://api.github.com/users/eiskalteschatten/orgs",
+    "repos_url": "https://api.github.com/users/eiskalteschatten/repos",
+    "events_url": "https://api.github.com/users/eiskalteschatten/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/eiskalteschatten/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2486682117",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/213506",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-2486682117"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/213506"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-12-07T20:36:49Z",
+   "commit_id": "a7015c3ca96d40f6d4423225989c359b18b9716d"
+  },
+  {
+   "id": 3942839542,
+   "node_id": "PRR_kwDOAn8RLM7rAvT2",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds a new workbench setting intended to let users disable Activity Bar drag-and-drop (to prevent accidental reordering), wiring the setting into Activity Bar creation and plumbing a `draggable` flag down into composite bar creation.\n\n**Changes:**\n- Adds the `workbench.activityBar.dragAndDrop.enabled` boolean setting (default `true`).\n- Threads a `draggable` parameter through `PaneCompositeBar.create` → `CompositeBar.create`.\n- Reads the setting in `ActivityBarCompositeBar.create` and passes it into the composite bar creation path.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/browser/workbench.contribution.ts | Registers the new `workbench.activityBar.dragAndDrop.enabled` setting. |\n| src/vs/workbench/browser/parts/paneCompositeBar.ts | Adds a `draggable` parameter to `create` and forwards it to `CompositeBar`. |\n| src/vs/workbench/browser/parts/compositeBar.ts | Adds a `draggable` parameter to `create` and forwards it to the action view item options. |\n| src/vs/workbench/browser/parts/activitybar/activitybarPart.ts | Reads the new setting and passes it into `PaneCompositeBar.create`. |\n\n\n<details>\n<summary>Comments suppressed due to low confidence (1)</summary>\n\n**src/vs/workbench/browser/parts/compositeBar.ts:304**\n* The new `draggable` flag passed into `CompositeActionViewItem` won’t actually disable Activity Bar drag-and-drop: `CompositeActionViewItem.render()` always calls `CompositeDragAndDropObserver.registerDraggable(...)`, and `registerDraggable` force-sets `element.draggable = true` regardless of the action view item options. To make the setting effective, plumb the flag through and conditionally skip registering draggables/targets (e.g., guard the `registerDraggable` call in `CompositeActionViewItem` based on the passed option, and consider also skipping `registerTarget` in `CompositeBar.create` when disabled).\n```\n\tcreate(parent: HTMLElement, draggable = true): HTMLElement {\n\t\tconst actionBarDiv = parent.appendChild($('.composite-bar'));\n\t\tthis.compositeSwitcherBar = this._register(new ActionBar(actionBarDiv, {\n\t\t\tactionViewItemProvider: (action, options) => {\n\t\t\t\tif (action instanceof CompositeOverflowActivityAction) {\n\t\t\t\t\treturn this.compositeOverflowActionViewItem.value;\n\t\t\t\t}\n\t\t\t\tconst item = this.model.findItem(action.id);\n\t\t\t\treturn item && this.instantiationService.createInstance(\n\t\t\t\t\tCompositeActionViewItem,\n\t\t\t\t\t{ ...options, draggable, colors: this.options.colors, icon: this.options.icon, hoverOptions: this.options.activityHoverOptions, compact: this.options.compact },\n\t\t\t\t\taction as CompositeBarAction,\n\t\t\t\t\titem.pinnedAction,\n\t\t\t\t\titem.toggleBadgeAction,\n\t\t\t\t\tcompositeId => this.options.getContextMenuActionsForComposite(compositeId),\n\t\t\t\t\t() => this.getContextMenuActions(),\n\t\t\t\t\tthis.options.dndHandler,\n\t\t\t\t\tthis\n\t\t\t\t);\n```\n</details>\n\n\n\n---\n\nYou can also share your feedback on Copilot code review. [Take the survey](https://www.surveymonkey.com/r/XP6L3XJ).",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-3942839542",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/213506",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/213506#pullrequestreview-3942839542"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/213506"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-03-13T09:51:21Z",
+   "commit_id": "a7015c3ca96d40f6d4423225989c359b18b9716d"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4053894827",
+   "html_url": "https://github.com/microsoft/vscode/pull/213506#issuecomment-4053894827",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/213506",
+   "id": 4053894827,
+   "node_id": "IC_kwDOAn8RLM7xoYar",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-13T09:43:07Z",
+   "updated_at": "2026-06-24T10:38:54Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @benibenj\n\nMatched files:\n- `src/vs/workbench/browser/parts/activitybar/activitybarPart.ts`\n- `src/vs/workbench/browser/parts/compositeBar.ts`\n- `src/vs/workbench/browser/parts/paneCompositeBar.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4053894827/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+   "node_id": "C_kwDODaDU69oAKGMxZTNlZDVjN2RkYWQ1YjkzYzQzMDI4Y2E4YmQ3ZDM1MmE0NGYwMTE",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T12:45:51Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T12:45:51Z"
+    },
+    "message": "set it to false",
+    "tree": {
+     "sha": "bc481e448ad39e7681ec375644144e52fa978027",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/bc481e448ad39e7681ec375644144e52fa978027"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+   "html_url": "https://github.com/microsoft/vscode/commit/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "56db61ec8a8d01135bff1bcce2df2aac4b2b04cf",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/56db61ec8a8d01135bff1bcce2df2aac4b2b04cf",
+     "html_url": "https://github.com/microsoft/vscode/commit/56db61ec8a8d01135bff1bcce2df2aac4b2b04cf"
+    }
+   ]
+  },
+  {
+   "sha": "503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+   "node_id": "C_kwDODaDU69oAKDUwM2FhNWIyMjZiNWVjYTA2MWJlNTY3Y2UzZjFmN2E3YzdlNmVkY2Q",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T12:53:06Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T12:53:06Z"
+    },
+    "message": "add setting",
+    "tree": {
+     "sha": "1a075bced96b11366dc7458258659518b89b0716",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1a075bced96b11366dc7458258659518b89b0716"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+   "html_url": "https://github.com/microsoft/vscode/commit/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011",
+     "html_url": "https://github.com/microsoft/vscode/commit/c1e3ed5c7ddad5b93c43028ca8bd7d352a44f011"
+    }
+   ]
+  },
+  {
+   "sha": "9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+   "node_id": "C_kwDODaDU69oAKDkzNTNhOTQxNjVmYTFhNGY3YjM1ZTRjNDViN2I5NTg3MDI5YzFkZWU",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T14:58:39Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-05-26T14:58:39Z"
+    },
+    "message": "add config",
+    "tree": {
+     "sha": "0ea1d3a18a3064216c54d89d913e2cd2fe0d5a62",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0ea1d3a18a3064216c54d89d913e2cd2fe0d5a62"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+   "html_url": "https://github.com/microsoft/vscode/commit/9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9353a94165fa1a4f7b35e4c45b7b9587029c1dee/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd",
+     "html_url": "https://github.com/microsoft/vscode/commit/503aa5b226b5eca061be567ce3f1f7a7c7e6edcd"
+    }
+   ]
+  },
+  {
+   "sha": "942c7147d114c65858aa69db12fef7404752f099",
+   "node_id": "C_kwDODaDU69oAKDk0MmM3MTQ3ZDExNGM2NTg1OGFhNjlkYjEyZmVmNzQwNDc1MmYwOTk",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-10-01T16:49:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-10-01T16:49:14Z"
+    },
+    "message": "Merge branch 'main' into feature/activity-bar-drag-drop-option",
+    "tree": {
+     "sha": "2357a55c44686ea5ebab799f9a5b8f89df736faf",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2357a55c44686ea5ebab799f9a5b8f89df736faf"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/942c7147d114c65858aa69db12fef7404752f099",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJm/CgKCRC1aQ7uu5UhlAAA6XEQAElMYfvwKtAIyZhSzRWOJf1p\nLY44E8K+/8m6kTmCujQhkW4x4V7tXnL4hu9kzmmfrnDcudSWAKgGmHtMIB0aaUi7\nv0/gnsA8KUSV4Wi0tw/QldsUichRDtpSFZpdE/ya381SSrz0aEzQQSuOSOWElFBe\nnT53sSD8DKiFQl9smqFRimm1K/4xncHgjWsGQktxfrKRrtMUlknjGfK3iqvH0FId\nOtONedFdD/2Zy8fiPt5JXrgMwy6Av2rS7ielxbd3lD/KfmCpxLFsccq+geSoZIJy\nlnkNeTnEU+mlvBL1CXnje7P/jWoi3+z1Esr3gv16KXCMlAr/WVrgclIX2LvDosLp\noOowLOAt+IUG00GegWHGajkjaj8AoyLprhzSSBgp4sIhesQ0hKjrxHdRyMvVeHD9\nsr2bQ79VUO0pWQy/3lNRBBUJtJdN1ttohdX5npGGbR+8Fv7tRMvNDEfJrGkKB4TW\nGtFeO2BC5VcrfYOmrH9Nr/GqPPum2Hhvn1vaoM91KiiseC3LG1vU9rM3K7naBeGd\namh26pLjj8vFxbccrK3oM8VdZipA0UGgWpsW9zIf7o/g8vpvaoe3JbM0p0QAeGgj\nvil73RE70eWYkh/m1eaihstb2iuLQ/nu7RkEMmDoKaNkwftTGO49ktY+5A3WjLtF\nxXPsyCGlnL5AX95Nx/wl\n=F0di\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2357a55c44686ea5ebab799f9a5b8f89df736faf\nparent 9353a94165fa1a4f7b35e4c45b7b9587029c1dee\nparent aeccbc28fab4547fdee14aebe06c5bd52d7dc958\nauthor Simon Siefke <simon.siefke@gmail.com> 1727801354 +0200\ncommitter GitHub <noreply@github.com> 1727801354 +0200\n\nMerge branch 'main' into feature/activity-bar-drag-drop-option",
+     "verified_at": "2024-11-05T18:27:17Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/942c7147d114c65858aa69db12fef7404752f099",
+   "html_url": "https://github.com/microsoft/vscode/commit/942c7147d114c65858aa69db12fef7404752f099",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/942c7147d114c65858aa69db12fef7404752f099/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9353a94165fa1a4f7b35e4c45b7b9587029c1dee",
+     "html_url": "https://github.com/microsoft/vscode/commit/9353a94165fa1a4f7b35e4c45b7b9587029c1dee"
+    },
+    {
+     "sha": "aeccbc28fab4547fdee14aebe06c5bd52d7dc958",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/aeccbc28fab4547fdee14aebe06c5bd52d7dc958",
+     "html_url": "https://github.com/microsoft/vscode/commit/aeccbc28fab4547fdee14aebe06c5bd52d7dc958"
+    }
+   ]
+  },
+  {
+   "sha": "a5bed8c45e7ec52d9288a295596fa9977afa5163",
+   "node_id": "C_kwDODaDU69oAKGE1YmVkOGM0NWU3ZWM1MmQ5Mjg4YTI5NTU5NmZhOTk3N2FmYTUxNjM",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-10-01T17:33:13Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-10-01T17:33:13Z"
+    },
+    "message": "lint",
+    "tree": {
+     "sha": "95fc4d9fe7c5ca8a6fbb9d54fa9af18451fb1fc2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/95fc4d9fe7c5ca8a6fbb9d54fa9af18451fb1fc2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a5bed8c45e7ec52d9288a295596fa9977afa5163",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a5bed8c45e7ec52d9288a295596fa9977afa5163",
+   "html_url": "https://github.com/microsoft/vscode/commit/a5bed8c45e7ec52d9288a295596fa9977afa5163",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a5bed8c45e7ec52d9288a295596fa9977afa5163/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "942c7147d114c65858aa69db12fef7404752f099",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/942c7147d114c65858aa69db12fef7404752f099",
+     "html_url": "https://github.com/microsoft/vscode/commit/942c7147d114c65858aa69db12fef7404752f099"
+    }
+   ]
+  },
+  {
+   "sha": "7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+   "node_id": "C_kwDODaDU69oAKDcyMjFjMjU2YTQxZWZkNzI2ZWJhNGUwZDJmMDA1ZjMxNjZhN2VjZDY",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2024-11-28T17:41:54Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-11-28T17:41:54Z"
+    },
+    "message": "Merge branch 'main' into feature/activity-bar-drag-drop-option",
+    "tree": {
+     "sha": "ab4b49f852c4eb391b7060aaf481fef9f566c101",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ab4b49f852c4eb391b7060aaf481fef9f566c101"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnSKtiCRC1aQ7uu5UhlAAAX9QQAGHThyH9FYUOUMUrdpXcsUvR\nAMQpMENV7UWHrhDVHqbA381D/yLd/c3pM9uWaGmdvDGJvu2KnXNotxiZTJvJg6Dt\njCBUVUeUkz2KPCAPAmS5SOColFuC/ZPRO20PSMX0XqdQ+XioHZ8MHHaSWA7h3X2e\n5/xYOMpirdLTkkpA67f7J0KGtvjaIIe7vHLQ8ZVWnYNRz3d16HkpxD6Igu99TzgB\nZOm5wmzSLKa5Zc1JqmCSuVhyGU9es9CIJN6k4fbezdqvGuzgqpwcEQX91WLPAMry\nh/KU0Bf1cIsqTjBTg0Qc2qtQMUGU6W2L0mgjVk1gluHcm1OehGRWWZf4yGqFH5re\nMxzno+g1Vlc0vOo76Z+q6ra6z2bBpDseruIFBo6IPo8pbnqRRxDM9eJpD6t3JtIB\nydIAzBQcLhnUvUFWQ/NMtQanSLPWlYoWWUmZc3a0EG+oBkApEGplk3m43FFBxK8e\nK9CWJCx4f1ijiOQLYkEBu+tb1ptHJdjXCJ1N7V023/Cet0oT0kmTpv0i1G4A1iFs\nyFWH9O8aqbX9jTAPabrkcI2mj8f6gOLrei2c188LESRoh0QYV8zLPhdF89Eck5Ep\nIHYW9/L2zsczGocZw7fQQN3uMMR4hyB6NKnYIIYlTEipS0+NkGirU4w72Rdqp3DP\nziBtMu6E+ZrB7tQcgN9q\n=UlxV\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree ab4b49f852c4eb391b7060aaf481fef9f566c101\nparent a5bed8c45e7ec52d9288a295596fa9977afa5163\nparent 025439de998856e4b8de6f8b29e78b33351e6230\nauthor Simon Siefke <simon.siefke@gmail.com> 1732815714 +0100\ncommitter GitHub <noreply@github.com> 1732815714 +0100\n\nMerge branch 'main' into feature/activity-bar-drag-drop-option",
+     "verified_at": "2024-11-28T17:41:58Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+   "html_url": "https://github.com/microsoft/vscode/commit/7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/7221c256a41efd726eba4e0d2f005f3166a7ecd6/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a5bed8c45e7ec52d9288a295596fa9977afa5163",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a5bed8c45e7ec52d9288a295596fa9977afa5163",
+     "html_url": "https://github.com/microsoft/vscode/commit/a5bed8c45e7ec52d9288a295596fa9977afa5163"
+    },
+    {
+     "sha": "025439de998856e4b8de6f8b29e78b33351e6230",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/025439de998856e4b8de6f8b29e78b33351e6230",
+     "html_url": "https://github.com/microsoft/vscode/commit/025439de998856e4b8de6f8b29e78b33351e6230"
+    }
+   ]
+  },
+  {
+   "sha": "9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+   "node_id": "C_kwDODaDU69oAKDliMTk2NjYxOTdlYzYzYWZiYzRkYzRiZGU4MDNkZTZlNzVkMGZlYTA",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2025-05-25T14:58:54Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2025-05-25T14:58:54Z"
+    },
+    "message": "Merge remote-tracking branch origin/main into feature/activity-bar-drag-drop-option",
+    "tree": {
+     "sha": "9e3dab5e677111605e4980b8575d502373fb57f1",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9e3dab5e677111605e4980b8575d502373fb57f1"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+   "html_url": "https://github.com/microsoft/vscode/commit/9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9b19666197ec63afbc4dc4bde803de6e75d0fea0/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7221c256a41efd726eba4e0d2f005f3166a7ecd6",
+     "html_url": "https://github.com/microsoft/vscode/commit/7221c256a41efd726eba4e0d2f005f3166a7ecd6"
+    },
+    {
+     "sha": "87d1648dbf341e534dadb49b3c4e313f29ebd551",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/87d1648dbf341e534dadb49b3c4e313f29ebd551",
+     "html_url": "https://github.com/microsoft/vscode/commit/87d1648dbf341e534dadb49b3c4e313f29ebd551"
+    }
+   ]
+  },
+  {
+   "sha": "a7015c3ca96d40f6d4423225989c359b18b9716d",
+   "node_id": "C_kwDODaDU69oAKGE3MDE1YzNjYTk2ZDQwZjZkNDQyMzIyNTk4OWMzNTliMThiOTcxNmQ",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-03-13T09:42:40Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-13T09:42:40Z"
+    },
+    "message": "Merge branch 'main' into feature/activity-bar-drag-drop-option",
+    "tree": {
+     "sha": "df6e85838cf8fa6082c3ab8c08f0c661165561d5",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/df6e85838cf8fa6082c3ab8c08f0c661165561d5"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a7015c3ca96d40f6d4423225989c359b18b9716d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJps9wQCRC1aQ7uu5UhlAAA2JQQAJsGM97DTGoAWBpDR+Fzr0Fk\nTS44H9kzBnpUtwU4H5UkzV+rZB+8eZYyOh9BDUmSV8/k47kiFBqTbPNgF0JIySrH\nq2GQdqRht3ArTGoe2SBEDuzNuCGFkWWqIwdiImbtD/kWg3vk7Defu5jQ1W8797Rz\nkimlazGH07+CuDkYCpsdOTG1Ijt9GsMe+nE5D1Ea0/SFvuKp9lQdOewAWe6V1xPp\n3+HhIvIE26wYzpGN/zVjJoyEJeXhK+wzpAd42IAHhgs5e/XE9GzECKVcKWk/V0M2\nKP6865boW2CMkIfZ7ptqegJafhJNNBtlSpFt+C01fHEyGIN2CTolmgn8U0U6wQmf\nuvE7z7zNSmFjIbEDD9BmjSZ++CT27KYd39XSinkD9OZRsSNXwxctjztcEwCd9Zg3\nITZzRJ7Mcidj5Me/O7En2CUgffdC8m6cwiiSp0Em+eTCDyntxfveL7d2MO3KLGjx\nxMfL3BbxHTpq+zkTO+pUkjaSAQPCsydhhP2+jGMijTmV7CPFChTjBKeLoknjmqKW\nEj5biZEtQfp9b/IUffpr1iowNHou7a7boxSXaRcoIX+wtk80DuuLmrmbhI3FuC3q\nwDsG4JqFqKjKExsibe3SfrHjoFxp742K84B7YVmqz8n61CiA5BVPaFutraBQfWC1\nOhhyQqRqKPjgq290YSE3\n=U7Fx\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree df6e85838cf8fa6082c3ab8c08f0c661165561d5\nparent 9b19666197ec63afbc4dc4bde803de6e75d0fea0\nparent 290bcc05aaf90a6ea70da3ced9c97ef6310d2944\nauthor Simon Siefke <simon.siefke@gmail.com> 1773394960 +0100\ncommitter GitHub <noreply@github.com> 1773394960 +0100\n\nMerge branch 'main' into feature/activity-bar-drag-drop-option",
+     "verified_at": "2026-03-13T09:42:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a7015c3ca96d40f6d4423225989c359b18b9716d",
+   "html_url": "https://github.com/microsoft/vscode/commit/a7015c3ca96d40f6d4423225989c359b18b9716d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a7015c3ca96d40f6d4423225989c359b18b9716d/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9b19666197ec63afbc4dc4bde803de6e75d0fea0",
+     "html_url": "https://github.com/microsoft/vscode/commit/9b19666197ec63afbc4dc4bde803de6e75d0fea0"
+    },
+    {
+     "sha": "290bcc05aaf90a6ea70da3ced9c97ef6310d2944",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/290bcc05aaf90a6ea70da3ced9c97ef6310d2944",
+     "html_url": "https://github.com/microsoft/vscode/commit/290bcc05aaf90a6ea70da3ced9c97ef6310d2944"
+    }
+   ]
+  },
+  {
+   "sha": "df821f359d59da70f03abc6c6578132197441f92",
+   "node_id": "C_kwDODaDU69oAKGRmODIxZjM1OWQ1OWRhNzBmMDNhYmM2YzY1NzgxMzIxOTc0NDFmOTI",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-03-13T10:00:18Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-13T10:00:18Z"
+    },
+    "message": "Potential fix for pull request finding\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "1214cbc74be1a6e93b70351e0b4c59a0a696d0c8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1214cbc74be1a6e93b70351e0b4c59a0a696d0c8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/df821f359d59da70f03abc6c6578132197441f92",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJps+AyCRC1aQ7uu5UhlAAAtGsQAFhjFkP5+wKzCFQ3Z13lr6pb\ngT5nmMCuz2bnaXYNPAi0OkyjjOKUMZCnSgc1ssa1qlFOSMQhEtwd1Frf+G5jkPZw\nUknWWxGIrhZxjiTx8WzktQUS4jyf0ZPZBkp+kL69s5wzEWyPiSC2kpBm37F/8nnj\n98Jy3Ajp1BXCkzdCYE/C+QvyfOYZmgf/OmhDM3M+WH4Rlx53BRPFPSeBlsMLSSBh\n+4K2DKZCQpSDuPkh5DNqIHcabHeSyc01vmbWoJc7yRkNFMpPUViFcU3ihvMvH0wo\neCxq52AL2QCyYUn45vbgooVd8QR/GyabUD4f9U21oBgTEqJSqKTaNZEvP9ytd5gB\n3rBxrMQUxa2NdjMY2gVZH2vVAL3Ynn/QCYJzmxbOp3ZQOQ5UFpEIFN1eoBCVgA9h\n6s6dSjV3KEK5xj/FcvPAN3Z+mHaAcKcf93VThQFhFMoBjda+XbYzTuotQIXjipgo\nmgc9S+rB+6d9Q//gRKS6Pe8TpQ68WCZa0cfQ4SXgpUsF9A1pLS3ul8vtobjwiZXW\ngIz3tJ1okAnKaK5pWzIVEK6PBKvFWBJzONvOgGvfy/H8hlmeWjsk74XhAvIw6E0+\nUP4ZV8NxC+AfVbgQ6qd+vJXcrxNkpIhfMAwHZQbGvZ1gqEDWcHrbjStCDkxQ7Ul1\nayz1V4juRFu55MrGtl31\n=G2J3\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1214cbc74be1a6e93b70351e0b4c59a0a696d0c8\nparent a7015c3ca96d40f6d4423225989c359b18b9716d\nauthor Simon Siefke <simon.siefke@gmail.com> 1773396018 +0100\ncommitter GitHub <noreply@github.com> 1773396018 +0100\n\nPotential fix for pull request finding\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2026-03-13T10:00:19Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/df821f359d59da70f03abc6c6578132197441f92",
+   "html_url": "https://github.com/microsoft/vscode/commit/df821f359d59da70f03abc6c6578132197441f92",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/df821f359d59da70f03abc6c6578132197441f92/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a7015c3ca96d40f6d4423225989c359b18b9716d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a7015c3ca96d40f6d4423225989c359b18b9716d",
+     "html_url": "https://github.com/microsoft/vscode/commit/a7015c3ca96d40f6d4423225989c359b18b9716d"
+    }
+   ]
+  },
+  {
+   "sha": "da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "node_id": "C_kwDODaDU69oAKGRhNjdiN2E1OTIwOTI1Y2EzMTU3ZmEyY2JjZjQxYmJkMzY3OGU2NzE",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-06-24T10:37:30Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-24T10:37:30Z"
+    },
+    "message": "Merge branch 'main' into feature/activity-bar-drag-drop-option",
+    "tree": {
+     "sha": "4454ef107794fb8594d10770a6bc552486dc7a85",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4454ef107794fb8594d10770a6bc552486dc7a85"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqO7NqCRC1aQ7uu5UhlAAAk+8QACull1KAYIhlH8mv2HBULBnx\nVQ/WIhCEKZDC/3AjNxceXKq/WKPpB9KbYXgHSc3ikEmm2Xv1abRHyHiZJjXm1536\nw0L4KHSqw+y3mIRVKahAh4CJ32hJ/F6pOa37iGkyQnk7/JPuG/X53imTSvr77TgE\n6aMVOxjONTJZT+plIio/rTH33gEtc6fSOtY2+CGwjoMHI4z7dFGSFtzzwO5Mxckl\nvdlkuktDjwMu9EpKKvQpifvppn2A6nl6ha3bUFOtBsFYPXVLtwGz7sBVgDvYdQ2C\nhUFZJuUixsBPV5X/z2/2RnbEMfWwUZMKbXaljTaOgjSXwq3J/E5FvKRQLQhnwV/Q\nTM5jz191zFHUZl1SgudHN3Qyb66ebAp6WC/8art5h0nv6HstfyDPc4jZLTPBG6x6\nhNdV/0uLF8aKR4ADukyb9Yx/T6IjJhbq+SIp6cLGW2XKlFJLffB5pe8Z7TOUK81H\nYjNXYW9pAYRqAwkPDPFuqUPTJ5IiJIkso/qwJrbUfTvyNa/3DXasvA1KwJODmtik\nMnPhxvRzxt/P4K5l+s6Hd5y//N9V93VoFtF4IHUx3mx6ZjFFsFskgzODoHBWMpe9\n+kU3F4u7ua1p8Z9/rC8dgvVuNw9Rc9hbQBpOoq33soKaXrVt6kPi4yCtXP7DY+a1\nNKoNPlJcvuIs1VNR3b3W\n=Enov\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4454ef107794fb8594d10770a6bc552486dc7a85\nparent df821f359d59da70f03abc6c6578132197441f92\nparent d416fdd1948ed103551282572d6f1c546f2e5223\nauthor Simon Siefke <simon.siefke@gmail.com> 1782297450 +0200\ncommitter GitHub <noreply@github.com> 1782297450 +0200\n\nMerge branch 'main' into feature/activity-bar-drag-drop-option",
+     "verified_at": "2026-06-24T10:37:31Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "html_url": "https://github.com/microsoft/vscode/commit/da67b7a5920925ca3157fa2cbcf41bbd3678e671",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/da67b7a5920925ca3157fa2cbcf41bbd3678e671/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "df821f359d59da70f03abc6c6578132197441f92",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df821f359d59da70f03abc6c6578132197441f92",
+     "html_url": "https://github.com/microsoft/vscode/commit/df821f359d59da70f03abc6c6578132197441f92"
+    },
+    {
+     "sha": "d416fdd1948ed103551282572d6f1c546f2e5223",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d416fdd1948ed103551282572d6f1c546f2e5223",
+     "html_url": "https://github.com/microsoft/vscode/commit/d416fdd1948ed103551282572d6f1c546f2e5223"
+    }
+   ]
+  }
+ ]
+}

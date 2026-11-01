@@ -1,0 +1,315 @@
+{
+ "fetchedAt": "2026-11-01T00:52:54.533Z",
+ "pr": {
+  "number": 298575,
+  "title": "Fix multiple Simple Browser instances on rapid clicks (Issue #182795)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-03-01T14:10:46Z",
+  "updated_at": "2026-03-27T07:28:22Z",
+  "user": "Buconero03",
+  "author_association": "NONE",
+  "additions": 57,
+  "deletions": 41,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-simple-browser-race",
+   "sha": "91a3cf8ed674fe035ad8bc77c1228af935363104",
+   "repo": "Buconero03/vscode",
+   "label": "Buconero03:fix-simple-browser-race"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "dee49a91907ccd0616bac9b14433eba3221ee968"
+  },
+  "body": "\"This PR fixes the race condition in Simple Browser that caused multiple webviews to open on rapid clicks or during editor restore. Added a check using vscode.window.tabGroups to see if a restoring tab already exists.\"",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "3da45de838cc331e0947aad0db536f4559ad0c42",
+   "filename": "extensions/simple-browser/src/simpleBrowserManager.ts",
+   "status": "modified",
+   "additions": 57,
+   "deletions": 41,
+   "changes": 98,
+   "blob_url": "https://github.com/microsoft/vscode/blob/91a3cf8ed674fe035ad8bc77c1228af935363104/extensions%2Fsimple-browser%2Fsrc%2FsimpleBrowserManager.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/91a3cf8ed674fe035ad8bc77c1228af935363104/extensions%2Fsimple-browser%2Fsrc%2FsimpleBrowserManager.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fsimple-browser%2Fsrc%2FsimpleBrowserManager.ts?ref=91a3cf8ed674fe035ad8bc77c1228af935363104",
+   "patch": "@@ -1,49 +1,65 @@\n /*---------------------------------------------------------------------------------------------\n- *  Copyright (c) Microsoft Corporation. All rights reserved.\n- *  Licensed under the MIT License. See License.txt in the project root for license information.\n+ * Copyright (c) Microsoft Corporation. All rights reserved.\n+ * Licensed under the MIT License. See License.txt in the project root for license information.\n  *--------------------------------------------------------------------------------------------*/\n \n import * as vscode from 'vscode';\n import { ShowOptions, SimpleBrowserView } from './simpleBrowserView';\n \n export class SimpleBrowserManager {\n \n-\tprivate _activeView?: SimpleBrowserView;\n-\n-\tconstructor(\n-\t\tprivate readonly extensionUri: vscode.Uri,\n-\t) { }\n-\n-\tdispose() {\n-\t\tthis._activeView?.dispose();\n-\t\tthis._activeView = undefined;\n-\t}\n-\n-\tpublic show(inputUri: string | vscode.Uri, options?: ShowOptions): void {\n-\t\tconst url = typeof inputUri === 'string' ? inputUri : inputUri.toString(true);\n-\t\tif (this._activeView) {\n-\t\t\tthis._activeView.show(url, options);\n-\t\t} else {\n-\t\t\tconst view = SimpleBrowserView.create(this.extensionUri, url, options);\n-\t\t\tthis.registerWebviewListeners(view);\n-\n-\t\t\tthis._activeView = view;\n-\t\t}\n-\t}\n-\n-\tpublic restore(panel: vscode.WebviewPanel, state: any): void {\n-\t\tconst url = state?.url ?? '';\n-\t\tconst view = SimpleBrowserView.restore(this.extensionUri, url, panel);\n-\t\tthis.registerWebviewListeners(view);\n-\t\tthis._activeView ??= view;\n-\t}\n-\n-\tprivate registerWebviewListeners(view: SimpleBrowserView) {\n-\t\tview.onDispose(() => {\n-\t\t\tif (this._activeView === view) {\n-\t\t\t\tthis._activeView = undefined;\n-\t\t\t}\n-\t\t});\n-\t}\n-\n-}\n+    private _activeView?: SimpleBrowserView;\n+\n+    constructor(\n+        private readonly extensionUri: vscode.Uri,\n+    ) { }\n+\n+    dispose() {\n+        this._activeView?.dispose();\n+        this._activeView = undefined;\n+    }\n+\n+    public show(inputUri: string | vscode.Uri, options?: ShowOptions): void {\n+        const url = typeof inputUri === 'string' ? inputUri : inputUri.toString(true);\n+\n+        // 1. If we already have an active view, show it.\n+        if (this._activeView) {\n+            this._activeView.show(url, options);\n+            return;\n+        }\n+\n+        // 2. FIX: Check real VS Code tabs to see if a Simple Browser webview is already restoring\n+        const hasRestoringTab = vscode.window.tabGroups.all.some(group =>\n+            group.tabs.some(tab =>\n+                tab.input instanceof vscode.TabInputWebview &&\n+                tab.input.viewType === SimpleBrowserView.viewType\n+            )\n+        );\n+\n+        if (hasRestoringTab) {\n+            // If a tab is restoring, ignore duplicate creation.\n+            return;\n+        }\n+\n+        // 3. If no browser is found, safely create a new one.\n+        const view = SimpleBrowserView.create(this.extensionUri, url, options);\n+        this.registerWebviewListeners(view);\n+        this._activeView = view;\n+    }\n+\n+    public restore(panel: vscode.WebviewPanel, state: any): void {\n+        const url = state?.url ?? '';\n+        const view = SimpleBrowserView.restore(this.extensionUri, url, panel);\n+        this.registerWebviewListeners(view);\n+        this._activeView ??= view;\n+    }\n+\n+    private registerWebviewListeners(view: SimpleBrowserView) {\n+        view.onDispose(() => {\n+            if (this._activeView === view) {\n+                this._activeView = undefined;\n+            }\n+        });\n+    }\n+\n+}\n\\ No newline at end of file"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4019370587,
+   "node_id": "PRR_kwDOAn8RLM7vkrpb",
+   "user": {
+    "login": "mjbvz",
+    "id": 12821956,
+    "node_id": "MDQ6VXNlcjEyODIxOTU2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12821956?u=a3fbee3660f44f68c36889429bf76645fa2cfc65&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mjbvz",
+    "html_url": "https://github.com/mjbvz",
+    "followers_url": "https://api.github.com/users/mjbvz/followers",
+    "following_url": "https://api.github.com/users/mjbvz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mjbvz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mjbvz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mjbvz/subscriptions",
+    "organizations_url": "https://api.github.com/users/mjbvz/orgs",
+    "repos_url": "https://api.github.com/users/mjbvz/repos",
+    "events_url": "https://api.github.com/users/mjbvz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mjbvz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Please fix the formatting",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/298575#pullrequestreview-4019370587",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/298575",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/298575#pullrequestreview-4019370587"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/298575"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-03-27T07:28:22Z",
+   "commit_id": "91a3cf8ed674fe035ad8bc77c1228af935363104"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3980052650",
+   "html_url": "https://github.com/microsoft/vscode/pull/298575#issuecomment-3980052650",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/298575",
+   "id": 3980052650,
+   "node_id": "IC_kwDOAn8RLM7tOsiq",
+   "user": {
+    "login": "Buconero03",
+    "id": 204336294,
+    "node_id": "U_kgDODC3spg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/204336294?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Buconero03",
+    "html_url": "https://github.com/Buconero03",
+    "followers_url": "https://api.github.com/users/Buconero03/followers",
+    "following_url": "https://api.github.com/users/Buconero03/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Buconero03/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Buconero03/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Buconero03/subscriptions",
+    "organizations_url": "https://api.github.com/users/Buconero03/orgs",
+    "repos_url": "https://api.github.com/users/Buconero03/repos",
+    "events_url": "https://api.github.com/users/Buconero03/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Buconero03/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-01T14:13:37Z",
+   "updated_at": "2026-03-01T14:13:37Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3980052650/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+   "node_id": "C_kwDORbUal9oAKDQzYjgzZDJlNTU3YzlkNDM2Mjk0MThlYWY4YWYwYzU0ZWYxYTM2NWI",
+   "commit": {
+    "author": {
+     "name": "Buconero03",
+     "email": "bot10@outlook.it",
+     "date": "2026-03-01T14:01:57Z"
+    },
+    "committer": {
+     "name": "Buconero03",
+     "email": "bot10@outlook.it",
+     "date": "2026-03-01T14:01:57Z"
+    },
+    "message": "Fix multiple Simple Browser instances on rapid clicks (Issue #182795)",
+    "tree": {
+     "sha": "74c326af3b7ee3453a8be5522ead4ada925082d0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/74c326af3b7ee3453a8be5522ead4ada925082d0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+   "html_url": "https://github.com/microsoft/vscode/commit/43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/43b83d2e557c9d43629418eaf8af0c54ef1a365b/comments",
+   "author": {
+    "login": "Buconero03",
+    "id": 204336294,
+    "node_id": "U_kgDODC3spg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/204336294?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Buconero03",
+    "html_url": "https://github.com/Buconero03",
+    "followers_url": "https://api.github.com/users/Buconero03/followers",
+    "following_url": "https://api.github.com/users/Buconero03/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Buconero03/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Buconero03/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Buconero03/subscriptions",
+    "organizations_url": "https://api.github.com/users/Buconero03/orgs",
+    "repos_url": "https://api.github.com/users/Buconero03/repos",
+    "events_url": "https://api.github.com/users/Buconero03/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Buconero03/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Buconero03",
+    "id": 204336294,
+    "node_id": "U_kgDODC3spg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/204336294?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Buconero03",
+    "html_url": "https://github.com/Buconero03",
+    "followers_url": "https://api.github.com/users/Buconero03/followers",
+    "following_url": "https://api.github.com/users/Buconero03/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Buconero03/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Buconero03/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Buconero03/subscriptions",
+    "organizations_url": "https://api.github.com/users/Buconero03/orgs",
+    "repos_url": "https://api.github.com/users/Buconero03/repos",
+    "events_url": "https://api.github.com/users/Buconero03/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Buconero03/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a6967f74525156183d16edacc539222000389f48",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a6967f74525156183d16edacc539222000389f48",
+     "html_url": "https://github.com/microsoft/vscode/commit/a6967f74525156183d16edacc539222000389f48"
+    }
+   ]
+  },
+  {
+   "sha": "91a3cf8ed674fe035ad8bc77c1228af935363104",
+   "node_id": "C_kwDORbUal9oAKDkxYTNjZjhlZDY3NGZlMDM1YWQ4YmM3N2MxMjI4YWY5MzUzNjMxMDQ",
+   "commit": {
+    "author": {
+     "name": "Buconero03",
+     "email": "bot10@outlook.it",
+     "date": "2026-03-07T02:42:19Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-07T02:42:19Z"
+    },
+    "message": "Merge branch 'main' into fix-simple-browser-race",
+    "tree": {
+     "sha": "f5b8df544ba0e05c5773ff30bab7b21007263f60",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f5b8df544ba0e05c5773ff30bab7b21007263f60"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/91a3cf8ed674fe035ad8bc77c1228af935363104",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpq5CLCRC1aQ7uu5UhlAAAbGMQAIaBT6rKqEg+qHAer3q5axL0\nezw3NkG8AyhHNDsZW92Dn+ee9uuZciARMyKvlfSzcU97zZ14c4bxxPqC3EP6ru5T\nMaxlF7aSIThrRjdvqJRGh9iqJu16QsmTIvvBVqYLORrHdNU42mfwmqzRsLNPiWpc\nAjznZJR3I5/W5QhXEF2zUPTaYf/aSyP8UBEnDDtqvs+9wNhNIswlFQgCWPpoGrAU\n1PgQ9MGf/3sTzTs0jQfR3m2wGAd61a6siJ/bteqhNbxQPhZ+uRdCN9WUU+TraSeV\nEp7hZRP6wKgTRH5thoyc9iQiFvDIJ5F0hRRlbjVZ7dpttclqnoGmJfRDO1s1raNK\ndxKMINTGqwSEGaSf/uSLS9dWkBz7ZyX8QCgiDwraafbI1xrJWA843svxW2T1otfl\nAw2P6BUDvHQXFEHHx7vIAzRlDGg2D9zJVY+y2ua5KgYoCRFZVSCeshc4QNnrHprt\nO+B8NwOwYvUIQdmszFOjjXi/NTb4deprIj8yd/DrAVJ91BqUHabDAuDX9i7jsL+S\nJOk5kBi2lEZmjfjW5OGKXYAnnlEMkoFZJ2cWQbhCEyvczhSLuXr1NB7oT+OKAECc\n2+cBTTdiGXpfycrKtBMFWLwfhB0OKIoyR9gaFqllJhPHNe/aIuXNuUFORefqK8sC\nkNvR9mQLkNPwKK37aFDw\n=msn4\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f5b8df544ba0e05c5773ff30bab7b21007263f60\nparent 43b83d2e557c9d43629418eaf8af0c54ef1a365b\nparent dee49a91907ccd0616bac9b14433eba3221ee968\nauthor Buconero03 <bot10@outlook.it> 1772851339 +0100\ncommitter GitHub <noreply@github.com> 1772851339 +0100\n\nMerge branch 'main' into fix-simple-browser-race",
+     "verified_at": "2026-03-07T02:42:19Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/91a3cf8ed674fe035ad8bc77c1228af935363104",
+   "html_url": "https://github.com/microsoft/vscode/commit/91a3cf8ed674fe035ad8bc77c1228af935363104",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/91a3cf8ed674fe035ad8bc77c1228af935363104/comments",
+   "author": {
+    "login": "Buconero03",
+    "id": 204336294,
+    "node_id": "U_kgDODC3spg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/204336294?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Buconero03",
+    "html_url": "https://github.com/Buconero03",
+    "followers_url": "https://api.github.com/users/Buconero03/followers",
+    "following_url": "https://api.github.com/users/Buconero03/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Buconero03/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Buconero03/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Buconero03/subscriptions",
+    "organizations_url": "https://api.github.com/users/Buconero03/orgs",
+    "repos_url": "https://api.github.com/users/Buconero03/repos",
+    "events_url": "https://api.github.com/users/Buconero03/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Buconero03/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/43b83d2e557c9d43629418eaf8af0c54ef1a365b",
+     "html_url": "https://github.com/microsoft/vscode/commit/43b83d2e557c9d43629418eaf8af0c54ef1a365b"
+    },
+    {
+     "sha": "dee49a91907ccd0616bac9b14433eba3221ee968",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/dee49a91907ccd0616bac9b14433eba3221ee968",
+     "html_url": "https://github.com/microsoft/vscode/commit/dee49a91907ccd0616bac9b14433eba3221ee968"
+    }
+   ]
+  }
+ ]
+}

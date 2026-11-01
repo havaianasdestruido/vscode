@@ -1,0 +1,183 @@
+{
+ "fetchedAt": "2026-11-01T00:55:53.740Z",
+ "pr": {
+  "number": 344082,
+  "title": "Fixes #344081: Improve test diagnostics and error logging for chat input automation helper",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-24T22:47:16Z",
+  "updated_at": "2026-10-25T00:53:01Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 28,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [
+   "triage-needed"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-56",
+   "sha": "9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-56"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "86db3b69224f75a786f815684bc96fc0eb5d9300"
+  },
+  "body": "Fixes #344081\n\n## Description\nThis PR enhances error diagnostics for the chat input Playwright automation helper.\n\nWhen no chat input element is found after keyboard shortcuts and command palette fallbacks, the runner now gathers selector-level metrics (candidate count, visibility, and exclusion status) before throwing an error.\n\n## Benefits\n- Provides clear diagnostic insights directly in CI/CD pipeline logs.\n- Reduces debugging overhead when identifying flaky tests.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "f7e35bfc2483ba008dca7837c8073262454d69e7",
+   "filename": ".agents/skills/launch/playwrightScripts/focus-chat-input.ts",
+   "status": "modified",
+   "additions": 28,
+   "deletions": 1,
+   "changes": 29,
+   "blob_url": "https://github.com/microsoft/vscode/blob/9d22b9f0fa33a6160f2e9bb615035e413417e39a/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/9d22b9f0fa33a6160f2e9bb615035e413417e39a/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.agents%2Fskills%2Flaunch%2FplaywrightScripts%2Ffocus-chat-input.ts?ref=9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+   "patch": "@@ -31,6 +31,32 @@ async page => {\n \t\treturn firstVisible;\n \t};\n \n+\tconst getDiagnostics = async () => {\n+\t\tconst diagnostics = [];\n+\t\tfor (const selector of selectors) {\n+\t\t\tconst candidates = page.locator(selector);\n+\t\t\tconst count = await candidates.count();\n+\t\t\tlet visibleCount = 0;\n+\t\t\tlet excludedCount = 0;\n+\n+\t\t\tfor (let index = 0; index < count; index++) {\n+\t\t\t\tconst candidate = candidates.nth(index);\n+\t\t\t\tconst isVisible = await candidate.isVisible();\n+\t\t\t\tconst isExcluded = await candidate.evaluate(element => Boolean(element.closest('.inline-chat-widget, .automation-form-prompt-host')));\n+\n+\t\t\t\tif (isVisible) {\n+\t\t\t\t\tvisibleCount++;\n+\t\t\t\t}\n+\t\t\t\tif (isExcluded) {\n+\t\t\t\t\texcludedCount++;\n+\t\t\t\t}\n+\t\t\t}\n+\n+\t\t\tdiagnostics.push(`[${selector}: total=${count}, visible=${visibleCount}, excluded=${excludedCount}]`);\n+\t\t}\n+\t\treturn diagnostics.join('; ');\n+\t};\n+\n \tconst isFocused = input => input.evaluate(element => document.activeElement === element);\n \tconst focusIfNeeded = async input => {\n \t\tif (await isFocused(input)) {\n@@ -82,7 +108,8 @@ async page => {\n \t}\n \n \tif (!match) {\n-\t\tthrow new Error(`No visible chat input found after invoking ${shortcut} and the command palette fallback`);\n+\t\tconst diagnosticsSummary = await getDiagnostics();\n+\t\tthrow new Error(`No visible chat input found after invoking ${shortcut} and the command palette fallback. Diagnostics: ${diagnosticsSummary}`);\n \t}\n \n \tconst focusInvoked = await focusIfNeeded(match.input);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5640416583,
+   "node_id": "PRR_kwDOAn8RLM8AAAABUDHtRw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n### 🟢 Approval recommended\n\nThe change is limited to failure reporting, preserves existing focus behavior, and has no identified blocking issues.\n\n**No open issues** 🎉\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nImproves failure diagnostics in the Playwright chat-input helper, addressing #344081 by making selector failures easier to diagnose in CI logs.\n\n**Changes:**\n- Collects total, visible, and excluded candidate counts for each chat-input selector.\n- Includes these metrics in the error when shortcut and command-palette fallbacks fail, without changing the existing focus flow.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `.agents/​skills/​launch/​playwrightScripts/​focus-chat-input.ts` | Adds selector-level diagnostics to the chat-input lookup failure message. |\n</details>\n\n<sub>Review effort: Balanced</sub>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/344082#pullrequestreview-5640416583",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/344082",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/344082#pullrequestreview-5640416583"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/344082"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-24T22:51:03Z",
+   "commit_id": "9d22b9f0fa33a6160f2e9bb615035e413417e39a"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+   "node_id": "C_kwDOTk4kkdoAKDlkMjJiOWYwZmEzM2E2MTYwZjJlOWJiNjE1MDM1ZTQxMzQxN2UzOWE",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-10-24T22:46:28Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-24T22:46:28Z"
+    },
+    "message": "Improve test diagnostics and error logging for chat input automation helper\n\nThis change enhances error diagnostics for the chat input Playwright automation helper. When no chat input element is found, the runner now gathers selector-level metrics (candidate count, visibility, and exclusion status) before throwing an error to improve CI pipeline log analysis.",
+    "tree": {
+     "sha": "70c2f6c7da40d89ab9511f00588de236335d734a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/70c2f6c7da40d89ab9511f00588de236335d734a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq3TVECRC1aQ7uu5UhlAAAPnoQABGKnmaDSuQkDYZ3tVQUq8HB\nUWiFBCAb1TVR0mIf5eI/G6QPJJjPDkHuMA/z+8feiy8gWzFSjMZEIQ+pmZT8X+3s\n3u/bGTeBx1mPg9zz+9R03q4p4BbFf6L9NMVGczLltjEW3cH8tv3NnlO+ViE2Ngwf\nXXU71zuVqMbgwO6dEXCLKCyphB+Mdh54FEhugUyNryUEEdCgw7SImdmACCdMUdvt\nGbdSoEzyXfPFqf+UBFb0xWRzRU6SZmAcH6aGrosXulYHtNNoCoXjf6TRjPr47weU\n9/jy8jQQVBK6zhiN7dL/nWOt1QdtDZIJ+t10EvYtMZxsgoHglIiReGI0LmBvpAGM\nIPZxY/A5tIJoYHMYuw9OVsYwaFwAWBr19DgtEoNzsxAZbBenWBMD0zmMtIYenYi1\nlTXR42EiEtN38dwdvqaxqlXeYpKpAg6Cpl5KCC2UvfNrSWRf2mrKjspvnKQzZdgy\nZTCaR/iagf1NSWhAoaCgOmVBtdqD6fCIdSWlgjJD9wXbig4YU97bXc6ep7/0WjPR\nHAmAqtm9pf77I4Jd9eS2VIFeCO2sslqRzMF6SKJLiDNCmO2mmt0wUnS8sIDTa3xD\nuwAfN7j+VF5TVlFL+mxPNf6lYEt3BMoEKL+mTjaKtGN+RQrgWIkdLRhRih5J3UmJ\nd3BN8AY9YcQ5dXULyOHu\n=IKMr\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 70c2f6c7da40d89ab9511f00588de236335d734a\nparent 86db3b69224f75a786f815684bc96fc0eb5d9300\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1792881988 +0300\ncommitter GitHub <noreply@github.com> 1792881988 +0300\n\nImprove test diagnostics and error logging for chat input automation helper\n\nThis change enhances error diagnostics for the chat input Playwright automation helper. When no chat input element is found, the runner now gathers selector-level metrics (candidate count, visibility, and exclusion status) before throwing an error to improve CI pipeline log analysis.",
+     "verified_at": "2026-10-24T22:46:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+   "html_url": "https://github.com/microsoft/vscode/commit/9d22b9f0fa33a6160f2e9bb615035e413417e39a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9d22b9f0fa33a6160f2e9bb615035e413417e39a/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "86db3b69224f75a786f815684bc96fc0eb5d9300",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/86db3b69224f75a786f815684bc96fc0eb5d9300",
+     "html_url": "https://github.com/microsoft/vscode/commit/86db3b69224f75a786f815684bc96fc0eb5d9300"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,359 @@
+{
+ "fetchedAt": "2026-11-01T00:51:50.092Z",
+ "pr": {
+  "number": 235555,
+  "title": "refactor: move focus and selection change handlers to event emitters",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-12-07T21:59:33Z",
+  "updated_at": "2026-01-20T10:13:49Z",
+  "user": "EricGusmao",
+  "author_association": "NONE",
+  "additions": 20,
+  "deletions": 13,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "refactor-rename-candidate-list-view",
+   "sha": "ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+   "repo": "EricGusmao/vscode",
+   "label": "EricGusmao:refactor-rename-candidate-list-view"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "This pull request includes minor changes to the `RenameWidget` and `RenameCandidateListView` classes in the `src/vs/editor/contrib/rename/browser/renameWidget.ts` file. The changes focus on refactoring event handling to use event emitters instead of direct function calls. As suggested by  @ulugbekna in his FIXME comment \r\n\r\nRefactoring event handling:\r\n\r\n* `RenameWidget`: Removed inline event handler functions for focus and selection changes from the `RenameCandidateListView` constructor, and added them as disposables separately.  \r\n* Replaced direct function calls for `onFocusChange` and `onSelectionChange` with event emitters `_onFocusChange` and `_onSelectionChange`. ",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "23958103a2d0a4378026428cb8477def1044416e",
+   "filename": "src/vs/editor/contrib/rename/browser/renameWidget.ts",
+   "status": "modified",
+   "additions": 20,
+   "deletions": 13,
+   "changes": 33,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7/src%2Fvs%2Feditor%2Fcontrib%2Frename%2Fbrowser%2FrenameWidget.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7/src%2Fvs%2Feditor%2Fcontrib%2Frename%2Fbrowser%2FrenameWidget.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Frename%2Fbrowser%2FrenameWidget.ts?ref=ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+   "patch": "@@ -202,15 +202,7 @@ export class RenameWidget implements IRenameWidget, IContentWidget, IDisposable\n \n \t\t\tthis._renameCandidateListView = this._disposables.add(\n \t\t\t\tnew RenameCandidateListView(this._domNode, {\n-\t\t\t\t\tfontInfo: this._editor.getOption(EditorOption.fontInfo),\n-\t\t\t\t\tonFocusChange: (newSymbolName: string) => {\n-\t\t\t\t\t\tthis._inputWithButton.input.value = newSymbolName;\n-\t\t\t\t\t\tthis._isEditingRenameCandidate = false; // @ulugbekna: reset\n-\t\t\t\t\t},\n-\t\t\t\t\tonSelectionChange: () => {\n-\t\t\t\t\t\tthis._isEditingRenameCandidate = false; // @ulugbekna: because user picked a rename suggestion\n-\t\t\t\t\t\tthis.acceptInput(false); // we don't allow preview with mouse click for now\n-\t\t\t\t\t}\n+\t\t\t\t\tfontInfo: this._editor.getOption(EditorOption.fontInfo)\n \t\t\t\t})\n \t\t\t);\n \n@@ -227,6 +219,16 @@ export class RenameWidget implements IRenameWidget, IContentWidget, IDisposable\n \t\t\t\t})\n \t\t\t);\n \n+\t\t\tthis._disposables.add(this._renameCandidateListView.onFocusChange((newSymbolName: string) => {\n+\t\t\t\tthis._inputWithButton.input.value = newSymbolName;\n+\t\t\t\tthis._isEditingRenameCandidate = false; // @ulugbekna: reset\n+\t\t\t}));\n+\n+\t\t\tthis._disposables.add(this._renameCandidateListView.onSelectionChange(() => {\n+\t\t\t\tthis._isEditingRenameCandidate = false; // @ulugbekna: because user picked a rename suggestion\n+\t\t\t\tthis.acceptInput(false); // we don't allow preview with mouse click for now\n+\t\t\t}));\n+\n \t\t\tthis._label = document.createElement('div');\n \t\t\tthis._label.className = 'rename-label';\n \t\t\tthis._domNode.appendChild(this._label);\n@@ -675,8 +677,13 @@ class RenameCandidateListView {\n \n \tprivate readonly _disposables: DisposableStore;\n \n-\t// FIXME@ulugbekna: rewrite using event emitters\n-\tconstructor(parent: HTMLElement, opts: { fontInfo: FontInfo; onFocusChange: (newSymbolName: string) => void; onSelectionChange: () => void }) {\n+\tprivate readonly _onFocusChange = new Emitter<string>();\n+\tpublic readonly onFocusChange = this._onFocusChange.event;\n+\n+\tprivate readonly _onSelectionChange = new Emitter<void>();\n+\tpublic readonly onSelectionChange = this._onSelectionChange.event;\n+\n+\tconstructor(parent: HTMLElement, opts: { fontInfo: FontInfo }) {\n \n \t\tthis._disposables = new DisposableStore();\n \n@@ -695,7 +702,7 @@ class RenameCandidateListView {\n \t\tthis._listWidget.onDidChangeFocus(\n \t\t\te => {\n \t\t\t\tif (e.elements.length === 1) {\n-\t\t\t\t\topts.onFocusChange(e.elements[0].newSymbolName);\n+\t\t\t\t\tthis._onFocusChange.fire(e.elements[0].newSymbolName);\n \t\t\t\t}\n \t\t\t},\n \t\t\tthis._disposables\n@@ -704,7 +711,7 @@ class RenameCandidateListView {\n \t\tthis._listWidget.onDidChangeSelection(\n \t\t\te => {\n \t\t\t\tif (e.elements.length === 1) {\n-\t\t\t\t\topts.onSelectionChange();\n+\t\t\t\t\tthis._onSelectionChange.fire();\n \t\t\t\t}\n \t\t\t},\n \t\t\tthis._disposables"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2525323222",
+   "html_url": "https://github.com/microsoft/vscode/pull/235555#issuecomment-2525323222",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/235555",
+   "id": 2525323222,
+   "node_id": "IC_kwDOAn8RLM6WhV_W",
+   "user": {
+    "login": "EricGusmao",
+    "id": 78504663,
+    "node_id": "MDQ6VXNlcjc4NTA0NjYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78504663?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/EricGusmao",
+    "html_url": "https://github.com/EricGusmao",
+    "followers_url": "https://api.github.com/users/EricGusmao/followers",
+    "following_url": "https://api.github.com/users/EricGusmao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/EricGusmao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/EricGusmao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/EricGusmao/subscriptions",
+    "organizations_url": "https://api.github.com/users/EricGusmao/orgs",
+    "repos_url": "https://api.github.com/users/EricGusmao/repos",
+    "events_url": "https://api.github.com/users/EricGusmao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/EricGusmao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-12-07T22:01:02Z",
+   "updated_at": "2024-12-07T22:01:02Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2525323222/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+   "node_id": "C_kwDONaaBoNoAKGYyMGU0MzhhOWZjOWE1OGJmNDNlNTIyZTc4NDgxYzg2OWViZDJhZDg",
+   "commit": {
+    "author": {
+     "name": "Eric Gusmao",
+     "email": "ericdegusmaopino@gmail.com",
+     "date": "2024-12-07T21:49:01Z"
+    },
+    "committer": {
+     "name": "Eric Gusmao",
+     "email": "ericdegusmaopino@gmail.com",
+     "date": "2024-12-07T21:49:01Z"
+    },
+    "message": "refactor: move focus and selection change handlers to event emitters in RenameCandidateListView",
+    "tree": {
+     "sha": "632e4c8b78151b4a518114fd3c584e2848350896",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/632e4c8b78151b4a518114fd3c584e2848350896"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+   "html_url": "https://github.com/microsoft/vscode/commit/f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f20e438a9fc9a58bf43e522e78481c869ebd2ad8/comments",
+   "author": {
+    "login": "EricGusmao",
+    "id": 78504663,
+    "node_id": "MDQ6VXNlcjc4NTA0NjYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78504663?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/EricGusmao",
+    "html_url": "https://github.com/EricGusmao",
+    "followers_url": "https://api.github.com/users/EricGusmao/followers",
+    "following_url": "https://api.github.com/users/EricGusmao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/EricGusmao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/EricGusmao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/EricGusmao/subscriptions",
+    "organizations_url": "https://api.github.com/users/EricGusmao/orgs",
+    "repos_url": "https://api.github.com/users/EricGusmao/repos",
+    "events_url": "https://api.github.com/users/EricGusmao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/EricGusmao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "EricGusmao",
+    "id": 78504663,
+    "node_id": "MDQ6VXNlcjc4NTA0NjYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78504663?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/EricGusmao",
+    "html_url": "https://github.com/EricGusmao",
+    "followers_url": "https://api.github.com/users/EricGusmao/followers",
+    "following_url": "https://api.github.com/users/EricGusmao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/EricGusmao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/EricGusmao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/EricGusmao/subscriptions",
+    "organizations_url": "https://api.github.com/users/EricGusmao/orgs",
+    "repos_url": "https://api.github.com/users/EricGusmao/repos",
+    "events_url": "https://api.github.com/users/EricGusmao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/EricGusmao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "37f3474c44ac0a2cfc912c0760a24258cc08ebf0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/37f3474c44ac0a2cfc912c0760a24258cc08ebf0",
+     "html_url": "https://github.com/microsoft/vscode/commit/37f3474c44ac0a2cfc912c0760a24258cc08ebf0"
+    }
+   ]
+  },
+  {
+   "sha": "66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+   "node_id": "C_kwDONaaBoNoAKDY2ZDNiNGM0YTBhZmRmM2RhYmRlMDY3ZjNlYjFmMmMxNjFlZWMxNzU",
+   "commit": {
+    "author": {
+     "name": "Eric Gusmão",
+     "email": "78504663+EricGusmao@users.noreply.github.com",
+     "date": "2024-12-19T15:37:58Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-12-19T15:37:58Z"
+    },
+    "message": "Merge branch 'main' into refactor-rename-candidate-list-view",
+    "tree": {
+     "sha": "1402d8737ebf3c7a28afdb77461828898887f055",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1402d8737ebf3c7a28afdb77461828898887f055"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnZD3WCRC1aQ7uu5UhlAAAgfQQAHUKd8kxhtkdHfdrNLIc6hG1\nCYWA1xj47IUplILU6hGH8r2dHU5gCoc19aV63rUy+3HguHkxD9qs2q4iywf2/P6C\nRN1iTmk/H/ArZmtzUUk+j2ITKDh7Q8YptjAgV9ubdyjlgnPlccfehUICodRaz+k+\nyon2LPsW5tGcq7mFyFxD/hbTPm9rsFCBOXdokAbfarOx2Wcr6xqH3KfvVR3/Ya6z\n54JNB8/qQyWMThqYsyzovSYvFinbXdb0CTMuQ9zytgYvvuXToHKwdPgYMssMkDel\nc4Gp80agSLjEJiu846J9HqF9eHK8qqsIZdP8YaxDN2zR5Rnjp9l24no37h7KVcfF\nYzN+tOcsqSBv0vuJeu5JJj1Fj6OZjsTorDRU2sJInNf49OHRJVl8HnRx+5kSn9zn\n/wCyupDab88+mlzXl6dMZqoN5suQTEJ648QlYe3gBqh8fDjW1eLb7mxbe1nwffnL\nAwWtdmh4OA2DyGw0PSmmbDKYSYUC+7/ZhYF6pXOxoBurT0CUsL9VgiX7czDd9NzJ\nat3Q1anJR3YvGEgxG7QN0cU+0qztByfo2mRsUWJ8LYvZYdjNeerdp0oZ6O233pmO\nfiaYE5s2xkdX08USRfGFM5Tq059SW4Gr2Qt6PDni272rWt+f1JMM/adEU2b/KDtf\nha7uWCdNSQO3sTLQyprB\n=3Jom\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1402d8737ebf3c7a28afdb77461828898887f055\nparent f20e438a9fc9a58bf43e522e78481c869ebd2ad8\nparent f990dfb385d69e035810e3bd3102d301dd2157b7\nauthor Eric Gusmão <78504663+EricGusmao@users.noreply.github.com> 1734622678 -0300\ncommitter GitHub <noreply@github.com> 1734622678 -0300\n\nMerge branch 'main' into refactor-rename-candidate-list-view",
+     "verified_at": "2024-12-19T15:38:07Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+   "html_url": "https://github.com/microsoft/vscode/commit/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175/comments",
+   "author": {
+    "login": "EricGusmao",
+    "id": 78504663,
+    "node_id": "MDQ6VXNlcjc4NTA0NjYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78504663?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/EricGusmao",
+    "html_url": "https://github.com/EricGusmao",
+    "followers_url": "https://api.github.com/users/EricGusmao/followers",
+    "following_url": "https://api.github.com/users/EricGusmao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/EricGusmao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/EricGusmao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/EricGusmao/subscriptions",
+    "organizations_url": "https://api.github.com/users/EricGusmao/orgs",
+    "repos_url": "https://api.github.com/users/EricGusmao/repos",
+    "events_url": "https://api.github.com/users/EricGusmao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/EricGusmao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f20e438a9fc9a58bf43e522e78481c869ebd2ad8",
+     "html_url": "https://github.com/microsoft/vscode/commit/f20e438a9fc9a58bf43e522e78481c869ebd2ad8"
+    },
+    {
+     "sha": "f990dfb385d69e035810e3bd3102d301dd2157b7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f990dfb385d69e035810e3bd3102d301dd2157b7",
+     "html_url": "https://github.com/microsoft/vscode/commit/f990dfb385d69e035810e3bd3102d301dd2157b7"
+    }
+   ]
+  },
+  {
+   "sha": "ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+   "node_id": "C_kwDONaaBoNoAKGVmNmIyYWQ0NTIxNzYwZTkzMjA5OWE0YWM0YjdiNDE5MGQ0Y2MwZDc",
+   "commit": {
+    "author": {
+     "name": "Eric Gusmão",
+     "email": "78504663+EricGusmao@users.noreply.github.com",
+     "date": "2025-01-13T12:15:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-01-13T12:15:29Z"
+    },
+    "message": "Merge branch 'main' into refactor-rename-candidate-list-view",
+    "tree": {
+     "sha": "7ef6f8df033bb567d03212d4882fb178a4726762",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7ef6f8df033bb567d03212d4882fb178a4726762"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnhQPhCRC1aQ7uu5UhlAAASqIQAHN68486c7hUyUBJKJdQOKdb\nwFMBHrmdnQQmSqK1te11djcKPqVVOJ2VHGIQ53wT7uh0UOjhnhiZixFg++D9recD\n6yIHLT5+ODHwmDHGKZ/JV8QLRVIgrnNw3dyitwbhTJzarCp4pCECFbuGefTC6FiX\npFGPB3X28rbnsluXcT3ttxgA9fo6z9lNi8/0HspINv2KArKj+XMSID6vhujHqQLd\nIdg6K2YpRucwiVYd4+1p1PrR8r65nDc90BwZiPiJC2SKTeky4tJADaLmSpTwmx5L\noNxav1Alidu9ahaXQrrTP3RDR3+sHbitZqwM+l5bKeuaaPzyPDWajvJGX7yUfZO4\n/Ld4Uslb3L33CStgD3KHbSn4ENVGf+Sy/lPYzdscSA8bwheAjHhDWaB1jt58PtvT\nXkAIbxg/usqbnrDbTEbvGRxSYlfw5zlqeJIuu2OItdyIejEMpH9Fvf+PVHZzhdox\ngkQKwiajOjXgfEFSe7275OpYBYkGp96lN+j+pwCf9TblCtISUt99siRJTxoUI6UD\nwW2D8SoTFNSSkpNItPcFHIVe/ttj8nujwwXACJgG+9FYmzK+3t4daDB9JTNKOT9e\nGthr8BBTMfOHJB31o3Szoy1Q1WW9DnaCtXo1hUhlGO4cbu4/vO1TT1vWTYCdmUnz\n/pRF8r20GUoWPp/rSUXG\n=tJno\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 7ef6f8df033bb567d03212d4882fb178a4726762\nparent 66d3b4c4a0afdf3dabde067f3eb1f2c161eec175\nparent 06c07d24efd3aa76412a55b0bd4f3833c901a00e\nauthor Eric Gusmão <78504663+EricGusmao@users.noreply.github.com> 1736770529 -0300\ncommitter GitHub <noreply@github.com> 1736770529 -0300\n\nMerge branch 'main' into refactor-rename-candidate-list-view",
+     "verified_at": "2025-01-13T12:15:32Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+   "html_url": "https://github.com/microsoft/vscode/commit/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ef6b2ad4521760e932099a4ac4b7b4190d4cc0d7/comments",
+   "author": {
+    "login": "EricGusmao",
+    "id": 78504663,
+    "node_id": "MDQ6VXNlcjc4NTA0NjYz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78504663?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/EricGusmao",
+    "html_url": "https://github.com/EricGusmao",
+    "followers_url": "https://api.github.com/users/EricGusmao/followers",
+    "following_url": "https://api.github.com/users/EricGusmao/following{/other_user}",
+    "gists_url": "https://api.github.com/users/EricGusmao/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/EricGusmao/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/EricGusmao/subscriptions",
+    "organizations_url": "https://api.github.com/users/EricGusmao/orgs",
+    "repos_url": "https://api.github.com/users/EricGusmao/repos",
+    "events_url": "https://api.github.com/users/EricGusmao/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/EricGusmao/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175",
+     "html_url": "https://github.com/microsoft/vscode/commit/66d3b4c4a0afdf3dabde067f3eb1f2c161eec175"
+    },
+    {
+     "sha": "06c07d24efd3aa76412a55b0bd4f3833c901a00e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/06c07d24efd3aa76412a55b0bd4f3833c901a00e",
+     "html_url": "https://github.com/microsoft/vscode/commit/06c07d24efd3aa76412a55b0bd4f3833c901a00e"
+    }
+   ]
+  }
+ ]
+}

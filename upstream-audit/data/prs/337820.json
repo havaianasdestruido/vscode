@@ -1,0 +1,1011 @@
+{
+ "fetchedAt": "2026-11-01T00:55:18.520Z",
+ "pr": {
+  "number": 337820,
+  "title": "Fix setting names in the npm extension README",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-24T21:38:17Z",
+  "updated_at": "2026-10-14T21:46:10Z",
+  "user": "ZainnQureshii",
+  "author_association": "NONE",
+  "additions": 2,
+  "deletions": 2,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 10,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "docs/npm-readme-settings",
+   "sha": "30b5d2b5083381897463e642db057fd6eec61e7b",
+   "repo": "ZainnQureshii/vscode",
+   "label": "ZainnQureshii:docs/npm-readme-settings"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "bdd5d55af4005fafc56da7aac527c59a135e5fb9"
+  },
+  "body": "The npm extension README names two settings that don't exist:\n\n- The Settings list documents `npm.scriptCodeLens.enable`. There is no such setting in `extensions/npm/package.json`. The script code lens reads `debug.javascript.codelens.npmScripts` (`extensions/npm/src/npmScriptLens.ts:23`), which the JavaScript debugger contributes. The list now names that setting.\n- \"Run Scripts from a Folder in the Explorer\" says the feature is enabled with `npm.runScriptFromFolder`. That's the command ID (`src/npmMain.ts`); the setting is `npm.enableRunFromFolder` (`package.json`, default `false`), which the Settings list already names correctly.\n\nREADME only, no code changes. To check: search Settings for `scriptCodeLens` (no result) and `debug.javascript.codelens.npmScripts` (found).\n\nPrepared with AI assistance (Claude Code); I reviewed the diff and checked both names against the source.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "fd3fc83e8fd8edc0e59623dc3eccbc2a0ffbba92",
+   "filename": "extensions/npm/README.md",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/30b5d2b5083381897463e642db057fd6eec61e7b/extensions%2Fnpm%2FREADME.md",
+   "raw_url": "https://github.com/microsoft/vscode/raw/30b5d2b5083381897463e642db057fd6eec61e7b/extensions%2Fnpm%2FREADME.md",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fnpm%2FREADME.md?ref=30b5d2b5083381897463e642db057fd6eec61e7b",
+   "patch": "@@ -26,7 +26,7 @@ the hover shown on a script or using the command `Run Selected Npm Script`.\n \n ### Run Scripts from a Folder in the Explorer\n \n-The extension supports running a script as a task from a folder in the Explorer. The command  `Run NPM Script in Folder...` shown in the Explorer context menu finds all scripts in `package.json` files that are contained in this folder. You can then select the script to be executed as a task from the resulting list. You enable this support with the `npm.runScriptFromFolder` which is `false` by default.\n+The extension supports running a script as a task from a folder in the Explorer. The command  `Run NPM Script in Folder...` shown in the Explorer context menu finds all scripts in `package.json` files that are contained in this folder. You can then select the script to be executed as a task from the resulting list. You enable this support with the `npm.enableRunFromFolder` setting, which is `false` by default.\n \n ### Others\n \n@@ -41,4 +41,4 @@ The extension fetches data from <https://registry.npmjs.org> and <https://regist\n - `npm.exclude` - Glob patterns for folders that should be excluded from automatic script detection. The pattern is matched against the **absolute path** of the package.json. For example, to exclude all test folders use '&ast;&ast;/test/&ast;&ast;'.\n - `npm.scriptExplorerAction` - The default click action: `open` or `run`, the default is `open`.\n - `npm.enableRunFromFolder` - Enable running npm scripts from the context menu of folders in Explorer, the default is `false`.\n-- `npm.scriptCodeLens.enable` - Enable/disable the code lenses to run a script, the default is `false`.\n+- `debug.javascript.codelens.npmScripts` - Where to show the code lenses to run and debug a script. This setting is contributed by the JavaScript debugger."
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5310573894,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPIjtRg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nBoth documented setting names match their source usage and configuration.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nCorrects two invalid npm extension setting names in its README.\n\n**Changes:**\n- Documents `npm.enableRunFromFolder`.\n- Replaces the nonexistent CodeLens setting with `debug.javascript.codelens.npmScripts`.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `extensions/​npm/​README.md` | Corrects npm feature setting references. |\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/337820#pullrequestreview-5310573894",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/337820",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/337820#pullrequestreview-5310573894"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/337820"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-24T21:41:31Z",
+   "commit_id": "72a77a3f34ab2a8d7debff9c393e1a19932e0e02"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6176255631",
+   "html_url": "https://github.com/microsoft/vscode/pull/337820#issuecomment-6176255631",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/337820",
+   "id": 6176255631,
+   "node_id": "IC_kwDOAn8RLM8AAAABcCIujw",
+   "user": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-14T19:12:11Z",
+   "updated_at": "2026-10-14T19:12:11Z",
+   "body": "Hi, just checking in on this one. Would appreciate a review when someone has a moment.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6176255631/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+   "node_id": "C_kwDOUqKxjtoAKDcyYTc3YTNmMzRhYjJhOGQ3ZGViZmY5YzM5M2UxYTE5OTMyZTBlMDI",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-24T21:38:08Z"
+    },
+    "committer": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-24T21:38:08Z"
+    },
+    "message": "Fix setting names in the npm extension README",
+    "tree": {
+     "sha": "ac0292b823fbd071050552114d891b8fab5ad645",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ac0292b823fbd071050552114d891b8fab5ad645"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+   "html_url": "https://github.com/microsoft/vscode/commit/72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/72a77a3f34ab2a8d7debff9c393e1a19932e0e02/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ab20c7e767dd9ad266dc9b6dbe2936745d738700",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ab20c7e767dd9ad266dc9b6dbe2936745d738700",
+     "html_url": "https://github.com/microsoft/vscode/commit/ab20c7e767dd9ad266dc9b6dbe2936745d738700"
+    }
+   ]
+  },
+  {
+   "sha": "5ea153937ba75529a2e2562008cdf576bbaa9035",
+   "node_id": "C_kwDOUqKxjtoAKDVlYTE1MzkzN2JhNzU1MjlhMmUyNTYyMDA4Y2RmNTc2YmJhYTkwMzU",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-24T21:45:51Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-24T21:45:51Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "a65ad0be997c83e884464a8ac54ce3f072330217",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a65ad0be997c83e884464a8ac54ce3f072330217"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5ea153937ba75529a2e2562008cdf576bbaa9035",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtZoPCRC1aQ7uu5UhlAAAjbUQAGIVXC564W6xVhzw/dWHwdLW\n9sYAs3BQwVjGEVkeDry5T/Q3oTtQEPVjpgXn+FLX7zNbSvOgGT91CrMHhMEACmYd\n9Fb1SY+2gsJstBc3oAOM1ZVZZSjKRnjqYeSHf8z4H6KZiKCrM2on3n8qzr1qaRiw\niK+vSa9BPr+YRPg65HSHDCwjFlPS0yGgry4HH7u+wlEOh0wV9wOjqMfa4eAytWc2\nwuGPA4331coCKTA8Mb8sIH8oDyxUvvoDwhvGo304xuKJUJsFYLPr5IqRXQHwuOjV\nRVZ020NwJgZH03olF4gc7H2bTadmPMir8iwwJQ5+cAgMiF7lPDjjekvEV6EXpH7a\nhaJ5e1gszMoJb80GOZqynvDtAUEpk+r2D3VAtuTVLY7802ZH7XdPpy9xz9h+LMR4\nKtmnfo/LxpcxJpkHwoAYAV6gWZJ5RsCL3J48Apzu/nW//BprJk9lHqNOoHHS9LQF\nOcBTtH8Wyf53kHUXtVTmmWviURbBqEuoN4yvm7UjlNzCsFsZEIGwPcasC38IfAvZ\nTjlcO3tp10ggtlgDP+5SZyKCgD24sczHkMKYWm1mYQaa86GLrZrX3ar3sTy0sCNE\ndE+Ysp7dStWucy0PagqSX9aHwHCR+7JUZnsF6KTGhIKMF6nZWlgiy3XW7zSM0TsZ\nLYhv6gvC4d7Lk883dVzS\n=4vNP\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a65ad0be997c83e884464a8ac54ce3f072330217\nparent 72a77a3f34ab2a8d7debff9c393e1a19932e0e02\nparent 905c886aefbd6c4aea9372d58495b84b2b9dffde\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790286351 +0200\ncommitter GitHub <noreply@github.com> 1790286351 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-24T21:45:52Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5ea153937ba75529a2e2562008cdf576bbaa9035",
+   "html_url": "https://github.com/microsoft/vscode/commit/5ea153937ba75529a2e2562008cdf576bbaa9035",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5ea153937ba75529a2e2562008cdf576bbaa9035/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/72a77a3f34ab2a8d7debff9c393e1a19932e0e02",
+     "html_url": "https://github.com/microsoft/vscode/commit/72a77a3f34ab2a8d7debff9c393e1a19932e0e02"
+    },
+    {
+     "sha": "905c886aefbd6c4aea9372d58495b84b2b9dffde",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/905c886aefbd6c4aea9372d58495b84b2b9dffde",
+     "html_url": "https://github.com/microsoft/vscode/commit/905c886aefbd6c4aea9372d58495b84b2b9dffde"
+    }
+   ]
+  },
+  {
+   "sha": "337c39f3d08cf8a17371563ae47a7392e932cb38",
+   "node_id": "C_kwDOUqKxjtoAKDMzN2MzOWYzZDA4Y2Y4YTE3MzcxNTYzYWU0N2E3MzkyZTkzMmNiMzg",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-24T21:49:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-24T21:49:25Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "77cc1d4291f1db0192454cf79e75555db3be6385",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/77cc1d4291f1db0192454cf79e75555db3be6385"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/337c39f3d08cf8a17371563ae47a7392e932cb38",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtZrlCRC1aQ7uu5UhlAAAeLcQAF+pTflv+PpOl8bV+xeELlP1\nZsTwGwbOstf89zMxKFAZuA8ojoPhI/6Rc86D7Bs00R9iYnZPMFrwe3hWAR0dLDmS\n5tVTVmQm2rBNhGL9NSURwsJ99enzbF8d23w533RpC5Ur4VQIyXzKCHSTqVZjLvFt\nFFB5N7v57ghh/mpHMmXWEKXCcRTrWo8OR/IZGnk/ndhL6/aq9GBzIi0iXWpPePKE\nfUfBLF79+59AIQmN1rpny3tNmy/OVK4FdSATJz30ZERW3u57ycMxx8KpQjbN6fxZ\nd50unRHsX8p6tW+cGODAtFNX5bVTIA4OT2GmP8qAFc6DjpltGEI+Z9IazcRp2iuO\n7JGdJdq9Tw51bUwDEsBkUMXyHJoB0HHf5yfe9QqPjEVYLzwd9M+9o6JJ7EzBhdU7\nI4b0khVpHXrMgAHAq7nbiBZtAP8h8HCwDv2P0vAWfI+FHQmBP1cf609D4aj4Mklq\nH4QJddBoqyisNg4pSKwvzoErrGcsuccBTqchcDB90eiT64+2z2usEqoaE9TvoRzb\nfLJyW3Bhtw63G382/j14le2DpTJBF41PHKb4kOthAt6WeKLsGIL1AmVJoRD1DzZB\nx2bhNkDJzY6MbXPJ9eHSBgWVAUSFOo02LgkdqWkQSR0Jw8e1LEUm/Xa+kLvVWeKW\nqftGfhQtPHGtcQfoCxl9\n=2pf7\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 77cc1d4291f1db0192454cf79e75555db3be6385\nparent 5ea153937ba75529a2e2562008cdf576bbaa9035\nparent dfb272ffa96fd78f29f7469b2cd3fd26e77b0470\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790286565 +0200\ncommitter GitHub <noreply@github.com> 1790286565 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-24T21:49:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/337c39f3d08cf8a17371563ae47a7392e932cb38",
+   "html_url": "https://github.com/microsoft/vscode/commit/337c39f3d08cf8a17371563ae47a7392e932cb38",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/337c39f3d08cf8a17371563ae47a7392e932cb38/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5ea153937ba75529a2e2562008cdf576bbaa9035",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5ea153937ba75529a2e2562008cdf576bbaa9035",
+     "html_url": "https://github.com/microsoft/vscode/commit/5ea153937ba75529a2e2562008cdf576bbaa9035"
+    },
+    {
+     "sha": "dfb272ffa96fd78f29f7469b2cd3fd26e77b0470",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/dfb272ffa96fd78f29f7469b2cd3fd26e77b0470",
+     "html_url": "https://github.com/microsoft/vscode/commit/dfb272ffa96fd78f29f7469b2cd3fd26e77b0470"
+    }
+   ]
+  },
+  {
+   "sha": "868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+   "node_id": "C_kwDOUqKxjtoAKDg2OGE1ZTkxYzVkMThmNzFmNDI0NDU4ZGVhNGZjMDhmMGYzZmMyMjk",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-24T22:19:30Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-24T22:19:30Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "e912aa6dd5da07d4c7b1e87db831047e29ef19bd",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e912aa6dd5da07d4c7b1e87db831047e29ef19bd"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtaHyCRC1aQ7uu5UhlAAAmMoQADxaJ5yXcYN0Kl10vwyhwk7J\nyv4NXGI56KX68qtMq5dl3GmVcBeoN0uEcCRQcuumgW5UZzSMbRUcsEXFvaesKSRo\nHxoRIU0/amDiMqeXdUyKC2Q/kXATmLcehjC1yxa637iFqj96z7hfe9j/L7BoyVxl\nCGPYGi39WKUKyFYblbYV+qnEfVHYC7wu1+OStDgkCLlT2mHMRE2gFAC5W0FAK2uS\nixnTq/OfMnBC+Haw30rSeK7ZVjvRNpLV9kT62ECXM76QLU99LiwCNwlqhCtYGFQl\ndExHaOqHHrF+YMsKoaSKVj9YCC+I00QZ9wO5eYut2kjaOD2J8A4DsvFESO/wGxDm\nt2CRXbpkoTCGTdV4wFbiPxLpZqNN/33yP3sA2Cv1b+af21pZpAyWyNqzNMBosgNw\n7fKJIyLtcG5dNfWy1IiZDugZ4dls0lHxKR41qp1PPur2Pr6fTmhfTT5FkmCpOLrs\nLssQpbbjVNKvYup9/prL4B4QAMKPJ+HNZBKXo3ex7Rj8sPUu4co8kYhb8BfVdW/R\n7PXPa47WY/N15dJXyGinbIebt299G2PpDTpp8bh8cuGBZbUPVMC5ELMO41RUzgAZ\nIdSa/NKxdeyp/gk2wkhbNvm7BBXHljwng6Rlhrdh6JtSqWt8jrTS3xlc8ghyXqVW\nbu0mjXaOpJ9D6QaJdeM/\n=iSLy\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree e912aa6dd5da07d4c7b1e87db831047e29ef19bd\nparent 337c39f3d08cf8a17371563ae47a7392e932cb38\nparent a6e06b502bc944d8fa7ee1487e687910d5980a6b\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790288370 +0200\ncommitter GitHub <noreply@github.com> 1790288370 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-24T22:19:31Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+   "html_url": "https://github.com/microsoft/vscode/commit/868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/868a5e91c5d18f71f424458dea4fc08f0f3fc229/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "337c39f3d08cf8a17371563ae47a7392e932cb38",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/337c39f3d08cf8a17371563ae47a7392e932cb38",
+     "html_url": "https://github.com/microsoft/vscode/commit/337c39f3d08cf8a17371563ae47a7392e932cb38"
+    },
+    {
+     "sha": "a6e06b502bc944d8fa7ee1487e687910d5980a6b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a6e06b502bc944d8fa7ee1487e687910d5980a6b",
+     "html_url": "https://github.com/microsoft/vscode/commit/a6e06b502bc944d8fa7ee1487e687910d5980a6b"
+    }
+   ]
+  },
+  {
+   "sha": "175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+   "node_id": "C_kwDOUqKxjtoAKDE3NTE0NmFlOTE0NWVmZjYyZDNiZmIzZTMwYWNiZThiYzI5NTBhYTI",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-25T06:19:15Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-25T06:19:15Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "3a29dc75465c6a308ecd0df4b715b23578f1802f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3a29dc75465c6a308ecd0df4b715b23578f1802f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqthJjCRC1aQ7uu5UhlAAAgJYQAGNZM28KTRdj2dUo1mqUnR+j\neQRqJ27VJk3Dc2n14RFrudXT03mrWeq6bSAHF0DiaPV9z+C9FtiNZjKmevzSt8/o\nQ7J4zls2pCa9XXIa6jYWPiWWM4J+SrgdLj0D/dATgNyA47HenUv1bqVEdjfgU0ka\nCIkzW+GOuO856pYoudS1urFRyChDNqzBHEQkXdAGYB7dMwuliWMKVHSQ8KHa8xMc\nWZOdqpwSFzfM+q+O25zNRBF0V6cMCc0z4TI9wC1hdoX411BhguRWeDZj1jRvIVLh\nafWEu56FAYei36VeQOVxqnbMheFRfYvWmLU1T0kHXr2CilRHhJ4a39C63JyxYS8F\nFFRLjCE09Txelyt9ILGx70xzFbBQszgSqnJGR6ErFWsoKVl2Wle2/r3Ppn9DWylO\nx+pPH0sCE39zJ/fZwr6YpXQd8kUJX3DrV8vZqJkx2ObnkaIfUlRFlXVFaDpvY4CW\nq1GWDHbbSDOU00OqaeCpJb9Tkk9sr1WyQ6m1Bj3vt8f7uAmbtcAx8pVS+e5/6kiD\nLILflMU7nzaPxw5t53zXAiuv64RByxxWwzEf4qSFQ/Okp8ChXqOr1goDtfYKScz6\nRkkkrynSUBJFvkeb7qieFDM6xVqf/ywWFILaIZaLuifKr5pGir5z5ef9RxsGVJTA\nSjHkFJtEdD0qzQtj5LbI\n=wsjl\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3a29dc75465c6a308ecd0df4b715b23578f1802f\nparent 868a5e91c5d18f71f424458dea4fc08f0f3fc229\nparent b90535f7a1acd97c19d2563af16db51b6a6eb592\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790317155 +0200\ncommitter GitHub <noreply@github.com> 1790317155 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-25T06:19:16Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+   "html_url": "https://github.com/microsoft/vscode/commit/175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/175146ae9145eff62d3bfb3e30acbe8bc2950aa2/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/868a5e91c5d18f71f424458dea4fc08f0f3fc229",
+     "html_url": "https://github.com/microsoft/vscode/commit/868a5e91c5d18f71f424458dea4fc08f0f3fc229"
+    },
+    {
+     "sha": "b90535f7a1acd97c19d2563af16db51b6a6eb592",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b90535f7a1acd97c19d2563af16db51b6a6eb592",
+     "html_url": "https://github.com/microsoft/vscode/commit/b90535f7a1acd97c19d2563af16db51b6a6eb592"
+    }
+   ]
+  },
+  {
+   "sha": "aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+   "node_id": "C_kwDOUqKxjtoAKGFhOGJmODA5NjRiZWIwZTFlODQ2YTk0ZTVjMjM4ZjE2MDI2MDVmZTI",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-25T08:02:31Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-25T08:02:31Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "c3f96eadec8084bda17add5608202a2d2e9972eb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c3f96eadec8084bda17add5608202a2d2e9972eb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtiqYCRC1aQ7uu5UhlAAAVt4QAH7gJUuxMdfFJVumRXWFoKjY\nSmOwcyMr7HUipORmTw5K9eU6b1GyExZdH30YBLAPyvinvrXFYQbYHLnKrq8o0AGT\ndtP22mJdU0carN//OiWi/KBBVcf5LvkVfZaEVaMWEAk9rKwSuOqF6IEw0awenCZz\nA7KJiCyxq5r+OvJNYguYnd7986FCIZjdGQfnyoB/nuNQVmwQM1xzodH+Lw7GRZj7\n0zOG3NjuWyW7C38OrpxbRVmmmOp0iVNEr6qsPMcO1qHo8SQsLYOIPrzhqHnw+Nu3\nyG8oLx4vpYyeOjxMLaMDolw3kw5i97qUu6j22gy3s1S/e1HS8VN5Zw/Z9bL8M4wU\n8anXR6gpAcZwV9RD4/tC3n7QDrPGTDkRcSDKxuffYLJ0PN6T+CkuhudpVfjpGW46\nd6hGnteT3JWejxL/IzTOi/EUZWEBVxGTAdLWpE/Fgjd+WXG5ED0gIyCCMVQyAWIr\nUZ7wD1XftU9EGvmG8iFvBhcNwciBX2vf6GEbzUBfm7DcRdS8H6z8qVBaa5fCzg0d\nI74RIzGAlgqdNctDPzp0ZlPC2dH+Es112KP8xrOfYBxAN3if1IUbFLvvsvylFbLt\nh81VVkEWd87yBDdeq6nxBwg8NNdGHXRQLaWSJJKOl6H03vCzeN/pc9vGAPuPc8J+\nD5K1LO/VSzhPg/iccn9H\n=/Yxt\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c3f96eadec8084bda17add5608202a2d2e9972eb\nparent 175146ae9145eff62d3bfb3e30acbe8bc2950aa2\nparent d681a7635a0f6d26e9a353ef0cebfdb842c257f1\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790323351 +0200\ncommitter GitHub <noreply@github.com> 1790323351 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-25T08:02:32Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+   "html_url": "https://github.com/microsoft/vscode/commit/aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/aa8bf80964beb0e1e846a94e5c238f1602605fe2/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/175146ae9145eff62d3bfb3e30acbe8bc2950aa2",
+     "html_url": "https://github.com/microsoft/vscode/commit/175146ae9145eff62d3bfb3e30acbe8bc2950aa2"
+    },
+    {
+     "sha": "d681a7635a0f6d26e9a353ef0cebfdb842c257f1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d681a7635a0f6d26e9a353ef0cebfdb842c257f1",
+     "html_url": "https://github.com/microsoft/vscode/commit/d681a7635a0f6d26e9a353ef0cebfdb842c257f1"
+    }
+   ]
+  },
+  {
+   "sha": "c6969edb297e2c2d0a530436d6c622913d48cc5a",
+   "node_id": "C_kwDOUqKxjtoAKGM2OTY5ZWRiMjk3ZTJjMmQwYTUzMDQzNmQ2YzYyMjkxM2Q0OGNjNWE",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-25T08:17:33Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-25T08:17:33Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "a2a53dbd916e34f38ff2b726b6d1e6b9596a4e4b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a2a53dbd916e34f38ff2b726b6d1e6b9596a4e4b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c6969edb297e2c2d0a530436d6c622913d48cc5a",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqti4dCRC1aQ7uu5UhlAAATxQQAC2OHyMdb1UdnOpIbCRPC0P9\nA/k56hV2W2b6hw0lqaGfMD+34/1fOnWZJPIUZmdwETmz8qFC2TaxjYyxtfRDosyL\nzrxy673S8IBgj4cC3OLpeE0a3V+FhRSIVcJy/u78ICvYfhDuR8MGTeVFy/s1TihW\n+3Cw7Y/gf1Y8/MYzp0vkrR88BacajRWNhhT16AmmJbY7uTzHd+GboQ1Ygi2AlkIZ\ntdOthjKzjYFbyi3nwWmulbtK3fyDd6CO3DF+K6lWc75gYVioiJriGLIZcLClaXkG\nP9RdpkY9RCRZXPqOlAHUuukg18pGfkgJlb6SSeaLqgiaMdFzBscOt1iLVFBWH8w7\nEyAYD6fdRfHA3uBUp0gqHLPmBjJObMMNEHMWbGPINJuFj2YwunphY6UK7VosqeW0\nnhvLWkQM7APcNJN0k9yhWLPsmDeSmYqnGDdiKZq12v+qkNMCyDc7EepU8A2fwdLB\nHOFY6zlQVrLX1IHkYOoCiBOWKGbORNE63oNxIa/qHRMalg88d0nlha+0pu0Omsop\nWreQ5Gj2+WL+dlfCRZJ9z8YJ91HI6WPYoCW495QZTeOqmey4MSuIRZsBrx+iVpL6\nrKy1OGQmI01noARaZ3M9RqOpquhucRUyLJh2uUfXfqXU3SRsaxxRR1Ki2ZpEC5/o\nGlUVrDk+qVS7R0Y36juS\n=MkjC\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a2a53dbd916e34f38ff2b726b6d1e6b9596a4e4b\nparent aa8bf80964beb0e1e846a94e5c238f1602605fe2\nparent 4f2dfc552c95b9ff4729fa13f109bfda5f886d69\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790324253 +0200\ncommitter GitHub <noreply@github.com> 1790324253 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-25T08:17:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c6969edb297e2c2d0a530436d6c622913d48cc5a",
+   "html_url": "https://github.com/microsoft/vscode/commit/c6969edb297e2c2d0a530436d6c622913d48cc5a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c6969edb297e2c2d0a530436d6c622913d48cc5a/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/aa8bf80964beb0e1e846a94e5c238f1602605fe2",
+     "html_url": "https://github.com/microsoft/vscode/commit/aa8bf80964beb0e1e846a94e5c238f1602605fe2"
+    },
+    {
+     "sha": "4f2dfc552c95b9ff4729fa13f109bfda5f886d69",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4f2dfc552c95b9ff4729fa13f109bfda5f886d69",
+     "html_url": "https://github.com/microsoft/vscode/commit/4f2dfc552c95b9ff4729fa13f109bfda5f886d69"
+    }
+   ]
+  },
+  {
+   "sha": "e53aac1fb623827b9904394ed84a74b5d202ee7e",
+   "node_id": "C_kwDOUqKxjtoAKGU1M2FhYzFmYjYyMzgyN2I5OTA0Mzk0ZWQ4NGE3NGI1ZDIwMmVlN2U",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-09-25T09:52:07Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-25T09:52:07Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "3f4238aa2bd875a85e46804a6b439d168bd6c687",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3f4238aa2bd875a85e46804a6b439d168bd6c687"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e53aac1fb623827b9904394ed84a74b5d202ee7e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtkRHCRC1aQ7uu5UhlAAA9UIQABtfhh+DmwbekqnlnuCOttCY\nUM9KeQrwL4rmOyjhL0TMuTtblHpZfM4K3mDpj2XbJpIFrRAzREZSONd4Pwq31jFf\nLKuwZ81Z0YdJDlkbeMCp6i7iCr4O/AJJQw7uO3Rq+0X5eRB5Nrp0NbpJTbM9pmR6\nm/O5OHYl0i+FOG4EyblOFWdJ4ZXxy5yllC6gbZ0M6R+vAEussvkNvUmE21hvvxmE\njfWBr4x3Eh4q+r1veIS4f8+S+0ZQalXCPYRgmg+JD2WOzyjQ1VcjMcC6Nvxr0zcv\nPNwU3eUbKDi+uYbqXFwfwTUbVAdpxvxxnCgRFs+4DIR0v/hK935ntwLt9DCkTdsK\n5jn5dJafv6f93hD1XKuGf5AhRMnx+WIoG1w1KbN56kzpzbFshNitL4g0tLzQfbYy\nVuc15jGR00XmDONp8aoU+HBkZjMUgKDLnxtt+4V82p0F1KPN5jDxeg5nzW+S6TUR\nbyCrzP1hZ/XJFimX9sGGNGrhftUJMgPtV67o3yS8WXBRX8OU3pneW5QdImaPTL4y\nqnMQrcTwD+9isXy2YyLEZ+/Pl7cin1y7OPFm4YpWu997kXtr2zg6s+URD6JTK7O+\nJHkVZatpE5XbIUwIQ9mO8GbA+8XMKyPadfP8J2wxg6Vw3d1xRx7sv4zLlQg7wczR\nXCuVtctEewTSY1vpAr1g\n=zEqv\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3f4238aa2bd875a85e46804a6b439d168bd6c687\nparent c6969edb297e2c2d0a530436d6c622913d48cc5a\nparent 37512889bb66c281c95acfb02f13e1f3293a34d7\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1790329927 +0200\ncommitter GitHub <noreply@github.com> 1790329927 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-09-25T09:52:08Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e53aac1fb623827b9904394ed84a74b5d202ee7e",
+   "html_url": "https://github.com/microsoft/vscode/commit/e53aac1fb623827b9904394ed84a74b5d202ee7e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e53aac1fb623827b9904394ed84a74b5d202ee7e/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c6969edb297e2c2d0a530436d6c622913d48cc5a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c6969edb297e2c2d0a530436d6c622913d48cc5a",
+     "html_url": "https://github.com/microsoft/vscode/commit/c6969edb297e2c2d0a530436d6c622913d48cc5a"
+    },
+    {
+     "sha": "37512889bb66c281c95acfb02f13e1f3293a34d7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/37512889bb66c281c95acfb02f13e1f3293a34d7",
+     "html_url": "https://github.com/microsoft/vscode/commit/37512889bb66c281c95acfb02f13e1f3293a34d7"
+    }
+   ]
+  },
+  {
+   "sha": "20be852f59f2ed922fd0881e1a6c0264b6c484af",
+   "node_id": "C_kwDOUqKxjtoAKDIwYmU4NTJmNTlmMmVkOTIyZmQwODgxZTFhNmMwMjY0YjZjNDg0YWY",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-10-14T21:37:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-14T21:37:02Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "c5677274d635c6279ac8d2dc00ffad93f42b3878",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c5677274d635c6279ac8d2dc00ffad93f42b3878"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/20be852f59f2ed922fd0881e1a6c0264b6c484af",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqz/X/CRC1aQ7uu5UhlAAApEcQAJEZ6iPcFlHW7Tq5Fcmy7t9f\nL3zV3yWaPAL2trvk5vMMEhyPu9tpwlzWh4MzJ/CE2WlJ1HutAdpn7U3DtPSoDxY8\nk/z/rzaBUL1Ew68QvBeeBu54TW15D3nZn4UB4e7YwmhEATcvlU/r25KPsugMVzVl\nfTQ7OcNnpPX80dZt4kBx9rc8pNBkpHjEiv/IGnTCWK4UuQuelBZTgOqwf/PR+Trg\nZaomMv7LmpnSJlHJ0ESwxtXzIWdJIj6kTcNvNfcU1wQhTpowKI2WnspOyPz/LbzT\nuLSVwg+DOaBYqNM9JQdEyvqESRW36w8l/uHV9LOehyiqvyeWyT3Z+ePqADntWgvB\nBHDHOxyRDvIvj2fm9BIwd2+a0AAP8JpXFfnC1XkgzhR2DuK9OOc3MfbBTH5/pk/U\nNU+qxEdBgms8RQwDFjF5YG1VxL0kV3TG+LqWFPcaTGOXJO19i9hptbx8Yqi1qxKC\nlZ7TF4KKlPtoP40uQa0b4BpzVPQ/yPveaYZefBVwba3MlbcDEagp2zruMG7ou+6n\n4Q4W6bnVpRDJbvgtOWtr7ohHmG4cTMwmo03oMROVpGSOKXHkcE3Ytf5Tk1Vj4zB8\nE52pREVJ7X2nRIjfTfgOG1O6kCCIpnAfzX242OsJhfUaTtFRo0SzBRrfdxXg0nmg\nYt46CfjWWQfhIao2AouJ\n=PE58\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c5677274d635c6279ac8d2dc00ffad93f42b3878\nparent e53aac1fb623827b9904394ed84a74b5d202ee7e\nparent 08bb895ea9eea22937077e67d7469f40db53bf25\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1792013822 +0200\ncommitter GitHub <noreply@github.com> 1792013822 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-10-14T21:37:04Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/20be852f59f2ed922fd0881e1a6c0264b6c484af",
+   "html_url": "https://github.com/microsoft/vscode/commit/20be852f59f2ed922fd0881e1a6c0264b6c484af",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/20be852f59f2ed922fd0881e1a6c0264b6c484af/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e53aac1fb623827b9904394ed84a74b5d202ee7e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e53aac1fb623827b9904394ed84a74b5d202ee7e",
+     "html_url": "https://github.com/microsoft/vscode/commit/e53aac1fb623827b9904394ed84a74b5d202ee7e"
+    },
+    {
+     "sha": "08bb895ea9eea22937077e67d7469f40db53bf25",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/08bb895ea9eea22937077e67d7469f40db53bf25",
+     "html_url": "https://github.com/microsoft/vscode/commit/08bb895ea9eea22937077e67d7469f40db53bf25"
+    }
+   ]
+  },
+  {
+   "sha": "30b5d2b5083381897463e642db057fd6eec61e7b",
+   "node_id": "C_kwDOUqKxjtoAKDMwYjVkMmI1MDgzMzgxODk3NDYzZTY0MmRiMDU3ZmQ2ZWVjNjFlN2I",
+   "commit": {
+    "author": {
+     "name": "Zain Qureshi",
+     "email": "43629888+ZainnQureshii@users.noreply.github.com",
+     "date": "2026-10-14T21:46:07Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-14T21:46:07Z"
+    },
+    "message": "Merge branch 'main' into docs/npm-readme-settings",
+    "tree": {
+     "sha": "5f4ecbf76c8254a6c2d8d39fc708aa6228e3f871",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5f4ecbf76c8254a6c2d8d39fc708aa6228e3f871"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/30b5d2b5083381897463e642db057fd6eec61e7b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqz/ggCRC1aQ7uu5UhlAAAlnkQADAsB07+eyrnWNSmADlV8ojs\nXWXXEU9vC7yhSqIm/pNQQIfKcbVXkXQurGWKPYJeuUmhLECMxCBl9Yjjx3UKI3t4\nYZ5E4NLcbcbvWVeI4yxxZz21UDwWcObp734CREUT/ux4XR7fDA67ZptfZ1go3xvh\nbfwc76IeFbQcq7o4rRF2kmkbY89ziTrgGfj+rDhMDw2dcPrGoAcKmV1ICRjq+Lpg\ntgDxnq4fHemTl6a53NCSCC58cDvC1vFgAQNF4FDFTWrQ+0OaENYTlBpWogbfkCkG\nVqKFp7eOAvOL4tRXgNGeWXNBNmHBeObgXbFhugJDiqo37zeQ/r0eYFv0VG44gLpr\nU7mmuwvpPTcdgeWeS21l/0JCv65G8QkqwD2PPPNFA9q+yaMtE3tSV9fSGjfVyt/T\nUjfhXZ/dzlA+lK4q1b36PWlItrDdI7R/tMppRrY0stjTckJnFYxurfjj5lPzN7ES\npt/+T/OzIPiZ+zSQovda/2TlNO848AJiW0ycG0MJ5GacSTYqEhFHzPHqjUzJf0ne\n/xwCCOoXshFakoW3itTPeOuwkn0kHudSJdOTCRD8MNrSBVsY2wT2f71whTy+Fn/P\ny2hEfDe5g2ORai6LwJ+62g8KduJAi4glbK2OOtLDbSEqre4Hg4q3BLFcROAQfTAL\nCo1l12o8lPMmsZqqhr0o\n=tdXT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 5f4ecbf76c8254a6c2d8d39fc708aa6228e3f871\nparent 20be852f59f2ed922fd0881e1a6c0264b6c484af\nparent bdd5d55af4005fafc56da7aac527c59a135e5fb9\nauthor Zain Qureshi <43629888+ZainnQureshii@users.noreply.github.com> 1792014367 +0200\ncommitter GitHub <noreply@github.com> 1792014367 +0200\n\nMerge branch 'main' into docs/npm-readme-settings",
+     "verified_at": "2026-10-14T21:46:08Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/30b5d2b5083381897463e642db057fd6eec61e7b",
+   "html_url": "https://github.com/microsoft/vscode/commit/30b5d2b5083381897463e642db057fd6eec61e7b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/30b5d2b5083381897463e642db057fd6eec61e7b/comments",
+   "author": {
+    "login": "ZainnQureshii",
+    "id": 43629888,
+    "node_id": "MDQ6VXNlcjQzNjI5ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43629888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ZainnQureshii",
+    "html_url": "https://github.com/ZainnQureshii",
+    "followers_url": "https://api.github.com/users/ZainnQureshii/followers",
+    "following_url": "https://api.github.com/users/ZainnQureshii/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ZainnQureshii/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ZainnQureshii/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ZainnQureshii/subscriptions",
+    "organizations_url": "https://api.github.com/users/ZainnQureshii/orgs",
+    "repos_url": "https://api.github.com/users/ZainnQureshii/repos",
+    "events_url": "https://api.github.com/users/ZainnQureshii/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ZainnQureshii/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "20be852f59f2ed922fd0881e1a6c0264b6c484af",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/20be852f59f2ed922fd0881e1a6c0264b6c484af",
+     "html_url": "https://github.com/microsoft/vscode/commit/20be852f59f2ed922fd0881e1a6c0264b6c484af"
+    },
+    {
+     "sha": "bdd5d55af4005fafc56da7aac527c59a135e5fb9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bdd5d55af4005fafc56da7aac527c59a135e5fb9",
+     "html_url": "https://github.com/microsoft/vscode/commit/bdd5d55af4005fafc56da7aac527c59a135e5fb9"
+    }
+   ]
+  }
+ ]
+}

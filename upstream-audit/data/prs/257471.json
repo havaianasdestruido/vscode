@@ -1,0 +1,1716 @@
+{
+ "fetchedAt": "2026-11-01T00:52:27.221Z",
+ "pr": {
+  "number": 257471,
+  "title": "AI worktree workflows: eliminate the redundant TSDK prompt in trusted workspaces",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-07-23T15:23:14Z",
+  "updated_at": "2026-06-12T14:50:07Z",
+  "user": "bent0b0x",
+  "author_association": "NONE",
+  "additions": 8,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 0,
+  "commits_count": 18,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "workspace-tsdk-trust",
+   "sha": "465147140c73c821b6d48784c09174d8d6179af0",
+   "repo": "bent0b0x/vscode",
+   "label": "bent0b0x:workspace-tsdk-trust"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "### Issue\r\n- #125978\r\n\r\n### Description\r\nThis PR proposes updating the logic in the the TS extension's version manager to be more permissive for trusted workspaces.\r\n\r\n#### Current Behavior\r\nTSDKs are applied when a workspace is both trusted **and** the user has explicitly opted-in to using the workspace's TSDK via a UI prompt.\r\n\r\n#### Proposed Behavior\r\nIf a workspace is trusted, automatically apply the workspace's TSDK. The UI prompt would only be relevant for untrusted workspaces. This change has the setting automatically be applied on startup and also when the TSDK setting changes. \r\n\r\nThis change is useful for workspaces that have frequently-changing TSDKs, which can be the case at organizations that have custom TS distributions that see frequent updates. Requiring that a user accept a prompt every time the TSDK changes introduces friction and can unintentionally leave them running the \"incorrect\" version.\r\n\r\n#### Alternatives\r\nIf applying this change broadly is not palatable, I could also envision introducing a new setting like `automaticallyApplyWorkspaceTsdk`. \r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "77e8e481b5b286608b280c79595dae7ab91a68ef",
+   "filename": "extensions/typescript-language-features/src/tsServer/versionManager.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 1,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/465147140c73c821b6d48784c09174d8d6179af0/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/465147140c73c821b6d48784c09174d8d6179af0/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts?ref=465147140c73c821b6d48784c09174d8d6179af0",
+   "patch": "@@ -61,6 +61,13 @@ export class TypeScriptVersionManager extends Disposable {\n \t\tconst lastConfiguration = this.configuration;\n \t\tthis.configuration = nextConfiguration;\n \n+\t\tif (this.useWorkspaceTsdkSetting) {\n+\t\t\tconst localVersion = this.versionProvider.localVersion;\n+\t\t\tif (localVersion && !this.currentVersion.eq(localVersion)) {\n+\t\t\t\tthis.updateActiveVersion(localVersion);\n+\t\t\t}\n+\t\t}\n+\n \t\tif (\n \t\t\t!this.isInPromptWorkspaceTsdkState(lastConfiguration)\n \t\t\t&& this.isInPromptWorkspaceTsdkState(nextConfiguration)\n@@ -192,7 +199,7 @@ export class TypeScriptVersionManager extends Disposable {\n \t}\n \n \tprivate get useWorkspaceTsdkSetting(): boolean {\n-\t\treturn this.workspaceState.get<boolean>(useWorkspaceTsdkStorageKey, false);\n+\t\treturn this.workspaceState.get<boolean>(useWorkspaceTsdkStorageKey, false) || vscode.workspace.isTrusted;\n \t}\n \n \tprivate get suppressPromptWorkspaceTsdkSetting(): boolean {"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3642820009",
+   "html_url": "https://github.com/microsoft/vscode/pull/257471#issuecomment-3642820009",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/257471",
+   "id": 3642820009,
+   "node_id": "IC_kwDOAn8RLM7ZIQWp",
+   "user": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-12-11T16:48:42Z",
+   "updated_at": "2025-12-11T16:48:42Z",
+   "body": "Hey @mjbvz! I see you are assigned to this PR, thanks for that. \r\n\r\nIf there is any additional context or explanation I can provide please let me know. This sort of change would be a huge win for our organization 🙇 ❤️ ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3642820009/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3812499288",
+   "html_url": "https://github.com/microsoft/vscode/pull/257471#issuecomment-3812499288",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/257471",
+   "id": 3812499288,
+   "node_id": "IC_kwDOAn8RLM7jPh9Y",
+   "user": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-01-28T16:51:33Z",
+   "updated_at": "2026-01-28T16:51:33Z",
+   "body": "Hey @mjbvz! Sorry for the ping here. Any thoughts on this PR?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3812499288/reactions",
+    "total_count": 1,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 1,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4024055992",
+   "html_url": "https://github.com/microsoft/vscode/pull/257471#issuecomment-4024055992",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/257471",
+   "id": 4024055992,
+   "node_id": "IC_kwDOAn8RLM7v2ji4",
+   "user": {
+    "login": "gmcnaughton",
+    "id": 78888,
+    "node_id": "MDQ6VXNlcjc4ODg4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78888?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gmcnaughton",
+    "html_url": "https://github.com/gmcnaughton",
+    "followers_url": "https://api.github.com/users/gmcnaughton/followers",
+    "following_url": "https://api.github.com/users/gmcnaughton/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gmcnaughton/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gmcnaughton/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gmcnaughton/subscriptions",
+    "organizations_url": "https://api.github.com/users/gmcnaughton/orgs",
+    "repos_url": "https://api.github.com/users/gmcnaughton/repos",
+    "events_url": "https://api.github.com/users/gmcnaughton/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gmcnaughton/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-09T14:08:45Z",
+   "updated_at": "2026-03-09T14:08:45Z",
+   "body": "🙏 this would be an awesome quality-of-life feature!\r\n\r\nwith the rise of git worktrees for AI use-cases, i'm frequently opening VSCode in a \"fresh directory\" (i.e. a new git worktree), and have to re-accept this UI dialog. this has dramatically increased the number of times i have to confirm this dialog 😆",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4024055992/reactions",
+    "total_count": 3,
+    "+1": 3,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+   "node_id": "C_kwDOPQ_wn9oAKDg3YWJhNWI3NDEyYzRlMjVjYjdhOWMzNzI5ZDhhMDI2OGU0NjQ0NTE",
+   "commit": {
+    "author": {
+     "name": "bbaum",
+     "email": "bbaum@hubspot.com",
+     "date": "2025-07-23T15:05:58Z"
+    },
+    "committer": {
+     "name": "bbaum",
+     "email": "bbaum@hubspot.com",
+     "date": "2025-07-23T15:24:29Z"
+    },
+    "message": "Auto-select workspace TypeScript SDK in trusted workspaces\n\nEliminates the redundant prompt for workspace TSDK usage in trusted\nworkspaces. When a workspace is trusted and has a configured typescript.tsdk\nsetting, the workspace TypeScript version is automatically selected without\nrequiring user interaction.\n\nThe implementation modifies the useWorkspaceTsdkSetting getter to return true\nfor either explicit user opt-in OR trusted workspaces with a local TSDK. This\ncentralizes the logic and ensures all existing code automatically works with\ntrusted workspaces.\n\nFixes #125978\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "tree": {
+     "sha": "41bbcfdafbd4daac96ba5739b80ee461b289aa11",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/41bbcfdafbd4daac96ba5739b80ee461b289aa11"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "no_user",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAAZcAAAAHc3NoLXJzYQAAAAMBAAEAAAGBALZ5PuV2Ni/jwbIzV94EN3\nQTyqz9q2Cu4UOvPy8I0vK10khJbnsaFxEXSkSqDhdLju23JpDR4TrpzzO1KyCW6PWSpCqq\nRhuBa7/fG0DEjHc0C1H9vys0f/dNNLsLf8nqyv4XyzOasmXQPcb6wZQHsI7SHZk1qjqWYa\nm268BgURAWknFicTj8tbZhnY3I2Dtg38+RWlLGIVcbVutfdg5dQ5R2tEeqpIvCKl6Qf3MH\nI5TlAIhcixtw0JxGBBJJlqQkzCibqTwmebWFUQk3w/cBXRL1a3Gvo8En8ckyH2tuV8KSLh\n/iXGD9wXIpcQoZ2pkbjQ8UaxRTkHU/QcE/kDJ4Eb7cTMsKqZZ5x40eMe8KRcywWZIXJ9Fu\nRbnQbcabRYbUOnX5IUSzRicmtihGGbi/voKF2bF3sGtjqnQQ7as4YYZd/1xZa+i+IArK1a\njteMms4MZWDM+1OLbRMKVkOOWNU0PDxEOxGzlJpCJZHw/F2knFuPW3mT2zR/FPYeCYPhdp\nGQAAAANnaXQAAAAAAAAABnNoYTUxMgAAAZQAAAAMcnNhLXNoYTItNTEyAAABgFTqrGx1tF\nvToc0LB6cuYPIGjBbGztS9JFt12G1rAYoPqHqo68sTwVTEc33pSz5Wki+6prKcdyM1qyQB\nLUFdE29l9lxGQXAL57+XqNP0P6JWPx9R+VDEEZE+y8IEQTIh4SYjHs7/MWnzcCOSZGS5KK\n5soKvTRvq9mx+rz8tEy/w3P5MF2QqbdRmPMPuIv5g6uKwgDwrGxNmWENGYPgT9oslqkVlU\nHMzUw4BkueQ+LiVz9nU/oFw/15FNc5HfxyiEnbBnm1kfclEbDXFl0YbHxSwrc1Gu7/6kpB\n93HqyhWC1V98J3HWvGqq4kB5bWH/bPL55DwnAJV5c8OY034NiERsWnDSFaChTpBLB0LOVW\nUs/PO/92JLjykRnt8VTXMYFFMLD3jnWWMiKM1nAXPtB8GkJRitUQ0R1rYuZSGV5Vb8NKLg\nRMOjTlRJf9TTBzVWwXWhWt1TgIWmIaPC+lqgrtlkTP6WqGKfUvG9dnhxzjBLXaLBkZLV+y\nDiQJBB6YGDTX9Q==\n-----END SSH SIGNATURE-----",
+     "payload": "tree 41bbcfdafbd4daac96ba5739b80ee461b289aa11\nparent ebd5fb15ef69420317e59d2525f7bbe1f5e14782\nauthor bbaum <bbaum@hubspot.com> 1753283158 -0400\ncommitter bbaum <bbaum@hubspot.com> 1753284269 -0400\n\nAuto-select workspace TypeScript SDK in trusted workspaces\n\nEliminates the redundant prompt for workspace TSDK usage in trusted\nworkspaces. When a workspace is trusted and has a configured typescript.tsdk\nsetting, the workspace TypeScript version is automatically selected without\nrequiring user interaction.\n\nThe implementation modifies the useWorkspaceTsdkSetting getter to return true\nfor either explicit user opt-in OR trusted workspaces with a local TSDK. This\ncentralizes the logic and ensures all existing code automatically works with\ntrusted workspaces.\n\nFixes #125978\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n",
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+   "html_url": "https://github.com/microsoft/vscode/commit/87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/87aba5b7412c4e25cb7a9c3729d8a0268e464451/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "ebd5fb15ef69420317e59d2525f7bbe1f5e14782",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ebd5fb15ef69420317e59d2525f7bbe1f5e14782",
+     "html_url": "https://github.com/microsoft/vscode/commit/ebd5fb15ef69420317e59d2525f7bbe1f5e14782"
+    }
+   ]
+  },
+  {
+   "sha": "b0e9488e7a6d688ac661ed3f3f12f906651209db",
+   "node_id": "C_kwDOPQ_wn9oAKGIwZTk0ODhlN2E2ZDY4OGFjNjYxZWQzZjNmMTJmOTA2NjUxMjA5ZGI",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-23T15:24:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-23T15:24:46Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "8e9fccf89a9f2cab4ae9ff9887093dc43b8b8ced",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8e9fccf89a9f2cab4ae9ff9887093dc43b8b8ced"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b0e9488e7a6d688ac661ed3f3f12f906651209db",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogP6+CRC1aQ7uu5UhlAAA2DEQAHsgzjQbH/1P5SnerxiEGgbG\nEu3zHk7Gzc1ikz0T4ZEZVKDvsvl8jSJVP7njtxOvYv/VuckJ9QYBUVgXQeRsg+ld\njU5d5AiLJfQpSpOQxcdBvgmGS3PDffR10bMP3PoKlc7bWyDY5K3osVk0Z/3KFmqY\npiWpQAXrEObXd3zHtfVlk7AY1tfUrv5rM+PRWJcOaPG5EI9YSXq2B3Qg4FYRKHYs\nfTdwIEExU4TxjkxOUWIX1JfpcbrA+LwQuEERVHDfTJi2UxEHdSbhUBW8Ca8/8TvF\nZtv3MmH9IHJtg2OOEtjRQmwj7Jkt5fCH9lWxDhGncK6U9fzxuYfDgsN1YJ2N7EIk\nUTuxmJycUBnXatP8JLD2tiDPVqaeuasiiTzb3hYCws/9a5p2Hm2ouEzfaW5VaaiL\nKJ3VZGyfv/OivX4NcgF7pK4XIGbne3YwRtTrWyqVDgPM9czDuJRgucvSWn1SDf05\n8qvsVkDx5OtZImiSdzz8F28H0wH4CKLe2j+5GMiiw9YpwcfPHlBaP07/e8QToYAY\ndTYoUJoqgwwhSVsomI0XnHgyRzUCk0fjtgAxZgH0CSCkOHsvw4eCP5d8TZKrbsvD\n6wG01kPNrVjviuWcL/IF63dA2I0t3FBnaI0sI5Bz3ZdN8al75WmzCl047wmnbRO+\nPKmBXfMsP9xwMwYCVC8r\n=l23i\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 8e9fccf89a9f2cab4ae9ff9887093dc43b8b8ced\nparent 87aba5b7412c4e25cb7a9c3729d8a0268e464451\nparent d421372b3e6c62b4f8ff3f33bb1b15835de411e5\nauthor Ben <benjaminjbaum@gmail.com> 1753284286 -0400\ncommitter GitHub <noreply@github.com> 1753284286 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-23T15:24:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b0e9488e7a6d688ac661ed3f3f12f906651209db",
+   "html_url": "https://github.com/microsoft/vscode/commit/b0e9488e7a6d688ac661ed3f3f12f906651209db",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b0e9488e7a6d688ac661ed3f3f12f906651209db/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/87aba5b7412c4e25cb7a9c3729d8a0268e464451",
+     "html_url": "https://github.com/microsoft/vscode/commit/87aba5b7412c4e25cb7a9c3729d8a0268e464451"
+    },
+    {
+     "sha": "d421372b3e6c62b4f8ff3f33bb1b15835de411e5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d421372b3e6c62b4f8ff3f33bb1b15835de411e5",
+     "html_url": "https://github.com/microsoft/vscode/commit/d421372b3e6c62b4f8ff3f33bb1b15835de411e5"
+    }
+   ]
+  },
+  {
+   "sha": "1efb3f2061062250492f3a95289461a530d3b60d",
+   "node_id": "C_kwDOPQ_wn9oAKDFlZmIzZjIwNjEwNjIyNTA0OTJmM2E5NTI4OTQ2MWE1MzBkM2I2MGQ",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-23T17:15:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-23T17:15:02Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "00dbf82df5fa4907f13ac16a7b46940a5ae3508d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/00dbf82df5fa4907f13ac16a7b46940a5ae3508d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1efb3f2061062250492f3a95289461a530d3b60d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogRiXCRC1aQ7uu5UhlAAAkz8QAHdM8GvQmAkeJtDDT94jYwFG\npwUG4vuKFEs9LdBbxIHvPp3R/qjhZqy3CrHRmFAuovKSPz0WLGfZnpfKnT2K14Ma\nkX/3xK5JZ6iSVWG776c3NmZ6Sm2vV+YLqwJoc6JhIc+OuWdPjgOBFl5HPic4ZnSF\nxZZdeFguQzmf0daZuzuE8TufpttG3lRSwjGlZHFB5t5Hz9yT0Cs+e/0cn4PnWqP0\n+YRSBqyoa1SKM/MDcUhx69g4Sr2xYVHTyviDvxRUWUOsykyPw6xBu9CBcNxOyojJ\nmMcud4lHd21VE+2D3KVxUWX46c671OzXcSl/cDAEKycaftke3tiqxWnM6g8ooaCP\nHOxzVpmh6ghePBNRtyYIQQ/lkFd6uaiB8FmnYqcLbAxPOwZjU/dnofCp1tRHW/S0\nhRUoAJooU1hq/copA3JG8HTvU/jLWIbaPNDlyKVcArhdYqqD08ep0kOAU3W641N3\nVTWWWq9ptX2T9lIiWOWhNI0VYIXFpN/gpcW1B1sqbSd68gkNxORuDbtRB2zq9TWy\ncPBR+P50f9iqdSiI9t5f23tV4FjG086GCohajJHlaw9nmsOUxx/PEgvSCfh39j9g\nvlVY0Q3u2t+ZTVUzOvPhK9VdODG9U9yH4RLikK9AA/FOzT8sn1zn51B7JkvBb1JQ\n9QdMz7O4xulti8YtNArZ\n=3W+C\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 00dbf82df5fa4907f13ac16a7b46940a5ae3508d\nparent b0e9488e7a6d688ac661ed3f3f12f906651209db\nparent 4bda9b5f58b47c8a8f2d5254a80b85ace9c9b4d7\nauthor Ben <benjaminjbaum@gmail.com> 1753290902 -0400\ncommitter GitHub <noreply@github.com> 1753290902 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-23T17:15:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1efb3f2061062250492f3a95289461a530d3b60d",
+   "html_url": "https://github.com/microsoft/vscode/commit/1efb3f2061062250492f3a95289461a530d3b60d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1efb3f2061062250492f3a95289461a530d3b60d/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b0e9488e7a6d688ac661ed3f3f12f906651209db",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b0e9488e7a6d688ac661ed3f3f12f906651209db",
+     "html_url": "https://github.com/microsoft/vscode/commit/b0e9488e7a6d688ac661ed3f3f12f906651209db"
+    },
+    {
+     "sha": "4bda9b5f58b47c8a8f2d5254a80b85ace9c9b4d7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4bda9b5f58b47c8a8f2d5254a80b85ace9c9b4d7",
+     "html_url": "https://github.com/microsoft/vscode/commit/4bda9b5f58b47c8a8f2d5254a80b85ace9c9b4d7"
+    }
+   ]
+  },
+  {
+   "sha": "042debe90d90a0f80ba9b08df3792613ca9ba173",
+   "node_id": "C_kwDOPQ_wn9oAKDA0MmRlYmU5MGQ5MGEwZjgwYmE5YjA4ZGYzNzkyNjEzY2E5YmExNzM",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-23T18:44:19Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-23T18:44:19Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "155c8ce71a99fcf7201497f5d47289b18edc16f8",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/155c8ce71a99fcf7201497f5d47289b18edc16f8"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/042debe90d90a0f80ba9b08df3792613ca9ba173",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogS2DCRC1aQ7uu5UhlAAAOP0QAIVUJgiDeByn9JjgAZWuJIsF\n10RvpdTuIUA86Bj9miW+/nJ9D9q3ngVjfKNp5fYt984puBMSQPwhBAlusZAFJYFq\nOK5+SSGMty5lr4BXvj84s+E7eR7fhAOZkgd/sVLzAB6awv+RGbDHB73tMd48NbgA\n5usspMA4cGwCO6oiAMSQRsklPwDf/bxPWOPqqOfriKmqUidrxVZYtxAaLmOXJ9b9\npt5oJIouEoUzhc6kFpni/SftdOamkWujq4+BDhUYK202d8D8li8i5ucDvl6GFeC9\nzXqQm6RQwhkOrwddJqt2yL7w0uAeQJfKj2YBGxhQftWD3YrtTks32HfFXc1Mubo7\n4TEN4/tL13UwITA8/UDwG6fy2dH4Nzq5Ft//W9ItkfXHU5Ji1NAhVRTVpUUCPruW\n/fef0Nkf286yI+nWqwrqtq63BjaKOtjCsA1wLbPL3ax3uNgoRu/uMWB5+fZ687qR\nnPadrVWypKu3g6tm0CuiPmPVTMNR9ScVvsteKBtXt8dpFgvVDTvLI0Hr5w8PaImi\nhXaoGDCokLcFIb4JcmJdF1Is4WcaLHk4QqtNePssPn4WoIYGwdvRgR/bFkrkV5qk\nBYoH4xi6YLhAxm23tGcZjZX0amh2gJU0utMosg8vvKLTpiYZVJcjTq6utYspRLJa\np8OIH5xNwqah0uDNat3B\n=ckPw\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 155c8ce71a99fcf7201497f5d47289b18edc16f8\nparent 1efb3f2061062250492f3a95289461a530d3b60d\nparent b5c5403c61fc4021c3f36d4447d7092d610c0b20\nauthor Ben <benjaminjbaum@gmail.com> 1753296259 -0400\ncommitter GitHub <noreply@github.com> 1753296259 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-23T18:44:20Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/042debe90d90a0f80ba9b08df3792613ca9ba173",
+   "html_url": "https://github.com/microsoft/vscode/commit/042debe90d90a0f80ba9b08df3792613ca9ba173",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/042debe90d90a0f80ba9b08df3792613ca9ba173/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1efb3f2061062250492f3a95289461a530d3b60d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1efb3f2061062250492f3a95289461a530d3b60d",
+     "html_url": "https://github.com/microsoft/vscode/commit/1efb3f2061062250492f3a95289461a530d3b60d"
+    },
+    {
+     "sha": "b5c5403c61fc4021c3f36d4447d7092d610c0b20",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b5c5403c61fc4021c3f36d4447d7092d610c0b20",
+     "html_url": "https://github.com/microsoft/vscode/commit/b5c5403c61fc4021c3f36d4447d7092d610c0b20"
+    }
+   ]
+  },
+  {
+   "sha": "df65818bf10df41a55a6b2c58444507fa2470221",
+   "node_id": "C_kwDOPQ_wn9oAKGRmNjU4MThiZjEwZGY0MWE1NWE2YjJjNTg0NDQ1MDdmYTI0NzAyMjE",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-24T13:01:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-24T13:01:44Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "6361aff0bbebc2ff8274845a33896e6c37d19c4a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6361aff0bbebc2ff8274845a33896e6c37d19c4a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/df65818bf10df41a55a6b2c58444507fa2470221",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogi64CRC1aQ7uu5UhlAAAiuEQAKuP5ciMD99opxxRXTwOfoCb\nHAGOtOuvfql4bMnFqMhvjTwzh3/Oe4LeCxvr8DELOEhQ4+KTQlTx1iDpGNYEjs6U\nCfJr8ZF32/wSGmiCW99Cth7n+qMJ7apVYWve04JDmp+XuLRF6wlUTH1eybCe0lUt\nFdBBDGV+TOURhwR1Agtj1hh8N5xKkAff4GB5gww8j/RPeFjFaKAQsTk/tWu70XCC\nDZl5gELecvKZn1FzutdZ6OJPl+zjbNHyqkUa5bWFLv8SxAj6rfJ+CfT1ll+2nh0m\n1Jk1ltgftB2SFbIIY8H7K0GQyN6f/odwcNQkiEc+onwAZplqQmDL6wDA5EH+kdWC\nfNmF/fO3SZBNaaILmg3rBwDrpx1lXWTmG4TV1cQH/5j0DSghK/agqRkY+H5SO1T5\niDGi9gzpyr42CB+H0LpymjPaLb2qNYS7UWu2qe43nS+tbYO8gAFBaAxP4P7JWqZ0\nKpH1V2NdOZcY6mx04XZbvO63A7nH+QKydIBTu0GEII2ZMVyvGwh5PaTCnfvzoP+j\nujZZc5KsPwDlDih6Rwf9WecuBxdjHSFPT+vTM08EL9XNVvjw7E+Cu8upJMn/gfxM\n4Kl93NKfkzIrybw8IUIOKFY9TcKJR2wJeh1POsF47Z0KZCEmJJDylkrSpCPt9KI6\n0JHPeC3/9A4rss34Os3E\n=7UIT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 6361aff0bbebc2ff8274845a33896e6c37d19c4a\nparent 042debe90d90a0f80ba9b08df3792613ca9ba173\nparent 0e2f8604e4ea92ceafd1f02055b767c81b71ff81\nauthor Ben <benjaminjbaum@gmail.com> 1753362104 -0400\ncommitter GitHub <noreply@github.com> 1753362104 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-24T13:01:45Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/df65818bf10df41a55a6b2c58444507fa2470221",
+   "html_url": "https://github.com/microsoft/vscode/commit/df65818bf10df41a55a6b2c58444507fa2470221",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/df65818bf10df41a55a6b2c58444507fa2470221/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "042debe90d90a0f80ba9b08df3792613ca9ba173",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/042debe90d90a0f80ba9b08df3792613ca9ba173",
+     "html_url": "https://github.com/microsoft/vscode/commit/042debe90d90a0f80ba9b08df3792613ca9ba173"
+    },
+    {
+     "sha": "0e2f8604e4ea92ceafd1f02055b767c81b71ff81",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0e2f8604e4ea92ceafd1f02055b767c81b71ff81",
+     "html_url": "https://github.com/microsoft/vscode/commit/0e2f8604e4ea92ceafd1f02055b767c81b71ff81"
+    }
+   ]
+  },
+  {
+   "sha": "2046b2e935a98f9c8c5600054ee3425c48771fdd",
+   "node_id": "C_kwDOPQ_wn9oAKDIwNDZiMmU5MzVhOThmOWM4YzU2MDAwNTRlZTM0MjVjNDg3NzFmZGQ",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-24T15:16:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-24T15:16:02Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "2d5416e2e7af77f3ac6695ff453886b2fd1d3fc0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2d5416e2e7af77f3ac6695ff453886b2fd1d3fc0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2046b2e935a98f9c8c5600054ee3425c48771fdd",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogk4yCRC1aQ7uu5UhlAAAr94QAK0oupx9pLUNtHnQSKiErg72\nf9TfrYeh2/eNeLj36FLZ54fFVWPX5dXfUGaEFeDJwZWVytANAsIYZFZ7AAlw3z6v\n2dNRc3JO6eL2m5Hgh6/D/FNRqVnWpJNxqhLOteRu8QIR1cgnU23FZfdOkbBcaaG3\nScFmsZNMjwJVNfECYuGdTDGxOMLw39ZCpOjawJGzLaxObh1NXQLgC5Rf0+19tX2Y\ndgHhxAHzfSsx4vQao+jCGfaAMC8Kc7hYPN+qaENC2xMfaBXBdbGwcGZEU4LtKzG1\niINJTYc+5MMt7nwkR9AznL7CMcItzqV5JMLMAVzox3FAwA6TN4GTzYX895vxQPIw\nAARhin9SYJldk972kStQqBrB5u/yVW2UEpdAGda3TZraaqPzKCichjzZcYpaY8B3\nnTz5TQ+2mefZNG3yd+ccllUt4vj7/2ubPq7H7Kta9DmfzhqWSDgUxxWFog7TwHg2\nuy+oEAr+L4A3jPZrAe7Pd7At56jRhQZsWsMO6Gcvfwh8doolf4kN79yId7YOJzIU\nKgmTQAcPQLWtZL4FIVguylo2BuMBvd5vu9oQNKTVI/iADwjh7CJLlv5fmDXO5F9b\nRqLu1OoQy2OxrMaM+ET8PLyIsIKKEUHN5vc7+m+ZEuy28boeTo1XkbLAlahtadt6\naSL1Rb4sh6fKmCpWt8eg\n=oP4I\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2d5416e2e7af77f3ac6695ff453886b2fd1d3fc0\nparent df65818bf10df41a55a6b2c58444507fa2470221\nparent 3d0531b8e71f3e2eb75ab3125302734bc53ace0d\nauthor Ben <benjaminjbaum@gmail.com> 1753370162 -0400\ncommitter GitHub <noreply@github.com> 1753370162 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-24T15:16:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2046b2e935a98f9c8c5600054ee3425c48771fdd",
+   "html_url": "https://github.com/microsoft/vscode/commit/2046b2e935a98f9c8c5600054ee3425c48771fdd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2046b2e935a98f9c8c5600054ee3425c48771fdd/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "df65818bf10df41a55a6b2c58444507fa2470221",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df65818bf10df41a55a6b2c58444507fa2470221",
+     "html_url": "https://github.com/microsoft/vscode/commit/df65818bf10df41a55a6b2c58444507fa2470221"
+    },
+    {
+     "sha": "3d0531b8e71f3e2eb75ab3125302734bc53ace0d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3d0531b8e71f3e2eb75ab3125302734bc53ace0d",
+     "html_url": "https://github.com/microsoft/vscode/commit/3d0531b8e71f3e2eb75ab3125302734bc53ace0d"
+    }
+   ]
+  },
+  {
+   "sha": "8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+   "node_id": "C_kwDOPQ_wn9oAKDhjNDQ0YjJjYzVjN2RmZDA3ZjdiMDZmNjkwMTI4M2Q4YmE3ZGFjMDM",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-24T20:04:37Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-24T20:04:37Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "0ff2405bb80383ac4048cab19ec43f659bb4a1d0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0ff2405bb80383ac4048cab19ec43f659bb4a1d0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJogpHVCRC1aQ7uu5UhlAAA19gQACCkQ3ky3GioLAxxILPpl5c/\nuku4okCVCyVDVJbAm5BjK3o3H+M94zingXnappux2e8stuVSfqmJhGR/rIN7P5gf\nVw1BHESFc79Sww3/lgeSaPhH4BXlNIorD5IqRxkkPeCcp86qCKUY9VWlR/+VHMbb\nc9XnqA9xt+f4rwAsP32Kn4XX8HbhB9X1PXYQRGr70596LPJIlWvtEwZWoNHMWlpx\nU5ANTDVBg/HG7YaKkmHcYOTvwdcrXWS9rVwuwXmhIKKUf78TTpXVgt6r5HCEMmCX\nJ9PyqOHEhEBDE23GVRwM26AMT8wv3ZnoRDoFMJ9CkqBniMghYbpbv0vWvSNZEgco\neqzbl9T4jMBE452gxYXWcdQlzWZXJKP+Jo5F7OWeFxMbaBaQWbk5ugS13QcZD2cO\niAeetPCHemjQrSJ8eJT8WYOlYhjsVSReoOqbucrOz91crU40FR7ag36M2VHgq2n4\nHzz3S29eP8i4aJUJkad9fi+DkQ6birMm8oKcSqTKTUhH6VjNsiWNLvjnUVc8TjyC\nfpwrwNQ2kqM8cnEVCOjoJJcOCOyXhh0KxY+rCgdLsHNJNPS+Hw6m3sWlM8bN7Zu8\nxW+ZxSoHIU7R7qaVsAd/hq7i08gC+dXVTMz098CFEPPoFuJOCWEaN9cKQlMoh63T\nXcaOZ+3XN1yfzNvANoS+\n=5gfO\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0ff2405bb80383ac4048cab19ec43f659bb4a1d0\nparent 2046b2e935a98f9c8c5600054ee3425c48771fdd\nparent 7542d38557dd5a5ec3534973c9c023a5579b3634\nauthor Ben <benjaminjbaum@gmail.com> 1753387477 -0400\ncommitter GitHub <noreply@github.com> 1753387477 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-24T20:04:38Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+   "html_url": "https://github.com/microsoft/vscode/commit/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2046b2e935a98f9c8c5600054ee3425c48771fdd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2046b2e935a98f9c8c5600054ee3425c48771fdd",
+     "html_url": "https://github.com/microsoft/vscode/commit/2046b2e935a98f9c8c5600054ee3425c48771fdd"
+    },
+    {
+     "sha": "7542d38557dd5a5ec3534973c9c023a5579b3634",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7542d38557dd5a5ec3534973c9c023a5579b3634",
+     "html_url": "https://github.com/microsoft/vscode/commit/7542d38557dd5a5ec3534973c9c023a5579b3634"
+    }
+   ]
+  },
+  {
+   "sha": "bdb4103aa882a074096cab856b0e97add8b99598",
+   "node_id": "C_kwDOPQ_wn9oAKGJkYjQxMDNhYTg4MmEwNzQwOTZjYWI4NTZiMGU5N2FkZDhiOTk1OTg",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-25T16:05:06Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-25T16:05:06Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "c1084a5335ff14986f623eab1152d011c44011bd",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c1084a5335ff14986f623eab1152d011c44011bd"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bdb4103aa882a074096cab856b0e97add8b99598",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJog6syCRC1aQ7uu5UhlAAAZVoQAJRfUw0uUe2o1P6GTTibXOcg\niwXOLE0CqpAotdYe8tAv6OUIiKA6u8PJmCivAc2z8B1iZWIhYYhZ2SSrok6Pp+XU\nTSKToLLuy2WzWV+nTexGPalw3jii4mxe2Q0iNXTrDLtrZBFrf5A5qGGOr7soODD2\nmjJQ1NUVpgv24S3Y8pN26sMIKAUZNJm5216QTLa2JQnRAAnbO9RHqXooocE/W39O\nZlN7oZiRZj8iTHy/ooDRyKK6DoOfHhY7vuAgKjC/9PDeQSEtS/LvLXfFfi1PK/1+\nOxMoAcOZCXGC50HT640eFvQIp1UlI+oS91GKeH71jxKzVDggfFAa7ez0zdwx1iR0\nAARGsbZAlmRPkhRpvY67I1txefRQXVUE7BrujyK7FL6jR9zuT9KhwA/R2lkeTWYT\niGAwmSC4EHLDX3hxcNJLcl+NmcgNhPXa6/RfuPSNnpYZWZoYy9vwbHUe66UExwMs\nZrH+4d/VzVT7SHTXL7HBSRiPPIUBY1foylclFHf+cn3Q/+BAXo/OV7Slv0rQwwSY\nST6QHgnVmfWdfqYS/dklgt8vzxkbUaEugMQRNREvGxbLt7xpVXO4q0QRI05ltJEZ\nqTcE3OqRDTuKLC0vxExFKKGfUtshw8Fst20mDLFm/slWtg4Hysa/SRnJv7R87jO/\nlbnSTwaMC88m12iymUSn\n=AC/C\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c1084a5335ff14986f623eab1152d011c44011bd\nparent 8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03\nparent b5eca89fec71f52ff1b816edcaad26065ab49b03\nauthor Ben <benjaminjbaum@gmail.com> 1753459506 -0400\ncommitter GitHub <noreply@github.com> 1753459506 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-25T16:05:07Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bdb4103aa882a074096cab856b0e97add8b99598",
+   "html_url": "https://github.com/microsoft/vscode/commit/bdb4103aa882a074096cab856b0e97add8b99598",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bdb4103aa882a074096cab856b0e97add8b99598/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03",
+     "html_url": "https://github.com/microsoft/vscode/commit/8c444b2cc5c7dfd07f7b06f6901283d8ba7dac03"
+    },
+    {
+     "sha": "b5eca89fec71f52ff1b816edcaad26065ab49b03",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b5eca89fec71f52ff1b816edcaad26065ab49b03",
+     "html_url": "https://github.com/microsoft/vscode/commit/b5eca89fec71f52ff1b816edcaad26065ab49b03"
+    }
+   ]
+  },
+  {
+   "sha": "258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+   "node_id": "C_kwDOPQ_wn9oAKDI1OGYwZGM5MTgzZWMzNjEyNmIwNzE1YzdjNmE1YmMxZmM1Y2MyY2Y",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-29T11:31:55Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-29T11:31:55Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "2cf6cffb4945cba373cfab8a69dbbefb015c491b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2cf6cffb4945cba373cfab8a69dbbefb015c491b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoiLErCRC1aQ7uu5UhlAAAv8cQAF7sgdTrqlqexFYDM8IyIE7p\nLCzrbgD+DtJD8R0s+AUY25pP+FqTI1Qf7qt0H8RG3hREyuZl7Tssfe0/XoKJLYou\nLmtnqzrfzf3/Ceups8YWbyj9R8nwC3RRpAysL598rJG08JRP1HsiuuKyCdURMbNv\neM8E7uMUoQ5ZqhAlWDlLfrsUj2qqeh676C4fnifiZyLrCgn5CFJ5ySh2l7QLpLBa\nYvafxzazsl4bfQLr6NwSqKO0yoBycRpb5rYLk5OFBR7Mo0Y24b4StEz3Lq02fEuU\n5si1jMyk+MBFdF9txcq7TfpMaUzv5nbAv8qSAcspXJYpyo2NorMXXPOo5COfcDR8\nIJCUG2Lrlcn4v6ub98KYF8Fjg2AnZ0NQvo24OUoVvP+VRJZVyvyM47egVPeYm9RO\nNr9M5LaoQzW5iOMj67TjxGMIHk1a0/3AXjHpZ8SjjFJ5X5CaIjQTnGTMp8XiFTqV\n9eCTer1REym+lJhoyQ1zvl5V4UgpS51b2nr9sOIrAxqhtCsayT4lS2PSXGlgbnG4\nOrAL/muIJ8qCrPWbhp5D5EHjJ0mrMpI0G+2K1ERSSPlCNmthH8OMWp0ALS4LKQPX\nc/YJORo4DVOs3nzpK4TiWECxGfrWEW9BHMJIbQqEvzU22IEAJDo5FkZA3FieZQjR\nQAHVTg8t0yBTAtlgljFp\n=YgOL\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2cf6cffb4945cba373cfab8a69dbbefb015c491b\nparent bdb4103aa882a074096cab856b0e97add8b99598\nparent ef1e9bab943a69afee102ccdbca9499475d22f56\nauthor Ben <benjaminjbaum@gmail.com> 1753788715 -0400\ncommitter GitHub <noreply@github.com> 1753788715 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-29T11:31:56Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+   "html_url": "https://github.com/microsoft/vscode/commit/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bdb4103aa882a074096cab856b0e97add8b99598",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bdb4103aa882a074096cab856b0e97add8b99598",
+     "html_url": "https://github.com/microsoft/vscode/commit/bdb4103aa882a074096cab856b0e97add8b99598"
+    },
+    {
+     "sha": "ef1e9bab943a69afee102ccdbca9499475d22f56",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ef1e9bab943a69afee102ccdbca9499475d22f56",
+     "html_url": "https://github.com/microsoft/vscode/commit/ef1e9bab943a69afee102ccdbca9499475d22f56"
+    }
+   ]
+  },
+  {
+   "sha": "eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+   "node_id": "C_kwDOPQ_wn9oAKGVlYjQxZTAxZWRhNWEwNzJlYTI5Y2EyZGIyNGEwOWNlODQyNTBhNTk",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-07-31T03:57:26Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-31T03:57:26Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "63aab33de2f4780e6d46998469db6b3949ec2bb6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/63aab33de2f4780e6d46998469db6b3949ec2bb6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoiummCRC1aQ7uu5UhlAAAbLgQAJdsWrXR3dPWRYwXHrS6eP0x\nNhjSdOoNKDKMMNChrQ4N8iXkTl1TxL3CMGTLcNkBQhfFz50keLIONf/oY4grHPkA\ngrIzoOh0CtGTCniBTRkP+/rOdMuf7TJn3wIGqlcL8ldzVpzgkPv/4X0qhFItWH+H\ntdBes4ZjODngvRly/2R7OdQ3bHNXgOoIlq8re+rZV8LFRGvf5k4mvUcYZ41LHgcN\nwrM9LyizX6kkUPESVxWDAOOgUvyNeJArLhT2byR8ZxVgUdJvJd9TGmlvGfH4Kbht\nFy2FCXNvs2a5kjtPj0wwVBHO3A2oVz+XQ/h85/PTl6lz3XVuTwu4FMZ221PjKJKy\nvg5AXx3lQRuYljYmoJQ6d0S/dIAYo+mROeXL+hQNH7FqN7NTOmolQQPWGiotLjZu\nsENK8VNJdSuoTCfx5QatfeYyKjRNQA+/HSHCrl6aeh5muZCcai5kjXCHjw7PmTQs\nlTQXu6Fh1c8MOgM8cjuORMtDYXMl+bE33TcOP73ZiBkHvmD6ETLy5G/ey0kJYvDC\nB0siSvoubNDyST7YrlI4xstpHhfl/LGU0eMkcE+J+touM+QV0qRk3/rVF/QLe0KI\n+hHbGdpw5Y+OiENxb9Jee+JcZPPT1j433BCHVs7KzHtPAWgf5qFNsBYAf5Uq5Kjf\n4aHqA1AqG/9EnWnEtWQI\n=2tOh\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 63aab33de2f4780e6d46998469db6b3949ec2bb6\nparent 258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf\nparent 724eea79bcad9a344a22eaecf949bca2f5f8f8bc\nauthor Ben <benjaminjbaum@gmail.com> 1753934246 -0400\ncommitter GitHub <noreply@github.com> 1753934246 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-07-31T03:57:27Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+   "html_url": "https://github.com/microsoft/vscode/commit/eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/eeb41e01eda5a072ea29ca2db24a09ce84250a59/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf",
+     "html_url": "https://github.com/microsoft/vscode/commit/258f0dc9183ec36126b0715c7c6a5bc1fc5cc2cf"
+    },
+    {
+     "sha": "724eea79bcad9a344a22eaecf949bca2f5f8f8bc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/724eea79bcad9a344a22eaecf949bca2f5f8f8bc",
+     "html_url": "https://github.com/microsoft/vscode/commit/724eea79bcad9a344a22eaecf949bca2f5f8f8bc"
+    }
+   ]
+  },
+  {
+   "sha": "e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+   "node_id": "C_kwDOPQ_wn9oAKGU3N2EyNGFjMzI2ZDM2NmQyYWI3YmU5ODU1NmFlMmU3ZGY0MDdiZmQ",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-08-06T12:58:34Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-08-06T12:58:34Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "b8b9e86d6aea8398ea67e5da7f72b96f152152b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b8b9e86d6aea8398ea67e5da7f72b96f152152b4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJok1F6CRC1aQ7uu5UhlAAA9UwQAIibyMZPRX6JR73UrQ/NXj0r\n3pK4hoavBpmfF42GRgMBswfuXUlCC4nb/l+G1UP9v+J0V86AHcxdQeSQCf0+riXE\nufgvtasTP0O1obXvPamCfQrUdB0S+VN6ZBy4GmInUD6Kr1Y4Kbx8Kfl/4uyt4Yf7\nIFSVO7AD9nVGP9BxfdpGE1hPi5RCVig0C19s2rYneU0ebHVT3YWUIfllV23O1Fqi\n2WGHzef/hrqSb49FnI+pZUa9SpoTFVke8T7S5juN7iVkvohPOhztoNMYVS4gCRUg\nwE9SP1aMgOnDAOOlHTfSalfLlwlZPDcMzGEZeM/f0kQQhSpEtfbzvNJKvZ+qF0fk\ntZchh6eO8/wwFpt+l3wQ6tAV6p0+zMjHRkyh4JRwUP6THXEFrZr833r4JT2nzStm\nSO0h5Y3Hb5N+E+6GxKg4+sSLTgxyq4fJfwjbpXqCh6UOAOC/2zgmZZYjdcmdUcKr\nObgeYj0aQI6V6UNO3+gHLQp2a0/rBKbJFySD3c56rIpSZ5FSoOzNIhtPotQPEcOF\nqntc2xtI7yUWaKbnj4jj2hVykWKtB4D61W2ESCvFg9nUfoBJ2/kJyyYdOxOcqWNy\njd058okDGH64R1u5tykkMDYtYDl/hXEzFtOU85IigPrllI1YFrYTG0m70ngX9oMw\nGrn9AVFD0hAcIAvEQC95\n=lMWn\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b8b9e86d6aea8398ea67e5da7f72b96f152152b4\nparent eeb41e01eda5a072ea29ca2db24a09ce84250a59\nparent 27c10fba460fd9053793bbeeb2247310d1e37997\nauthor Ben <benjaminjbaum@gmail.com> 1754485114 -0400\ncommitter GitHub <noreply@github.com> 1754485114 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-08-06T12:58:35Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+   "html_url": "https://github.com/microsoft/vscode/commit/e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e77a24ac326d366d2ab7be98556ae2e7df407bfd/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/eeb41e01eda5a072ea29ca2db24a09ce84250a59",
+     "html_url": "https://github.com/microsoft/vscode/commit/eeb41e01eda5a072ea29ca2db24a09ce84250a59"
+    },
+    {
+     "sha": "27c10fba460fd9053793bbeeb2247310d1e37997",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/27c10fba460fd9053793bbeeb2247310d1e37997",
+     "html_url": "https://github.com/microsoft/vscode/commit/27c10fba460fd9053793bbeeb2247310d1e37997"
+    }
+   ]
+  },
+  {
+   "sha": "bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+   "node_id": "C_kwDOPQ_wn9oAKGJkODUwMDMzNWQ4ODI0NGVjMmQ0ZDY1ZmFiOWY5MmQ3ZDc4ZjZiMmU",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-08-13T19:08:28Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-08-13T19:08:28Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "03db49baaf4237000176da49e8aceda2a45d6c31",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/03db49baaf4237000176da49e8aceda2a45d6c31"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJonOKsCRC1aQ7uu5UhlAAAu+MQAEMHowOv2ZO7pqagGoioGPgq\nbhs6on/FB9ZAGPHLJKAIKvSy2W7Shz8/3ndunH8oYhZ0YnTOIP7ZjMB4bVNQiplh\nAa0t9nCtRFJmoRYTtxajf5JrDhZFjrquegc+0hZO7sa55v6660bU0Qe7y3RSxTX+\ny4Gx9LJoS59jAhtWy5wRsp/90p/ciu2bxtJYPT4d97UQYoWfjcpNlhfRQ2abqXHx\nKTgFczUtgWOsN4rqjZK85WV4euNknGpL2PywbL7Ew2qlwzClkhCDhzJJ9UvD1AtK\n7bNxqw2XNV1IqucsFUgWhMWmHsQRgmc5mxwdTd+DpulMc6+AQr+ZHcjvaDAr44aR\nie83V0EvC2eltr5xLfinKYt8YJMTEUr7H04w0C2ygtMb2OCcuTINA4B0KB6j6RM0\nZfwu0LQmN5xyqWXV+Nn75LFLTCT6LTyXGtKjDrtbac5lMDDv2vm56Zhq+pmU/2/u\nCnyuugcvq2utD54XR1TKjFMxTdsHKBq+6nRc0llCHx5NFZfL+dr1ymfL0FectNW2\nxBUBnKOSgykeiP5HoP1mAKYuSIoJ6/kA3N2j/Yds25ZxhAxNkN4gNikbt0crTVtH\nLOu6fjwhx/BrPtv7OV+NqPa0dRiXVQn0cUqc02MJ+KomxFQL/+xiKSAwxaLK2AO3\nS1oV2PE2x1NTXtHhUlCm\n=J9ro\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 03db49baaf4237000176da49e8aceda2a45d6c31\nparent e77a24ac326d366d2ab7be98556ae2e7df407bfd\nparent c76b15a743307c19069cdcfaed827cdd3b0cda6c\nauthor Ben <benjaminjbaum@gmail.com> 1755112108 -0500\ncommitter GitHub <noreply@github.com> 1755112108 -0500\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-08-13T19:08:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+   "html_url": "https://github.com/microsoft/vscode/commit/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e77a24ac326d366d2ab7be98556ae2e7df407bfd",
+     "html_url": "https://github.com/microsoft/vscode/commit/e77a24ac326d366d2ab7be98556ae2e7df407bfd"
+    },
+    {
+     "sha": "c76b15a743307c19069cdcfaed827cdd3b0cda6c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c76b15a743307c19069cdcfaed827cdd3b0cda6c",
+     "html_url": "https://github.com/microsoft/vscode/commit/c76b15a743307c19069cdcfaed827cdd3b0cda6c"
+    }
+   ]
+  },
+  {
+   "sha": "d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+   "node_id": "C_kwDOPQ_wn9oAKGQzNmVkOWU0N2JiOTVlMDhlMWVlNDBjN2NhZDBkNWRkMWY0YTdhNzM",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-09-11T17:08:18Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-11T17:08:18Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "964c4ded1056ed9382936012120f9e8263c74abd",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/964c4ded1056ed9382936012120f9e8263c74abd"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJowwICCRC1aQ7uu5UhlAAAJHkQADj21G43bRFMz6f266zALSKC\nRkF5ftdlqE0TjKysqhpEPWSdLHTVICEp/UaOJq5PdAVfuLhzqHe1IkH+le9rYLlY\nnfCaM02CyQ90ceDeGG5Tm45hkKI6YEVK0IyeiyBRNOt4WW/8C8SQZlHTDZRYctgV\nWEzVnk/RYkdk61D/6vqU3PzdMaqCg5/Dn7LS5nrRGpz4Lel/l0cSfAldT2SlmJtG\nn2mkbRUYWmKHL78p00w6IrcQdGixj+ramx56kL7iksVte9ncz/S96MwG183LwhCM\negvUMEjiWJexKueyRANh3ITPSI3fkqTr3BHCZXqgT3jvcD8ALbMD2VikWfB0g2A9\nWyMaEzc53Um1GCl8lH5xTcHpEehFD9kN9MMsgT1b8hvbM0kzVlkr9nkZVTPzfx+u\nq8nHFM5BH14QCDCSCBVDooTGD0YhxFV2B7JLc65RSivTwfGG9q3jFqEXZhCUzn0P\n39a99DRuYWx0BYIqPxe70pDxe6/SIwjye4Ixkpc4CecwHmMyxprXYZz0afk5oDyf\nCDAUzLxVlF/xSkM84MvVM/XwWlWklXss8sSXwHY+gqPdTngsyAqHmQOKiyolruwk\nsLFKTERNbNuV9j4EMGvEIYCD38bPYc7N6QyJ89skgd+52YffPBq2f3sB59nezhqt\nUYQ1uQ2H790rwbMD4Krk\n=i6TV\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 964c4ded1056ed9382936012120f9e8263c74abd\nparent bd8500335d88244ec2d4d65fab9f92d7d78f6b2e\nparent c3005ead7e4019d2e617382952db327e13c8e8a8\nauthor Ben <benjaminjbaum@gmail.com> 1757610498 -0500\ncommitter GitHub <noreply@github.com> 1757610498 -0500\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-09-11T17:08:19Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+   "html_url": "https://github.com/microsoft/vscode/commit/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e",
+     "html_url": "https://github.com/microsoft/vscode/commit/bd8500335d88244ec2d4d65fab9f92d7d78f6b2e"
+    },
+    {
+     "sha": "c3005ead7e4019d2e617382952db327e13c8e8a8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c3005ead7e4019d2e617382952db327e13c8e8a8",
+     "html_url": "https://github.com/microsoft/vscode/commit/c3005ead7e4019d2e617382952db327e13c8e8a8"
+    }
+   ]
+  },
+  {
+   "sha": "2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+   "node_id": "C_kwDOPQ_wn9oAKDJkMjliZGMwZTYxNzlmNDEwZmJmODEzNWNiZGY1Zjc1OTA5M2UxYTI",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-09-15T20:17:37Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-15T20:17:37Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "3c55674a005d71d11d8aac283fa9b4da009f4851",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3c55674a005d71d11d8aac283fa9b4da009f4851"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoyHRhCRC1aQ7uu5UhlAAA1DQQADddTZVjk09Bcs5eJoV5jiR3\nMpFxBdV32EvX0gnd2OzhAuCAIPK6xw60PUdNDA5dBuBnkofw1D5RDVZHxHecoR3K\neaFvP6OHbEmEdKprfk1avlTsWJq9sa20YF3DmTGzH7XBFH9QpKBRY4RvwpcOdJvP\nPLSG+t9CeZO98et3vpOVVIbudPA5YabqqFE6I7yU2+U48JKArdjPFE4BeRknv+H4\nrNYrZqYN1VGWCk9lSPvih7KClurL7t1NuSgzs4oKGOWO6nAeRCGuKP1iWyztW/8M\nVUrJaUmFMMdxrO6ZIa17ZF9EnI52a+915bG5kE2fcp+7yGL3fADSBHOA4VRL/dp/\nFU5wErxXw0deJzFyD1fLAGL0Jt+VKZDtqiwnxQYQns38En43GKiqJITfgP++NWsn\n2UB/GNkWNPpXT2NckuVNp1zxAqXhdvFIHovU2z46OZaggVAGMmvU0/vqXaoJIK+u\n/4TULLbu0sVB5IfGwylroUMW5PPWYWCqGs9NJTp+sU2xlpBXMGvAxqqwfFDSTwV6\n/8SXDioFzQ0no0NlC9ltYySv/MXCoz1TZ/ok63miEub4maDgvBOm5edBP7SVc1L1\nadRDZhHBjLWDcWl4rbVlmJYKMYZhEiOgjppf04d4cHpIlo9+bmvI9/YDLCpH+cAj\nSUHXfbg1sWG51lDQ9sTF\n=Q0qU\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3c55674a005d71d11d8aac283fa9b4da009f4851\nparent d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73\nparent b5c6cba28238b0d4ea91dbf773369f2be13a4a92\nauthor Ben <benjaminjbaum@gmail.com> 1757967457 -0500\ncommitter GitHub <noreply@github.com> 1757967457 -0500\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-09-15T20:17:38Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+   "html_url": "https://github.com/microsoft/vscode/commit/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73",
+     "html_url": "https://github.com/microsoft/vscode/commit/d36ed9e47bb95e08e1ee40c7cad0d5dd1f4a7a73"
+    },
+    {
+     "sha": "b5c6cba28238b0d4ea91dbf773369f2be13a4a92",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b5c6cba28238b0d4ea91dbf773369f2be13a4a92",
+     "html_url": "https://github.com/microsoft/vscode/commit/b5c6cba28238b0d4ea91dbf773369f2be13a4a92"
+    }
+   ]
+  },
+  {
+   "sha": "26e3a893ce479ab645deac192412c96428f3c36b",
+   "node_id": "C_kwDOPQ_wn9oAKDI2ZTNhODkzY2U0NzlhYjY0NWRlYWMxOTI0MTJjOTY0MjhmM2MzNmI",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-09-16T14:22:52Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-16T14:22:52Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "a8f3d4ba1fe6d50f9b0524a4de751b28dd5ded18",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a8f3d4ba1fe6d50f9b0524a4de751b28dd5ded18"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/26e3a893ce479ab645deac192412c96428f3c36b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoyXK8CRC1aQ7uu5UhlAAAwfAQAG92YdGWQRF4AHxFuvujBhtD\nAclHaJhqWLpxTnsYYv3/LmofZdnVjsCYYu44opeHW+lKJ7IUqpnE5WRnLp4fIEXs\nLVFAfxM62FsZ2hL9UU9Q+N/xPN/WR35rp251687X8NJYm9AhUVZX56dic4Bfk9j9\nA8iwPODXZsDOxwm2yKQ/P4uQHaVXf9ObYfxvVkAORWT/qZblJSI3EiSZHyDmU29/\n0dkKsQRSazBlZiJvjtVXK/YpHQX5mE0ZfnO/LGyEo1KaTQYkWHnWinGv/GQFCDCM\nNEzzM8EtPUiU74EgZnjWU23cyQRtVdBuxy2RZpb/+njl/+RnJGyb9WjE/1iSn9+Q\n+hklJ5HoMenoIOT0F7bqjlKdWVUxiU5n5gl5OXqCKMJA52cebhEbwYo1dyyEUfN0\nsYEpka2mHRAV4NlWda2D+EaP481UHukd7qtXb/Wfy1a4X13orgRD14npiKgAyqZ3\ntTCnZ6XX0G7mFqF3BuM4Jel0ei0iPwd5V1OAfsaCnW2bVbVBsNY/84UkAlvb4zBk\n/YvEyaxEtyWzGP9sQ0SyXnGNr0dFE2TCTCViaELt8ELgx+egFFIM47akdXeqTil/\nUOSTZIJPXKhcgFbXbdt0RH0i1s6ox+kyq0tRo+LJgDAV6YUPP/AQdtExQ4e7IONd\ncqyY3NdBY1p/vTEwirTg\n=LX6y\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a8f3d4ba1fe6d50f9b0524a4de751b28dd5ded18\nparent 2d29bdc0e6179f410fbf8135cbdf5f759093e1a2\nparent bd46b9eb2127339154ccb4aa625984021d48a832\nauthor Ben <benjaminjbaum@gmail.com> 1758032572 -0400\ncommitter GitHub <noreply@github.com> 1758032572 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-09-16T14:22:53Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/26e3a893ce479ab645deac192412c96428f3c36b",
+   "html_url": "https://github.com/microsoft/vscode/commit/26e3a893ce479ab645deac192412c96428f3c36b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/26e3a893ce479ab645deac192412c96428f3c36b/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2",
+     "html_url": "https://github.com/microsoft/vscode/commit/2d29bdc0e6179f410fbf8135cbdf5f759093e1a2"
+    },
+    {
+     "sha": "bd46b9eb2127339154ccb4aa625984021d48a832",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bd46b9eb2127339154ccb4aa625984021d48a832",
+     "html_url": "https://github.com/microsoft/vscode/commit/bd46b9eb2127339154ccb4aa625984021d48a832"
+    }
+   ]
+  },
+  {
+   "sha": "3833f0755c78af75c44eff0ac905a4582980f4db",
+   "node_id": "C_kwDOPQ_wn9oAKDM4MzNmMDc1NWM3OGFmNzVjNDRlZmYwYWM5MDVhNDU4Mjk4MGY0ZGI",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-09-16T20:49:39Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-09-16T20:49:39Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "3a638ac425f90ede0230b01b8a4d84fb321dc34c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3a638ac425f90ede0230b01b8a4d84fb321dc34c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3833f0755c78af75c44eff0ac905a4582980f4db",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoyc1jCRC1aQ7uu5UhlAAAG0cQAKrjizlviu3glvJ5TiGzQAAX\n5Bv4fK7sBJRN2Iyu+nGywfJRcTAeY6ZsSZuCnVGMrSzpxTamKvhXlASwbcd+EQ02\nIkGNT/IIEQh315RsKYcIxK7vIvaTmdcbGyySHz12nurb5NktcKAkkjyeo8cBNHZI\nL1UQDEOwraXzMFOORYgOoL2oJ0HwM8DsrcXBkdMKYDh19cc08xl/63P+jm08Fvsr\nnWDXl0bi+PoqcyG6nRIqg5wig/iY9d+pVR2uyp3bLm8rKdMM+taym/eIP40GIDRo\n5hK8teoMeWSQj7DfhXaQco11eRtgLgd00jhNqAaqPbeZATIrR+AVrtH+7wSs3iOs\nHBHwD6wz+7l7ahRwQBCmMhlFTCr+2Fg26HIFWsjPvoSmcngaLxVEnJU+9kflzIOx\nBr/ZW96XbJIGl755qSYK0K2xOadDrxZGU4f09j9+atVljq9NQ2wQ4gPN3IBSMv+u\nBZVNv3rHYp7MwzAfcWK/JrwHSg7SjGX6XycgCh17rJzBDm18iwzxJh2POCJ6y6Ns\nXCazs137suBpYRzPzbnZHWc7PVMVGGlozIi5BZqkpwvMMbhpDc0JmWyo1QivK9HV\nV3gZfMNwY50KpC8X0QNaCQExRNXYT3yiGX7KhNynOaCD2uXNkH013oy+nU3XfDzW\nNGxDMslCcjG9sIjqFGjp\n=OlHL\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3a638ac425f90ede0230b01b8a4d84fb321dc34c\nparent 26e3a893ce479ab645deac192412c96428f3c36b\nparent bb5a3c607b14787009f8e9fadb720beee596133c\nauthor Ben <benjaminjbaum@gmail.com> 1758055779 -0400\ncommitter GitHub <noreply@github.com> 1758055779 -0400\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-09-16T20:49:39Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3833f0755c78af75c44eff0ac905a4582980f4db",
+   "html_url": "https://github.com/microsoft/vscode/commit/3833f0755c78af75c44eff0ac905a4582980f4db",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3833f0755c78af75c44eff0ac905a4582980f4db/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "26e3a893ce479ab645deac192412c96428f3c36b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/26e3a893ce479ab645deac192412c96428f3c36b",
+     "html_url": "https://github.com/microsoft/vscode/commit/26e3a893ce479ab645deac192412c96428f3c36b"
+    },
+    {
+     "sha": "bb5a3c607b14787009f8e9fadb720beee596133c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bb5a3c607b14787009f8e9fadb720beee596133c",
+     "html_url": "https://github.com/microsoft/vscode/commit/bb5a3c607b14787009f8e9fadb720beee596133c"
+    }
+   ]
+  },
+  {
+   "sha": "67cc69f86fd0b90cbec33ad73df42a0c59155416",
+   "node_id": "C_kwDOPQ_wn9oAKDY3Y2M2OWY4NmZkMGI5MGNiZWMzM2FkNzNkZjQyYTBjNTkxNTU0MTY",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-12-11T16:48:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-12-11T16:48:46Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "bb4dd96fb441bd9fc2d16658d85a60c3cd081747",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/bb4dd96fb441bd9fc2d16658d85a60c3cd081747"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/67cc69f86fd0b90cbec33ad73df42a0c59155416",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpOvXuCRC1aQ7uu5UhlAAAtDQQAKXck9/wb9YGbWypP870g5tj\npTNhH9T6bPHvUTnfVeAraSIrjA7zeUxBhpwt0byOTxSHrRgdAvvydHrZwoQ7k+d0\nWwSAUqt9o3bPkYoV2gH/SPn2aspijP9HOZ3nb8jC5fUw+cHFQPbk2Q7ZJgFP5WI5\nwvN7U2gsMAEaZIPAwR3zT9lIlFR1dWrZLzjzn5si+bWKplL1ln03MOFwLKRLwnqh\nSawcV3ha/zC2e7A5B0kEWNyOFUJS01v3WMhIVKYftpx4KMk427KkwEWvtRshyk8w\n/pEnalstYwq6PNjUMiswFZag/DYNl82tW9dNhtwBYojFVdOB4ke9UFeQ6V7qWo0w\nTOVirZG1f5cnD5xgM7EyA7IjZPuQBlJJ8MhtGCm0veZeFjVXEJRE8IIU5VLEyR5T\nI/semdxFyyv4JYG0pwsdDc20hbYvppV8/zzZDct9TjiDJHz9Rv97Mfl6li+diCtf\nWFTV10F2CcCBL6cV5E9/I2b3L5dF1fXPBQc6y6Z28AjLRjut6W66c67zbv4OMYer\nxv/924zCFDiC3TfDzgNhApPGT6wtcrPI8/LG2DjJDWxkI5Rfmer7JxTgHhJ70kh3\nOxhzE1jN0DIDAOoXBdoDWLq5WakgRYw4yFfiiyTAZKIxH5p9xQrIlMfWWfzahdvZ\nLJvDWdE/tjQJ0RReoJRC\n=d8LE\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree bb4dd96fb441bd9fc2d16658d85a60c3cd081747\nparent 3833f0755c78af75c44eff0ac905a4582980f4db\nparent cc3034f3e3d542eb125fdae3664393ccb59f3fd7\nauthor Ben <benjaminjbaum@gmail.com> 1765471726 -0500\ncommitter GitHub <noreply@github.com> 1765471726 -0500\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-12-11T16:48:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/67cc69f86fd0b90cbec33ad73df42a0c59155416",
+   "html_url": "https://github.com/microsoft/vscode/commit/67cc69f86fd0b90cbec33ad73df42a0c59155416",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/67cc69f86fd0b90cbec33ad73df42a0c59155416/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3833f0755c78af75c44eff0ac905a4582980f4db",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3833f0755c78af75c44eff0ac905a4582980f4db",
+     "html_url": "https://github.com/microsoft/vscode/commit/3833f0755c78af75c44eff0ac905a4582980f4db"
+    },
+    {
+     "sha": "cc3034f3e3d542eb125fdae3664393ccb59f3fd7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cc3034f3e3d542eb125fdae3664393ccb59f3fd7",
+     "html_url": "https://github.com/microsoft/vscode/commit/cc3034f3e3d542eb125fdae3664393ccb59f3fd7"
+    }
+   ]
+  },
+  {
+   "sha": "465147140c73c821b6d48784c09174d8d6179af0",
+   "node_id": "C_kwDOPQ_wn9oAKDQ2NTE0NzE0MGM3M2M4MjFiNmQ0ODc4NGMwOTE3NGQ4ZDYxNzlhZjA",
+   "commit": {
+    "author": {
+     "name": "Ben",
+     "email": "benjaminjbaum@gmail.com",
+     "date": "2025-12-11T20:31:18Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-12-11T20:31:18Z"
+    },
+    "message": "Merge branch 'main' into workspace-tsdk-trust",
+    "tree": {
+     "sha": "60b0627a4a3d319e2bd2fe73ff8903e8ab2839e6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/60b0627a4a3d319e2bd2fe73ff8903e8ab2839e6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/465147140c73c821b6d48784c09174d8d6179af0",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpOyoWCRC1aQ7uu5UhlAAAQikQACqnN+2HQLNAr755cP0P9gOH\nk8xsMRfYoJBusnlKGE/KvrY3j8LYQZ+0LFD9vgRPTeqn+xxF/ICi1bFD8ASBG5j0\nPw3mh7SdhJ2beMX9mKtOSFpsRInb3+/4CPWBgTuU+yaLWUsn8D4ovMWCz+EBvU0h\nTfeeqMR95Jxc0sxHp4lPWi2Ya4lpe99HDAi+BpATopkgBez5gtwc3fWAPIo404KK\njnjE1OL1lIcOo8frI83pLup+nGBzdCC52xc8xh5/Jx1UbfJVVxZeY5tL8wSSw3XI\nAuaT11SmymKKE9hIxHe5FyZ4jLpuLuskZ/M1XoPsDw5//vYk56/pwfoSvilwwEM5\nh0HqfWkN1JMDrdw6bWwMVJdxDLgaY7SW2mwJrMC9aWqfQasVMjeLEQN09OCVKbGI\n2pgSv351g41UOab9tLbCT/d7pMu4TFkRdFZBVY1ldy5gxivdjE9oCS0/p45tol0B\nMsvtl6zo70QafB2ncyMSQnXSR4OxjTIYad382Hm+1cIlntJRHQOLnWotcAJ/UO5i\nM9UzGRK4kjeIiSc6JNzVRXpsCOdZbosj+mRj25kw2T73k4+UlOwa/GD3S4D6YSTP\nIP1iwFV+Bb5bYzBUgB/6MUDbrbsGxiH31uLxIzm6LNwf0phaAvc1/Akoj6jbEpJq\nD2RbyKURfWFM4uqybaGt\n=bJRb\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 60b0627a4a3d319e2bd2fe73ff8903e8ab2839e6\nparent 67cc69f86fd0b90cbec33ad73df42a0c59155416\nparent 2630664bd2739889e84d7f8c26ba80389fe04fab\nauthor Ben <benjaminjbaum@gmail.com> 1765485078 -0500\ncommitter GitHub <noreply@github.com> 1765485078 -0500\n\nMerge branch 'main' into workspace-tsdk-trust",
+     "verified_at": "2025-12-11T20:31:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/465147140c73c821b6d48784c09174d8d6179af0",
+   "html_url": "https://github.com/microsoft/vscode/commit/465147140c73c821b6d48784c09174d8d6179af0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/465147140c73c821b6d48784c09174d8d6179af0/comments",
+   "author": {
+    "login": "bent0b0x",
+    "id": 7697924,
+    "node_id": "MDQ6VXNlcjc2OTc5MjQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7697924?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bent0b0x",
+    "html_url": "https://github.com/bent0b0x",
+    "followers_url": "https://api.github.com/users/bent0b0x/followers",
+    "following_url": "https://api.github.com/users/bent0b0x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bent0b0x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bent0b0x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bent0b0x/subscriptions",
+    "organizations_url": "https://api.github.com/users/bent0b0x/orgs",
+    "repos_url": "https://api.github.com/users/bent0b0x/repos",
+    "events_url": "https://api.github.com/users/bent0b0x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bent0b0x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "67cc69f86fd0b90cbec33ad73df42a0c59155416",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/67cc69f86fd0b90cbec33ad73df42a0c59155416",
+     "html_url": "https://github.com/microsoft/vscode/commit/67cc69f86fd0b90cbec33ad73df42a0c59155416"
+    },
+    {
+     "sha": "2630664bd2739889e84d7f8c26ba80389fe04fab",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2630664bd2739889e84d7f8c26ba80389fe04fab",
+     "html_url": "https://github.com/microsoft/vscode/commit/2630664bd2739889e84d7f8c26ba80389fe04fab"
+    }
+   ]
+  }
+ ]
+}

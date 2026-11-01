@@ -1,0 +1,497 @@
+{
+ "fetchedAt": "2026-11-01T00:53:55.019Z",
+ "pr": {
+  "number": 315495,
+  "title": "Resolve webview id for worker clients in service worker",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-09T20:48:36Z",
+  "updated_at": "2026-05-14T19:56:59Z",
+  "user": "yongsooim",
+  "author_association": "NONE",
+  "additions": 57,
+  "deletions": 10,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 2,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/webview-sw-worker-resource-routing",
+   "sha": "96ecb73e43201bb57069c7e06d4d02609b066c50",
+   "repo": "yongsooim/vscode",
+   "label": "yongsooim:fix/webview-sw-worker-resource-routing"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "9384620560b6ffa888a0c45f8c87ce41f7394f12"
+  },
+  "body": "\nFixes #315494. This appears to be a regression from #311844.\n\n`processResourceRequest` and `processLocalhostRequest` allow\n`worker` / `sharedworker` clients past the guard, but neither function\nroutes them: the dispatch block runs only when `webviewId` is non-null,\nand a worker client's `client.url` (typically\n`blob:https://<webview-origin>/<uuid>`) has no `id` searchParam. The\nrequest store entry is never resolved and the fetch hangs until\n`requestTimeout()` fires; in the renderer this surfaces as\n`TypeError: Failed to fetch dynamically imported module`.\n\nThis patch resolves the owning iframe for a worker client by matching\nthe worker URL's origin against window clients whose pathname is one of\nthe webview entry points, then reading `id` from that iframe's\nsearchParams. Because some webviews can intentionally share an origin,\nthe match is only accepted when that origin maps to a single webview id.\nThe relaxed `worker / sharedworker` exception in the guard is replaced:\na worker client whose owning iframe cannot be resolved unambiguously is\ntreated the same as a window client without a webview id (`notFound()`\nfor resource requests, `fetch(event.request)` for localhost), preserving\npre-#311844 behavior for that edge.\n\n### Validation\n\n- `node --check src/vs/workbench/contrib/webview/browser/pre/service-worker.js`\n- `git diff --check`\n- Local service-worker VM mock:\n  - upstream worker resource request sends no `load-resource` message\n  - patched worker resource request sends `load-resource`\n  - patched ambiguous shared-origin case fails closed\n  - patched worker localhost request sends `load-localhost`\n\nI did not run the full VS Code browser test suite from this sparse checkout.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8a17eddf44fc7503a787ccd4513d95946601bfaa",
+   "filename": "src/vs/workbench/contrib/webview/browser/pre/service-worker.js",
+   "status": "modified",
+   "additions": 57,
+   "deletions": 10,
+   "changes": 67,
+   "blob_url": "https://github.com/microsoft/vscode/blob/96ecb73e43201bb57069c7e06d4d02609b066c50/src%2Fvs%2Fworkbench%2Fcontrib%2Fwebview%2Fbrowser%2Fpre%2Fservice-worker.js",
+   "raw_url": "https://github.com/microsoft/vscode/raw/96ecb73e43201bb57069c7e06d4d02609b066c50/src%2Fvs%2Fworkbench%2Fcontrib%2Fwebview%2Fbrowser%2Fpre%2Fservice-worker.js",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fwebview%2Fbrowser%2Fpre%2Fservice-worker.js?ref=96ecb73e43201bb57069c7e06d4d02609b066c50",
+   "patch": "@@ -302,12 +302,18 @@ async function processResourceRequest(\n \t\t}\n \t}\n \n-\tconst webviewId = getWebviewIdForClient(client);\n+\tlet webviewId = getWebviewIdForClient(client);\n \n \t// Refs https://github.com/microsoft/vscode/issues/244143\n-\t// With PlzDedicatedWorker, worker subresources and blob workers\n-\t// will use clients different from the window client.\n-\tif (!webviewId && client.type !== 'worker' && client.type !== 'sharedworker') {\n+\t// With PlzDedicatedWorker, worker subresources and blob workers use\n+\t// clients different from the window client and don't have an `id`\n+\t// search param of their own. Resolve the owning iframe by origin\n+\t// so the request can still be routed.\n+\tif (!webviewId && (client.type === 'worker' || client.type === 'sharedworker')) {\n+\t\twebviewId = await getWebviewIdForWorkerClient(client);\n+\t}\n+\n+\tif (!webviewId) {\n \t\tconsole.error('Could not resolve webview id');\n \t\treturn notFound();\n \t}\n@@ -467,11 +473,16 @@ async function processLocalhostRequest(\n \t\t// that are not spawned by vs code\n \t\treturn fetch(event.request);\n \t}\n-\tconst webviewId = getWebviewIdForClient(client);\n+\tlet webviewId = getWebviewIdForClient(client);\n \t// Refs https://github.com/microsoft/vscode/issues/244143\n-\t// With PlzDedicatedWorker, worker subresources and blob workers\n-\t// will use clients different from the window client.\n-\tif (!webviewId && client.type !== 'worker' && client.type !== 'sharedworker') {\n+\t// With PlzDedicatedWorker, worker subresources and blob workers use\n+\t// clients different from the window client and don't have an `id`\n+\t// search param of their own. Resolve the owning iframe by origin\n+\t// so the request can still be routed.\n+\tif (!webviewId && (client.type === 'worker' || client.type === 'sharedworker')) {\n+\t\twebviewId = await getWebviewIdForWorkerClient(client);\n+\t}\n+\tif (!webviewId) {\n \t\tconsole.error('Could not resolve webview id');\n \t\treturn fetch(event.request);\n \t}\n@@ -525,6 +536,14 @@ function getWebviewIdForClient(client) {\n \treturn requesterClientUrl.searchParams.get('id');\n }\n \n+/**\n+ * @param {URL} url\n+ * @returns {boolean}\n+ */\n+function isWebviewIframe(url) {\n+\treturn (url.pathname === `${rootPath}/` || url.pathname === `${rootPath}/index.html` || url.pathname === `${rootPath}/index-no-csp.html`);\n+}\n+\n /**\n  * @param {string} webviewId\n  * @returns {Promise<Client[]>}\n@@ -533,11 +552,39 @@ async function getOuterIframeClient(webviewId) {\n \tconst allClients = await sw.clients.matchAll({ includeUncontrolled: true });\n \treturn allClients.filter(client => {\n \t\tconst clientUrl = new URL(client.url);\n-\t\tconst hasExpectedPathName = (clientUrl.pathname === `${rootPath}/` || clientUrl.pathname === `${rootPath}/index.html` || clientUrl.pathname === `${rootPath}/index-no-csp.html`);\n-\t\treturn hasExpectedPathName && clientUrl.searchParams.get('id') === webviewId;\n+\t\treturn isWebviewIframe(clientUrl) && clientUrl.searchParams.get('id') === webviewId;\n \t});\n }\n \n+/**\n+ * Find the webview id for a worker client by matching the worker's URL\n+ * origin against window clients that look like a webview iframe. Blob\n+ * workers inherit their parent iframe's origin. Some webviews can share\n+ * an origin, so only resolve when the origin maps to a single webview id.\n+ *\n+ * @param {Client} workerClient\n+ * @returns {Promise<string|null>}\n+ */\n+async function getWebviewIdForWorkerClient(workerClient) {\n+\tconst workerUrl = new URL(workerClient.url);\n+\tconst allClients = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });\n+\t/** @type {string|null} */\n+\tlet matchedId = null;\n+\tfor (const c of allClients) {\n+\t\tconst cUrl = new URL(c.url);\n+\t\tif (isWebviewIframe(cUrl) && cUrl.origin === workerUrl.origin) {\n+\t\t\tconst id = cUrl.searchParams.get('id');\n+\t\t\tif (id) {\n+\t\t\t\tif (matchedId && matchedId !== id) {\n+\t\t\t\t\treturn null;\n+\t\t\t\t}\n+\t\t\t\tmatchedId = id;\n+\t\t\t}\n+\t\t}\n+\t}\n+\treturn matchedId;\n+}\n+\n /**\n  * @param {string} clientId\n  * @returns {Promise<Client|undefined>}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4258491242,
+   "node_id": "PRR_kwDOAn8RLM7902tq",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes a regression in the webview service worker where `worker`/`sharedworker` clients could pass the guard but fail routing due to lacking an `id` search param, causing fetches (notably dynamic imports) to hang until timeout.\n\n**Changes:**\n- Resolve a webview id for worker/sharedworker clients by mapping the worker URL origin to a single owning webview iframe client.\n- Update `processResourceRequest` and `processLocalhostRequest` to use this worker resolution and fail closed when the owner cannot be resolved.\n- Add `getWebviewIdForWorkerClient` helper to perform the origin-to-iframe-id resolution with ambiguity detection.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#pullrequestreview-4258491242",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/315495",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/315495#pullrequestreview-4258491242"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/315495"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-09T20:52:37Z",
+   "commit_id": "cc3f7e841d5bf022c8440a94aedb485d9c1a549a"
+  },
+  {
+   "id": 4258783353,
+   "node_id": "PRR_kwDOAn8RLM791-B5",
+   "user": {
+    "login": "yongsooim",
+    "id": 10796204,
+    "node_id": "MDQ6VXNlcjEwNzk2MjA0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/10796204?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yongsooim",
+    "html_url": "https://github.com/yongsooim",
+    "followers_url": "https://api.github.com/users/yongsooim/followers",
+    "following_url": "https://api.github.com/users/yongsooim/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yongsooim/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yongsooim/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yongsooim/subscriptions",
+    "organizations_url": "https://api.github.com/users/yongsooim/orgs",
+    "repos_url": "https://api.github.com/users/yongsooim/repos",
+    "events_url": "https://api.github.com/users/yongsooim/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yongsooim/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#pullrequestreview-4258783353",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/315495",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/315495#pullrequestreview-4258783353"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/315495"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-10T03:08:48Z",
+   "commit_id": "871021f03959c7c4429c812d2598e6c6423d8734"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413648032",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#issuecomment-4413648032",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315495",
+   "id": 4413648032,
+   "node_id": "IC_kwDOAn8RLM8AAAABBxLsoA",
+   "user": {
+    "login": "yongsooim",
+    "id": 10796204,
+    "node_id": "MDQ6VXNlcjEwNzk2MjA0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/10796204?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yongsooim",
+    "html_url": "https://github.com/yongsooim",
+    "followers_url": "https://api.github.com/users/yongsooim/followers",
+    "following_url": "https://api.github.com/users/yongsooim/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yongsooim/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yongsooim/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yongsooim/subscriptions",
+    "organizations_url": "https://api.github.com/users/yongsooim/orgs",
+    "repos_url": "https://api.github.com/users/yongsooim/repos",
+    "events_url": "https://api.github.com/users/yongsooim/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yongsooim/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-09T20:53:11Z",
+   "updated_at": "2026-05-09T20:53:11Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413648032/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413760471",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#issuecomment-4413760471",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315495",
+   "id": 4413760471,
+   "node_id": "IC_kwDOAn8RLM8AAAABBxSj1w",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-09T21:56:26Z",
+   "updated_at": "2026-05-09T21:56:26Z",
+   "body": "I have refactored the service worker to address the code duplication concern raised by the AI reviewer. By extracting the path-checking logic into a helper function isWebviewIframe(url), we keep the logic DRY and reduce the risk of drift if entry points change. @yongsooim, feel free to pull these changes if you find them helpful!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413760471/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413844073",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#issuecomment-4413844073",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315495",
+   "id": 4413844073,
+   "node_id": "IC_kwDOAn8RLM8AAAABBxXqaQ",
+   "user": {
+    "login": "harshagarwalnyu",
+    "id": 193159477,
+    "node_id": "U_kgDOC4NhNQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/193159477?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/harshagarwalnyu",
+    "html_url": "https://github.com/harshagarwalnyu",
+    "followers_url": "https://api.github.com/users/harshagarwalnyu/followers",
+    "following_url": "https://api.github.com/users/harshagarwalnyu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/harshagarwalnyu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/harshagarwalnyu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/harshagarwalnyu/subscriptions",
+    "organizations_url": "https://api.github.com/users/harshagarwalnyu/orgs",
+    "repos_url": "https://api.github.com/users/harshagarwalnyu/repos",
+    "events_url": "https://api.github.com/users/harshagarwalnyu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/harshagarwalnyu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-09T22:23:31Z",
+   "updated_at": "2026-05-09T22:23:31Z",
+   "body": "I have opened a companion draft PR (#315498) that extracts the isWebviewIframe helper into a standalone commit, addressing the code duplication concern from the Copilot review. @yongsooim feel free to pull that commit directly — happy to close #315498 if you prefer to squash it into your branch instead.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4413844073/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4414308407",
+   "html_url": "https://github.com/microsoft/vscode/pull/315495#issuecomment-4414308407",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/315495",
+   "id": 4414308407,
+   "node_id": "IC_kwDOAn8RLM8AAAABBx0ANw",
+   "user": {
+    "login": "yongsooim",
+    "id": 10796204,
+    "node_id": "MDQ6VXNlcjEwNzk2MjA0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/10796204?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yongsooim",
+    "html_url": "https://github.com/yongsooim",
+    "followers_url": "https://api.github.com/users/yongsooim/followers",
+    "following_url": "https://api.github.com/users/yongsooim/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yongsooim/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yongsooim/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yongsooim/subscriptions",
+    "organizations_url": "https://api.github.com/users/yongsooim/orgs",
+    "repos_url": "https://api.github.com/users/yongsooim/repos",
+    "events_url": "https://api.github.com/users/yongsooim/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yongsooim/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-10T03:08:56Z",
+   "updated_at": "2026-05-10T03:08:56Z",
+   "body": "Thanks @harshagarwalnyu for taking a look and for opening the companion PR. I folded a corrected version of that helper extraction directly into this PR in 871021f0395, keeping the existing `getOuterIframeClient` JSDoc attached to the function.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4414308407/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+   "node_id": "C_kwDOSY_k4toAKGNjM2Y3ZTg0MWQ1YmYwMjJjODQ0MGE5NGFlZGI0ODVkOWMxYTU0OWE",
+   "commit": {
+    "author": {
+     "name": "Jason Im",
+     "email": "js@gaudiolab.com",
+     "date": "2026-05-09T20:48:03Z"
+    },
+    "committer": {
+     "name": "Jason Im",
+     "email": "js@gaudiolab.com",
+     "date": "2026-05-09T20:48:03Z"
+    },
+    "message": "[webview] Resolve webview id for worker clients in service worker",
+    "tree": {
+     "sha": "621be93a1749f5a5c22cdf2ab62b1e9ddc88d5b6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/621be93a1749f5a5c22cdf2ab62b1e9ddc88d5b6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+   "html_url": "https://github.com/microsoft/vscode/commit/cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/cc3f7e841d5bf022c8440a94aedb485d9c1a549a/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "fb7318864255b9a48e186aa7cef1c655b777b341",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fb7318864255b9a48e186aa7cef1c655b777b341",
+     "html_url": "https://github.com/microsoft/vscode/commit/fb7318864255b9a48e186aa7cef1c655b777b341"
+    }
+   ]
+  },
+  {
+   "sha": "871021f03959c7c4429c812d2598e6c6423d8734",
+   "node_id": "C_kwDOSY_k4toAKDg3MTAyMWYwMzk1OWM3YzQ0MjljODEyZDI1OThlNmM2NDIzZDg3MzQ",
+   "commit": {
+    "author": {
+     "name": "Jason Im",
+     "email": "js@gaudiolab.com",
+     "date": "2026-05-10T03:08:15Z"
+    },
+    "committer": {
+     "name": "Jason Im",
+     "email": "js@gaudiolab.com",
+     "date": "2026-05-10T03:08:15Z"
+    },
+    "message": "[webview] Share webview iframe path check",
+    "tree": {
+     "sha": "b100832e75c38af762b748d70d79786ee0783856",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b100832e75c38af762b748d70d79786ee0783856"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/871021f03959c7c4429c812d2598e6c6423d8734",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/871021f03959c7c4429c812d2598e6c6423d8734",
+   "html_url": "https://github.com/microsoft/vscode/commit/871021f03959c7c4429c812d2598e6c6423d8734",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/871021f03959c7c4429c812d2598e6c6423d8734/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cc3f7e841d5bf022c8440a94aedb485d9c1a549a",
+     "html_url": "https://github.com/microsoft/vscode/commit/cc3f7e841d5bf022c8440a94aedb485d9c1a549a"
+    }
+   ]
+  },
+  {
+   "sha": "96ecb73e43201bb57069c7e06d4d02609b066c50",
+   "node_id": "C_kwDOSY_k4toAKDk2ZWNiNzNlNDMyMDFiYjU3MDY5YzdlMDZkNGQwMjYwOWIwNjZjNTA",
+   "commit": {
+    "author": {
+     "name": "yongsooim",
+     "email": "yongsooim90@gmail.com",
+     "date": "2026-05-10T03:33:25Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-10T03:33:25Z"
+    },
+    "message": "Merge branch 'main' into fix/webview-sw-worker-resource-routing",
+    "tree": {
+     "sha": "19645f7c9774237bdd00ee8e94f00e09fe55a75d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/19645f7c9774237bdd00ee8e94f00e09fe55a75d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/96ecb73e43201bb57069c7e06d4d02609b066c50",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp//yFCRC1aQ7uu5UhlAAAId8QAH37H664aZzo7Q6A+nBMu6b7\nB3ETjiyUMlN7Ufr4uh/oBY28mUPd8xWZSuN0Pn3uvktVUAvDVbs+QLsQLfS0glSz\nWPBF603zdrv8yQw5P3Pbpx7czciLBIlEd1x1ftPjShYeRtscycrYC9n8QLDehQUs\ndpcd1eBQAkz46XITPqRVypc0NghWr6Xs/lHieuzQ9aSKOMB3GdfbMWJRlf1r+iAc\nQPpFacLtncuHi2wF91TiQnU7qww7aUTl99yRJjOEP5TYlVN4q+T7M+K3FFW3SJnt\ns2Oz2AeOwLrZQomBug2Mu/jZix6bjAmZQuESMampePrlB73V5lA8n+g/E/etPTrd\nwBXtBRSfp4mdTVpbYkGpkxC/efiLN8Lg+95CZuVgGSBO75ZujmJ4hJ4K5yv4+OUa\nGOcqBN3hTSNah/UqboSicAE7jI+fWiRVJsEdBwxFxTcm5tTKp1JYQgdwotRPZAI2\nsTE6Ds7vQt9LJH2J4toMWGOpX9eWXmOOKN1DxQ9LQhx/NbRpcgNaJPaGcULbA4KR\nDsqQoFSGircIgYuSKOV2/YF9tU/G/CyEE5MxDjlZG7usXWTFbdmXqJKIPTk5nYTV\nJ+9W7Ww4KnbAdna9bYPr/92thAisbqHcSVfNcHfNDvC0VB7t1FgNcqHaxEai+PA2\nTje9RYf3vXcWiCzrPjVE\n=78+U\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 19645f7c9774237bdd00ee8e94f00e09fe55a75d\nparent 871021f03959c7c4429c812d2598e6c6423d8734\nparent 9384620560b6ffa888a0c45f8c87ce41f7394f12\nauthor yongsooim <yongsooim90@gmail.com> 1778384005 +0900\ncommitter GitHub <noreply@github.com> 1778384005 +0900\n\nMerge branch 'main' into fix/webview-sw-worker-resource-routing",
+     "verified_at": "2026-05-10T03:33:26Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/96ecb73e43201bb57069c7e06d4d02609b066c50",
+   "html_url": "https://github.com/microsoft/vscode/commit/96ecb73e43201bb57069c7e06d4d02609b066c50",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/96ecb73e43201bb57069c7e06d4d02609b066c50/comments",
+   "author": {
+    "login": "yongsooim",
+    "id": 10796204,
+    "node_id": "MDQ6VXNlcjEwNzk2MjA0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/10796204?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yongsooim",
+    "html_url": "https://github.com/yongsooim",
+    "followers_url": "https://api.github.com/users/yongsooim/followers",
+    "following_url": "https://api.github.com/users/yongsooim/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yongsooim/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yongsooim/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yongsooim/subscriptions",
+    "organizations_url": "https://api.github.com/users/yongsooim/orgs",
+    "repos_url": "https://api.github.com/users/yongsooim/repos",
+    "events_url": "https://api.github.com/users/yongsooim/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yongsooim/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "871021f03959c7c4429c812d2598e6c6423d8734",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/871021f03959c7c4429c812d2598e6c6423d8734",
+     "html_url": "https://github.com/microsoft/vscode/commit/871021f03959c7c4429c812d2598e6c6423d8734"
+    },
+    {
+     "sha": "9384620560b6ffa888a0c45f8c87ce41f7394f12",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9384620560b6ffa888a0c45f8c87ce41f7394f12",
+     "html_url": "https://github.com/microsoft/vscode/commit/9384620560b6ffa888a0c45f8c87ce41f7394f12"
+    }
+   ]
+  }
+ ]
+}

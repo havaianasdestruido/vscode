@@ -1,0 +1,1813 @@
+{
+ "fetchedAt": "2026-11-01T00:52:48.076Z",
+ "pr": {
+  "number": 296767,
+  "title": "Add horizontal resize support for quick input widget",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-02-21T23:02:59Z",
+  "updated_at": "2026-10-13T19:32:58Z",
+  "user": "ipanasenko",
+  "author_association": "NONE",
+  "additions": 136,
+  "deletions": 2,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 5,
+  "commits_count": 18,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "resize-quick-input",
+   "sha": "bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "repo": "ipanasenko/vscode",
+   "label": "ipanasenko:resize-quick-input"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "495961f8408ed58d1e9aee44dfbc538587799a0b"
+  },
+  "body": "## Summary\r\n\r\n- Adds draggable resize handles on the left and right edges of the quick input widget, allowing users to horizontally resize the command palette / quick pick\r\n- The widget stays centered while resizing — both edges expand/contract symmetrically\r\n- The custom width is persisted in application storage and restored across sessions\r\n\r\nFixes #85374\r\n\r\n\r\nhttps://github.com/user-attachments/assets/3275288a-8952-43fd-8937-d847b29b8345\r\n\r\n\r\n\r\n\r\n## Test plan\r\n\r\n- [x] Open the command palette (`Cmd+P` or `Cmd+Shift+P`) and verify resize handles appear on the left and right edges\r\n- [x] Drag the right edge to widen/narrow the widget — it should stay centered\r\n- [x] Drag the left edge to widen/narrow the widget — it should stay centered\r\n- [x] Close and reopen the command palette — the custom width should be restored\r\n- [x] Resize after dragging the widget to a custom position — verify it stays centered at that position\r\n- [x] Verify the widget respects minimum width (300px) and maximum width (900px / container bounds)",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "ec52ca9e091747a14c41370216efdfaf10f23fd4",
+   "filename": "src/vs/platform/quickinput/browser/media/quickInput.css",
+   "status": "modified",
+   "additions": 18,
+   "deletions": 0,
+   "changes": 18,
+   "blob_url": "https://github.com/microsoft/vscode/blob/bf301fa5ea09002f873ffe7813db3dd6f1088dc2/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2Fmedia%2FquickInput.css",
+   "raw_url": "https://github.com/microsoft/vscode/raw/bf301fa5ea09002f873ffe7813db3dd6f1088dc2/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2Fmedia%2FquickInput.css",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2Fmedia%2FquickInput.css?ref=bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "patch": "@@ -13,6 +13,24 @@\n \tbox-shadow: var(--vscode-shadow-xl);\n }\n \n+/* Resize handles */\n+.quick-input-widget-resize {\n+\tposition: absolute;\n+\ttop: 0;\n+\tbottom: 0;\n+\twidth: 6px;\n+\tcursor: ew-resize;\n+\tz-index: 1;\n+}\n+\n+.quick-input-widget-resize.left {\n+\tleft: -3px;\n+}\n+\n+.quick-input-widget-resize.right {\n+\tright: -3px;\n+}\n+\n .modern-ui.monaco-enable-motion .quick-input-widget:not(.quick-input-widget-overlay) {\n \tanimation: quick-input-widget-open 250ms cubic-bezier(0.22, 1, 0.36, 1) both;\n \ttransform-origin: top center;"
+  },
+  {
+   "sha": "e7d7f2edddd69fff66afc49404862db473e58ac1",
+   "filename": "src/vs/platform/quickinput/browser/quickInputController.ts",
+   "status": "modified",
+   "additions": 118,
+   "deletions": 2,
+   "changes": 120,
+   "blob_url": "https://github.com/microsoft/vscode/blob/bf301fa5ea09002f873ffe7813db3dd6f1088dc2/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2FquickInputController.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/bf301fa5ea09002f873ffe7813db3dd6f1088dc2/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2FquickInputController.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fquickinput%2Fbrowser%2FquickInputController.ts?ref=bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "patch": "@@ -52,6 +52,7 @@ const QUICK_INPUT_MOTION_ANCESTOR_CLASSES = ['modern-ui', 'monaco-enable-motion'\n type QuickInputViewState = {\n \treadonly top?: number;\n \treadonly left?: number;\n+\treadonly width?: number; // custom width in pixels\n };\n \n type QuickInputOverlayLayoutCorrection = {\n@@ -97,6 +98,7 @@ export class QuickInputController extends Disposable {\n \n \tprivate viewState: QuickInputViewState | undefined;\n \tprivate dndController: QuickInputDragAndDropController | undefined;\n+\tprivate resizeController: QuickInputResizeController | undefined;\n \tprivate readonly closeAnimation = this._register(new MutableDisposable<IDisposable>());\n \n \tprivate readonly _alignment = observableValue<QuickInputAlignment>(this, 'top');\n@@ -427,6 +429,33 @@ export class QuickInputController extends Disposable {\n \t\t\tthis._alignment.set(this.dndController!.alignment.read(reader), undefined);\n \t\t}));\n \n+\t\t// Resize support\n+\t\tthis.resizeController = this._register(new QuickInputResizeController(\n+\t\t\tthis._container,\n+\t\t\tcontainer,\n+\t\t\tthis.viewState?.width\n+\t\t));\n+\n+\t\t// Resize update layout\n+\t\tthis._register(autorun(reader => {\n+\t\t\tconst resizeState = this.resizeController?.resizeViewState.read(reader);\n+\t\t\tif (!resizeState) {\n+\t\t\t\treturn;\n+\t\t\t}\n+\n+\t\t\tthis.viewState = {\n+\t\t\t\t...this.viewState,\n+\t\t\t\twidth: resizeState.width,\n+\t\t\t};\n+\n+\t\t\tthis.updateLayout();\n+\n+\t\t\t// Save width and position\n+\t\t\tif (resizeState.done) {\n+\t\t\t\tthis.saveViewState(this.viewState);\n+\t\t\t}\n+\t\t}));\n+\n \t\tthis.ui = {\n \t\t\tcontainer,\n \t\t\tstyleSheet,\n@@ -978,7 +1007,10 @@ export class QuickInputController extends Disposable {\n \tprivate updateLayout() {\n \t\tif (this.ui && this.isVisible()) {\n \t\t\tconst style = this.ui.container.style;\n-\t\t\tlet width = Math.min(this.dimension!.width * 0.62 /* golden cut */, QuickInputController.MAX_WIDTH);\n+\t\t\tconst customWidth = this.viewState?.width;\n+\t\t\tlet width = customWidth !== undefined\n+\t\t\t\t? Math.max(QuickInputResizeController.MIN_WIDTH, Math.min(customWidth, this.dimension!.width - 20))\n+\t\t\t\t: Math.min(this.dimension!.width * 0.62 /* golden cut */, QuickInputController.MAX_WIDTH);\n \t\t\tstyle.width = width + 'px';\n \n \t\t\tlet listHeight = this.dimension && this.dimension.height * 0.4;\n@@ -1145,7 +1177,7 @@ export class QuickInputController extends Disposable {\n \tprivate loadViewState(): QuickInputViewState | undefined {\n \t\ttry {\n \t\t\tconst data = JSON.parse(this.storageService.get(VIEWSTATE_STORAGE_KEY, StorageScope.APPLICATION, '{}'));\n-\t\t\tif (data.top !== undefined || data.left !== undefined) {\n+\t\t\tif (data.top !== undefined || data.left !== undefined || data.width !== undefined) {\n \t\t\t\treturn data;\n \t\t\t}\n \t\t} catch { }\n@@ -1391,3 +1423,87 @@ class QuickInputDragAndDropController extends Disposable {\n \t\treturn Math.round(this._container.clientWidth / 2) - Math.round(this._quickInputContainer.clientWidth / 2);\n \t}\n }\n+\n+class QuickInputResizeController extends Disposable {\n+\tstatic readonly MIN_WIDTH = 300;\n+\tstatic readonly MAX_WIDTH = 1200;\n+\n+\treadonly resizeViewState = observableValue<{ width?: number; done: boolean } | undefined>(this, undefined);\n+\n+\tprivate readonly _leftHandle: HTMLElement;\n+\tprivate readonly _rightHandle: HTMLElement;\n+\n+\tconstructor(\n+\t\tprivate _container: HTMLElement,\n+\t\tprivate readonly _quickInputContainer: HTMLElement,\n+\t\tinitialWidth: number | undefined\n+\t) {\n+\t\tsuper();\n+\n+\t\t// Create resize handles\n+\t\tthis._leftHandle = dom.append(this._quickInputContainer, $('.quick-input-widget-resize.left'));\n+\t\tthis._rightHandle = dom.append(this._quickInputContainer, $('.quick-input-widget-resize.right'));\n+\n+\t\tthis._registerMouseListeners();\n+\n+\t\tif (initialWidth !== undefined) {\n+\t\t\tthis.resizeViewState.set({ width: initialWidth, done: true }, undefined);\n+\t\t}\n+\t}\n+\n+\tprivate _registerMouseListeners(): void {\n+\t\t// Left handle\n+\t\tthis._registerHandleListeners(this._leftHandle, 'left');\n+\n+\t\t// Right handle\n+\t\tthis._registerHandleListeners(this._rightHandle, 'right');\n+\n+\t}\n+\n+\tprivate _registerHandleListeners(handle: HTMLElement, side: 'left' | 'right'): void {\n+\t\tthis._register(dom.addDisposableGenericMouseDownListener(handle, (e: MouseEvent) => {\n+\t\t\tconst activeWindow = dom.getWindow(this._container);\n+\t\t\tconst originEvent = new StandardMouseEvent(activeWindow, e);\n+\t\t\toriginEvent.preventDefault();\n+\t\t\toriginEvent.stopPropagation();\n+\n+\t\t\tconst startX = originEvent.browserEvent.clientX;\n+\t\t\tconst startWidth = this._quickInputContainer.getBoundingClientRect().width;\n+\t\t\tconst containerWidth = this._container.clientWidth;\n+\n+\t\t\tlet isResizing = false;\n+\t\t\tconst mouseMoveListener = dom.addDisposableGenericMouseMoveListener(activeWindow, (e: MouseEvent) => {\n+\t\t\t\tconst mouseMoveEvent = new StandardMouseEvent(activeWindow, e);\n+\t\t\t\tmouseMoveEvent.preventDefault();\n+\n+\t\t\t\tif (!isResizing) {\n+\t\t\t\t\tisResizing = true;\n+\t\t\t\t}\n+\n+\t\t\t\tconst deltaX = mouseMoveEvent.browserEvent.clientX - startX;\n+\t\t\t\tlet newWidth: number;\n+\n+\t\t\t\tif (side === 'right') {\n+\t\t\t\t\tnewWidth = startWidth + deltaX * 2;\n+\t\t\t\t} else {\n+\t\t\t\t\tnewWidth = startWidth - deltaX * 2;\n+\t\t\t\t}\n+\n+\t\t\t\tnewWidth = Math.max(QuickInputResizeController.MIN_WIDTH, Math.min(newWidth, QuickInputResizeController.MAX_WIDTH));\n+\t\t\t\tnewWidth = Math.min(newWidth, containerWidth - 20);\n+\n+\t\t\t\tthis.resizeViewState.set({ width: newWidth, done: false }, undefined);\n+\t\t\t});\n+\n+\t\t\tconst mouseUpListener = dom.addDisposableGenericMouseUpListener(activeWindow, (e: MouseEvent) => {\n+\t\t\t\tif (isResizing) {\n+\t\t\t\t\tconst state = this.resizeViewState.get();\n+\t\t\t\t\tthis.resizeViewState.set({ width: state?.width, done: true }, undefined);\n+\t\t\t\t}\n+\n+\t\t\t\tmouseMoveListener.dispose();\n+\t\t\t\tmouseUpListener.dispose();\n+\t\t\t});\n+\t\t}));\n+\t}\n+}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 3836191883,
+   "node_id": "PRR_kwDOAn8RLM7kp6SL",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds horizontal resize support to the quick input widget (command palette / quick pick), including persistence of custom width via stored view state.\n\n**Changes:**\n- Persist and restore a custom quick input width via `workbench.quickInput.viewState`.\n- Add a `QuickInputResizeController` that provides left/right resize handles, drag resizing, and double-click reset.\n- Add CSS for the resize handle hit targets.\n\n### Reviewed changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 3 comments.\n\n| File | Description |\n| ---- | ----------- |\n| `src/vs/platform/quickinput/browser/quickInputController.ts` | Introduces persisted `width` in view state, adds resize controller + layout updates, and implements mouse-driven resize behavior. |\n| `src/vs/platform/quickinput/browser/media/quickInput.css` | Styles/positions the new resize handle elements on the widget edges. |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836191883",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/296767",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836191883"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/296767"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-21T23:06:34Z",
+   "commit_id": "5700479cf4430040f57005d2f12305d4954f6c14"
+  },
+  {
+   "id": 3836196898,
+   "node_id": "PRR_kwDOAn8RLM7kp7gi",
+   "user": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836196898",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/296767",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836196898"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/296767"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-21T23:15:17Z",
+   "commit_id": "f0c07d5ea13806def715e475f4d624226df49b74"
+  },
+  {
+   "id": 3836203616,
+   "node_id": "PRR_kwDOAn8RLM7kp9Jg",
+   "user": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836203616",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/296767",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/296767#pullrequestreview-3836203616"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/296767"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-02-21T23:24:31Z",
+   "commit_id": "5700479cf4430040f57005d2f12305d4954f6c14"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3939727090",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#issuecomment-3939727090",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/296767",
+   "id": 3939727090,
+   "node_id": "IC_kwDOAn8RLM7q03by",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-02-21T23:52:38Z",
+   "updated_at": "2026-10-13T19:32:58Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @TylerLeonhardt\n\nMatched files:\n- `src/vs/platform/quickinput/browser/media/quickInput.css`\n- `src/vs/platform/quickinput/browser/quickInputController.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3939727090/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4438583246",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#issuecomment-4438583246",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/296767",
+   "id": 4438583246,
+   "node_id": "IC_kwDOAn8RLM8AAAABCI9nzg",
+   "user": {
+    "login": "wadamczyk-insolutions",
+    "id": 109798576,
+    "node_id": "U_kgDOBotksA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/109798576?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wadamczyk-insolutions",
+    "html_url": "https://github.com/wadamczyk-insolutions",
+    "followers_url": "https://api.github.com/users/wadamczyk-insolutions/followers",
+    "following_url": "https://api.github.com/users/wadamczyk-insolutions/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wadamczyk-insolutions/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wadamczyk-insolutions/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wadamczyk-insolutions/subscriptions",
+    "organizations_url": "https://api.github.com/users/wadamczyk-insolutions/orgs",
+    "repos_url": "https://api.github.com/users/wadamczyk-insolutions/repos",
+    "events_url": "https://api.github.com/users/wadamczyk-insolutions/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wadamczyk-insolutions/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-13T07:44:36Z",
+   "updated_at": "2026-05-13T07:44:36Z",
+   "body": "Any chance of progress in the upcoming releases? This PR would solve this already 7 year old issue https://github.com/microsoft/vscode/issues/85374#issuecomment-3939690996 ....\r\nWhat can be done to help with this?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4438583246/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4592148012",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#issuecomment-4592148012",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/296767",
+   "id": 4592148012,
+   "node_id": "IC_kwDOAn8RLM8AAAABEbaeLA",
+   "user": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-01T11:29:53Z",
+   "updated_at": "2026-06-01T11:29:53Z",
+   "body": "@TylerLeonhardt 👋\r\nSorry for tagging directly, but community would appreciate a lot if you could invest some of your time and look at this PR. Thanks! 🙏",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4592148012/reactions",
+    "total_count": 3,
+    "+1": 3,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5309370391",
+   "html_url": "https://github.com/microsoft/vscode/pull/296767#issuecomment-5309370391",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/296767",
+   "id": 5309370391,
+   "node_id": "IC_kwDOAn8RLM8AAAABPHaQFw",
+   "user": {
+    "login": "wilhem-meignan",
+    "id": 47667558,
+    "node_id": "MDQ6VXNlcjQ3NjY3NTU4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/47667558?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wilhem-meignan",
+    "html_url": "https://github.com/wilhem-meignan",
+    "followers_url": "https://api.github.com/users/wilhem-meignan/followers",
+    "following_url": "https://api.github.com/users/wilhem-meignan/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wilhem-meignan/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wilhem-meignan/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wilhem-meignan/subscriptions",
+    "organizations_url": "https://api.github.com/users/wilhem-meignan/orgs",
+    "repos_url": "https://api.github.com/users/wilhem-meignan/repos",
+    "events_url": "https://api.github.com/users/wilhem-meignan/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wilhem-meignan/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-16T19:54:47Z",
+   "updated_at": "2026-08-16T19:55:26Z",
+   "body": "Hi, I have used OpenAI Codex to implement a resizable Quick Input. I have tested it in various scenarios including multiple VS Code instances and persistence and couldn't find any issue. Please let me know if I should open a PR or if you want to integrate some of the code in yours.\r\n\r\nThe code is available in [my fork](https://github.com/wilhem-meignan/vscode/tree/quick-input-resize-85374).\r\n\r\nHere is a short description of the work:\r\n\r\n> User-facing behavior: Quick-input widgets can be resized symmetrically from the left or right edge and vertically from the bottom edge or either bottom corner. Width and height are constrained to the available window and content, persisted between sessions, and restored safely when the window becomes smaller. Filtered lists cannot be enlarged beyond their visible content, while the preferred height is retained when the filter is cleared. Double-clicking the header resets size and position.\r\n> Implementation: It uses VS Code’s native Sash component for handles, corner interaction, and directional cursors. Resize events update the existing persisted quick-input view state, and layout calculations clamp the resulting size and position. Content-height events trigger recalculation when filtering changes the list.\r\n> Anchored quick-input widgets are explicitly excluded: their resize sashes are disabled so their existing anchor-based layout remains unaffected. The implementation includes browser tests covering edges, corners, constraints, filtering, persistence, restoration, reset, and anchored widgets.\r\n\r\nNote that the vertical resizing happens one line at a time and there is a few pixels of the next line visible on purpose so that the user can see when more lines are available.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5309370391/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "5700479cf4430040f57005d2f12305d4954f6c14",
+   "node_id": "C_kwDORKS1RtoAKDU3MDA0NzljZjQ0MzAwNDBmNTcwMDVkMmYxMjMwNWQ0OTU0ZjZjMTQ",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:02:33Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:02:33Z"
+    },
+    "message": "Add horizontal resize support for quick input widget\n\nAllow users to resize the command palette / quick input widget by\ndragging its left or right edge. The custom width is persisted in\nstorage and restored across sessions. Double-clicking a resize handle\nresets the width to the default.\n\nFixes microsoft/vscode#85374\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+    "tree": {
+     "sha": "fc6baae597f438bfb27ae71c8764516984a5739c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fc6baae597f438bfb27ae71c8764516984a5739c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5700479cf4430040f57005d2f12305d4954f6c14",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5700479cf4430040f57005d2f12305d4954f6c14",
+   "html_url": "https://github.com/microsoft/vscode/commit/5700479cf4430040f57005d2f12305d4954f6c14",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5700479cf4430040f57005d2f12305d4954f6c14/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "702d358dc97554c5e6c037b164e99112d76b8d19",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/702d358dc97554c5e6c037b164e99112d76b8d19",
+     "html_url": "https://github.com/microsoft/vscode/commit/702d358dc97554c5e6c037b164e99112d76b8d19"
+    }
+   ]
+  },
+  {
+   "sha": "f0c07d5ea13806def715e475f4d624226df49b74",
+   "node_id": "C_kwDORKS1RtoAKGYwYzA3ZDVlYTEzODA2ZGVmNzE1ZTQ3NWY0ZDYyNDIyNmRmNDliNzQ",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:11:13Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:11:13Z"
+    },
+    "message": "Keep quick input centered while resizing\n\nRemove edge-anchoring behavior so the widget stays centered during\nresize. Also remove the double-click-to-reset-width feature.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+    "tree": {
+     "sha": "ee0dffc54ad6a10cf005e584c26d8c8d88b8d9b0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ee0dffc54ad6a10cf005e584c26d8c8d88b8d9b0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f0c07d5ea13806def715e475f4d624226df49b74",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f0c07d5ea13806def715e475f4d624226df49b74",
+   "html_url": "https://github.com/microsoft/vscode/commit/f0c07d5ea13806def715e475f4d624226df49b74",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f0c07d5ea13806def715e475f4d624226df49b74/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "5700479cf4430040f57005d2f12305d4954f6c14",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5700479cf4430040f57005d2f12305d4954f6c14",
+     "html_url": "https://github.com/microsoft/vscode/commit/5700479cf4430040f57005d2f12305d4954f6c14"
+    }
+   ]
+  },
+  {
+   "sha": "abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+   "node_id": "C_kwDORKS1RtoAKGFiZjk2ZmFjMGFjODY2YzhiNDJiMzNkNmE2YjViMTllNTY4NjMyODQ",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:26:52Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-02-21T23:26:52Z"
+    },
+    "message": "Merge remote-tracking branch 'origin/main' into resize-quick-input\n\nCo-authored-by: Cursor <cursoragent@cursor.com>\n\n# Conflicts:\n#\tsrc/vs/platform/quickinput/browser/quickInputController.ts",
+    "tree": {
+     "sha": "9ff010c3b1935a428ec27d4a55f462fba30b880a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9ff010c3b1935a428ec27d4a55f462fba30b880a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+   "html_url": "https://github.com/microsoft/vscode/commit/abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/abf96fac0ac866c8b42b33d6a6b5b19e56863284/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "f0c07d5ea13806def715e475f4d624226df49b74",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f0c07d5ea13806def715e475f4d624226df49b74",
+     "html_url": "https://github.com/microsoft/vscode/commit/f0c07d5ea13806def715e475f4d624226df49b74"
+    },
+    {
+     "sha": "9c99e8fb20933a838deb6a62a0a9e2ab1919290f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9c99e8fb20933a838deb6a62a0a9e2ab1919290f",
+     "html_url": "https://github.com/microsoft/vscode/commit/9c99e8fb20933a838deb6a62a0a9e2ab1919290f"
+    }
+   ]
+  },
+  {
+   "sha": "c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+   "node_id": "C_kwDORKS1RtoAKGMxODRlZTY2MjMyMmQ2NGRkMTgwM2E5ZjJkOGYwZDg5YTk3YzkwMTU",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-05-13T10:18:12Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "ilyap@wix.com",
+     "date": "2026-05-13T10:18:12Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input\n\n# Conflicts:\n#\tsrc/vs/platform/quickinput/browser/quickInputController.ts",
+    "tree": {
+     "sha": "edea56450ae4691784634c3144eebe3a3c6e3a93",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/edea56450ae4691784634c3144eebe3a3c6e3a93"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+   "html_url": "https://github.com/microsoft/vscode/commit/c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c184ee662322d64dd1803a9f2d8f0d89a97c9015/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/abf96fac0ac866c8b42b33d6a6b5b19e56863284",
+     "html_url": "https://github.com/microsoft/vscode/commit/abf96fac0ac866c8b42b33d6a6b5b19e56863284"
+    },
+    {
+     "sha": "25a53e629359c0f0b222fa9a8e5372f6a17de923",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/25a53e629359c0f0b222fa9a8e5372f6a17de923",
+     "html_url": "https://github.com/microsoft/vscode/commit/25a53e629359c0f0b222fa9a8e5372f6a17de923"
+    }
+   ]
+  },
+  {
+   "sha": "98d3516a5e411073307f33e8bde262b7b8ebee38",
+   "node_id": "C_kwDORKS1RtoAKDk4ZDM1MTZhNWU0MTEwNzMzMDdmMzNlOGJkZTI2MmI3YjhlYmVlMzg",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-06-01T10:35:50Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-01T10:35:50Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "91c0de3f0d91b4cfa564afa617fc35e9820519af",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/91c0de3f0d91b4cfa564afa617fc35e9820519af"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/98d3516a5e411073307f33e8bde262b7b8ebee38",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqHWCGCRC1aQ7uu5UhlAAAOPcQAJ9aox9MrNtcYDIaKTI/iJat\nc+5JsZLWtP5wiZh3q9Av5u+n0ugCRnZS0cdraNuvdXZHf+vAUozGcc50D9CK8rzP\nlaZN4DTv1Tu4Muztz11chORMxlBg5Rtv6ZzD4SwrHDcRzIMhP5sThXGze4O7Q4uS\nRfbR3o44YvqlTFmHp8yKIMdTS/Bzeb8hcPn62AOCOYmlM5uyt3ZNJjT3HUiy39yF\nFx89lswBdcxdfIUEItx3bwEkVHXdRah4Z9ZXADpHOvJmuh0BP9NJv3Z4vmyMQXVI\nwjzPW6BpWjmhxjlmUcflQ3c/6jztZZyGbYExLjbeDhiq0le+RO31UhEpn6he6Fua\nSGjMTP4MRIKyivEruHGikE5WdQUmACO8kB41oQC1xwnosMv8qX2vNGNkBtQXoXDp\nfeuV4OGRL/23fcZ/REv6wXVSUwGMG+0vmTW6ooy64Wt3dsVzuV2jldNnqU1eFkkX\n23JcfVFSPeZsKGk5S4W8SZSvlBNYjBDBLvpSYsPTF8Hrn6uh/Ym4Thfacz8Ukm0w\noZPf/vxfrH209fYuTmfXfTfiVGcZ9B37Q7omuGk0Xcvy+XiPyA5jKz+MMtYa2wXI\nEv3CcRDpci20ZhQ3OGxwJC3y194tJC1/0jSHWJWfJQcG17zan1Nvus3Kv7lBnh+u\nmzVZMwUO0uOuI3VHgD7A\n=XqZ6\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 91c0de3f0d91b4cfa564afa617fc35e9820519af\nparent c184ee662322d64dd1803a9f2d8f0d89a97c9015\nparent fe7748d50388bd62e686be13d97180bb097e0bea\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1780310150 +0200\ncommitter GitHub <noreply@github.com> 1780310150 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-06-01T10:35:51Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/98d3516a5e411073307f33e8bde262b7b8ebee38",
+   "html_url": "https://github.com/microsoft/vscode/commit/98d3516a5e411073307f33e8bde262b7b8ebee38",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/98d3516a5e411073307f33e8bde262b7b8ebee38/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c184ee662322d64dd1803a9f2d8f0d89a97c9015",
+     "html_url": "https://github.com/microsoft/vscode/commit/c184ee662322d64dd1803a9f2d8f0d89a97c9015"
+    },
+    {
+     "sha": "fe7748d50388bd62e686be13d97180bb097e0bea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fe7748d50388bd62e686be13d97180bb097e0bea",
+     "html_url": "https://github.com/microsoft/vscode/commit/fe7748d50388bd62e686be13d97180bb097e0bea"
+    }
+   ]
+  },
+  {
+   "sha": "2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+   "node_id": "C_kwDORKS1RtoAKDJhNWRjZDkyMmQ3YzkyYTlmMDM2MjMzNmI0Y2QzYjRlMTBiNDI0ZGY",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-06-01T10:41:37Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-01T10:41:37Z"
+    },
+    "message": "Increase MAX_WIDTH in QuickInputResizeController",
+    "tree": {
+     "sha": "8323e61e6309910bf676bf443ad05d2c660f5df6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8323e61e6309910bf676bf443ad05d2c660f5df6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqHWHhCRC1aQ7uu5UhlAAAFY8QAAZhloD6aIqpn9Je94tTBelr\n64Nnxb/24o+ZDv6MvFvMOKmvWrvHVNx5uu1Ls7lOU6IPQvuNCGSTGHJv1bDYaReu\nJTejPLM5zSVfg+svT/gAPT3EIO5yyX+D/HHf/p5S5cetjb4sdbt6cH2WbKdIHB6b\nERcskS3zdZStBB9PUHwrhxxH6ruAYL8jVlayHPLi7XME2xdvOKYe/1JpNCJ3KIQR\nGi9yxwXgi6rvKu8L/vor+Ij6PTwSa7WrZ0JQtXUwfaIHxLvP4v2P9ogVChv5zWlg\nRudNMf0jsdYrrJ6VUw45GMqfiys0q1lSS785RsbxuLj3INHkYjBvwtakBYJG5cjc\nzUX0UwQjjzntI1CUqFYhsSBgttAp28ii+2dK/kYmEevEcgju48suax4WRjTRcaDb\nPvBkJElTpAA0lBFnyzTNXPdxBYFIlSLhW8J7MgBEU93QzDxFuEodKJPBvRRgNs9t\nKx0IYdd3U1NJXduS+jDifMzjXZFLFUhLKLSq3+jYdM9RPmSUGr/WFh7tJf+sopuU\nluALDroxaHa9qsJ/6A+NZo8yQD7AMxRHe+4fbNwVuX01C0l4kiurpdGeuKSvcl/9\nylRJkHGQatxO5u9RLG2eSNRxeHP7gwM4dF8VkGBuV4Ttw4AfhOP8wOaacMpHP+DA\nYyo1GHPNKM2NoVjbvFxG\n=3xGx\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 8323e61e6309910bf676bf443ad05d2c660f5df6\nparent 98d3516a5e411073307f33e8bde262b7b8ebee38\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1780310497 +0200\ncommitter GitHub <noreply@github.com> 1780310497 +0200\n\nIncrease MAX_WIDTH in QuickInputResizeController",
+     "verified_at": "2026-06-01T10:41:38Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+   "html_url": "https://github.com/microsoft/vscode/commit/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "98d3516a5e411073307f33e8bde262b7b8ebee38",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/98d3516a5e411073307f33e8bde262b7b8ebee38",
+     "html_url": "https://github.com/microsoft/vscode/commit/98d3516a5e411073307f33e8bde262b7b8ebee38"
+    }
+   ]
+  },
+  {
+   "sha": "35e1796cc2c21222672a0102844edb5a9ee32440",
+   "node_id": "C_kwDORKS1RtoAKDM1ZTE3OTZjYzJjMjEyMjI2NzJhMDEwMjg0NGVkYjVhOWVlMzI0NDA",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-06-01T10:42:34Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-01T10:42:34Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "0deaa17ca12dcab18d4ae01d9a22b0511cae2261",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0deaa17ca12dcab18d4ae01d9a22b0511cae2261"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/35e1796cc2c21222672a0102844edb5a9ee32440",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqHWIaCRC1aQ7uu5UhlAAAbpQQAKuIhdmtuGB8WfgOCrcCCHuI\ni3+0uCyrPkq5ayZxwwl82ArmrNbm/9pgcoJclcXUYTKvJdEMxCH9aOn+S0jo7uZU\nt0pGtrCjVr1QfbFPH1an6yZwyEvpzryxPM+PAmgq7BdTR3PR2Q+9kgqaOznxbEs5\n5BLnFxphCJ9bo0u1ueUpug8riamSG7Kd/ALVtpFVhkW/ZTRB0cCzK0Qy2nv6HYk3\nJC2t00Z2Cpn5G243VzLjFk2glJ6r8vaeOUQuNfDv4pVM0bcjVjz33B7DayTu9keI\n7bYXMqiM63Xcq4esfoADt+T2neg0yjnRqsbehGcXYu1a5Q7UC9JqnxG+7GnVmvwW\nlQxXvpeEAXoWl9G5A4mDWQJaRTHYP0CH6etS/YGK/ZpABz7+KJSM9rx10QRqTFpD\nu5l5uItg824GiUD+gPL+h0HSnhj2L4z7TsJH4OwDbLptOSVQ64eRDkndISyKrn8K\nbwVBDnuuPy1nx4r7+ieH3aO7mdwkD0aP+PTC1Y3hGkQiqzODRP2/U5Ib7L7gQgJg\n8aXn+Hf/AR+uGaUzKD0zv4bOAVWO+O6Q/phq9SGtGNm0I3DpPestD7pGkO9C9JeW\ndoVspU7o/QlQ4K4FgyQiMU5geUcjHtwIpmc9PV8nUA/qT3HauELdCf4BUlYjWrOH\ncgrS461JNiOp+GSltmYH\n=mE0a\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0deaa17ca12dcab18d4ae01d9a22b0511cae2261\nparent 2a5dcd922d7c92a9f0362336b4cd3b4e10b424df\nparent db3231368193e8457070e57809f5ef0a703de158\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1780310554 +0200\ncommitter GitHub <noreply@github.com> 1780310554 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-06-01T10:42:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/35e1796cc2c21222672a0102844edb5a9ee32440",
+   "html_url": "https://github.com/microsoft/vscode/commit/35e1796cc2c21222672a0102844edb5a9ee32440",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/35e1796cc2c21222672a0102844edb5a9ee32440/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df",
+     "html_url": "https://github.com/microsoft/vscode/commit/2a5dcd922d7c92a9f0362336b4cd3b4e10b424df"
+    },
+    {
+     "sha": "db3231368193e8457070e57809f5ef0a703de158",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/db3231368193e8457070e57809f5ef0a703de158",
+     "html_url": "https://github.com/microsoft/vscode/commit/db3231368193e8457070e57809f5ef0a703de158"
+    }
+   ]
+  },
+  {
+   "sha": "158485968b01bff4358382334b831c69b823648b",
+   "node_id": "C_kwDORKS1RtoAKDE1ODQ4NTk2OGIwMWJmZjQzNTgzODIzMzRiODMxYzY5YjgyMzY0OGI",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-07-09T12:20:05Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-09T12:20:05Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "94ff88ce74e691b52e344c062844e27cd6c19cf6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/94ff88ce74e691b52e344c062844e27cd6c19cf6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/158485968b01bff4358382334b831c69b823648b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqT5H1CRC1aQ7uu5UhlAAAaVUQAAz2BCtX1bw2YuakLi5RiKpT\ny3etl52YZNGdlEDua2EDXqPHm8iiOywmF5cpfmaIA7wKPUkfOGsSeThXAyD7AC6I\nli8/KRJ8VXdI38a8B4rpD+36l4a8DeSULjTsL/ahIdZvh8uReXnS6DmwRha2ySAQ\npKm854K93Nw3I0z9IDqolcwVWbcbDIaIF3fAVSyoOTEhyhe5sUZI+OpSTc3t6qTF\naTzUsQRzdC3SFtgv0+hyh8Z8/xzLQ88sfNudQixYjB8b9BNmIvt6IsnKfuug3YKL\nKmJwMic+Jgl1NbjP7uCAMAaTVJbnsw+IeX3JuAbUkgnBLRCpVbOKEpn5H7ggnVMz\nM8sNwPG/5hsBgeiRwwvw+A+hGZYMNXV5pbyQDT/1E6qgudViXyOVamIDiVsp/g1x\ndN8lj7d245EBk0rQ+7zkqPbgR95da3VDuhsXenL6gdr6rGB7b7HX6gkQKTxEH91c\ngXx0kcAKMwQreHot+oupFcANUsQ9uhPbd+u6k3H6av6NKk3c4pT7qRE4Po0HBfaJ\n/B3Sb/KAD5rz1prz8ha2c57ybc0WWAdJem4KSaN63FvBgaBrYY03qWcbeQLO4awL\nUaLLg6yHxHmkuOdGI87YQi9poNbhow1YdYIRKdMisPLe8R5dmUphjuQk3iBBqywN\nrsHUJofFXNqPhmFQdOUf\n=8ZAQ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 94ff88ce74e691b52e344c062844e27cd6c19cf6\nparent 35e1796cc2c21222672a0102844edb5a9ee32440\nparent 6231220a62aeecaea0902e4c0d660f9d824c4d92\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1783599605 +0200\ncommitter GitHub <noreply@github.com> 1783599605 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-07-09T12:20:06Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/158485968b01bff4358382334b831c69b823648b",
+   "html_url": "https://github.com/microsoft/vscode/commit/158485968b01bff4358382334b831c69b823648b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/158485968b01bff4358382334b831c69b823648b/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "35e1796cc2c21222672a0102844edb5a9ee32440",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/35e1796cc2c21222672a0102844edb5a9ee32440",
+     "html_url": "https://github.com/microsoft/vscode/commit/35e1796cc2c21222672a0102844edb5a9ee32440"
+    },
+    {
+     "sha": "6231220a62aeecaea0902e4c0d660f9d824c4d92",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6231220a62aeecaea0902e4c0d660f9d824c4d92",
+     "html_url": "https://github.com/microsoft/vscode/commit/6231220a62aeecaea0902e4c0d660f9d824c4d92"
+    }
+   ]
+  },
+  {
+   "sha": "43ffc33671919a4c63fa6e9d429548d306ca1936",
+   "node_id": "C_kwDORKS1RtoAKDQzZmZjMzM2NzE5MTlhNGM2M2ZhNmU5ZDQyOTU0OGQzMDZjYTE5MzY",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-07-13T14:41:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-13T14:41:29Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "b7d122611d929a4a02600c4cef921ed6b0cda8fe",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b7d122611d929a4a02600c4cef921ed6b0cda8fe"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/43ffc33671919a4c63fa6e9d429548d306ca1936",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqVPkaCRC1aQ7uu5UhlAAAGc4QAKJQbqnYXsg5DMfbGOLw49H6\n7IllCzTWeh1p66pN6Bjv4SDc7lGh49JDiD6ug38rlfosPk2pBU32QuqTxubDbIih\nXdHKj7xh5pcAcrVrIxe8QzyUVPKNg24QYHNuRc8IaPvsGR2nn8trzEWCe2vi6SJH\nPwDmNI5oqb8UBnSxV7Gj3v9pLh0onIr4+grj6Maf+muTsvEv+zzmU42XBRPm3LYN\nu3IaPEmv6cdvX1w2p59w65307ZpQNL6HOIE1LxxdnQZwOtS9zUW7hJUKqBFOvN9S\nPuqZiSSy2HFxSbwf+1kMT4mvows7oSpGGz9BmUkWDnPwbg6ffyatXoXuCa2KkPH8\nilgElzsR0DhovvjutN16IJoWMb3DjkpYthVpfsS55hu4julnfMbPllt58ErqbZ/b\nTbAwH1Q5ASuNd9rj50+e2XcwRLPlOV2XtrrSjMSy6BU3smPIHPDYe/Jv5+v9+mUT\nVTByovbrtDhAETs+zTUVLbRwQ0pZ3hI1mC/keGL3hLxQoZpMvLkidr5zZtZ1ddA6\nn2NsOWmXWKT4Fx4hzCZg/JYbR0V3dSy32Qpn+/34ZXBXbKmxX2ofS5/fPagIknoy\nGXtyPWvwbVTJZWGjyTU+lBLUab49SEMVE432kDOIDQOwvyr5R1jmZkYXh76ea4J5\nUeC9sKOQ+YMiENXuzoUP\n=H8wk\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b7d122611d929a4a02600c4cef921ed6b0cda8fe\nparent 158485968b01bff4358382334b831c69b823648b\nparent 1d589a33e04d7e6a88afc2693802bb8e330248f2\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1783953689 +0200\ncommitter GitHub <noreply@github.com> 1783953689 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-07-13T14:41:30Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/43ffc33671919a4c63fa6e9d429548d306ca1936",
+   "html_url": "https://github.com/microsoft/vscode/commit/43ffc33671919a4c63fa6e9d429548d306ca1936",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/43ffc33671919a4c63fa6e9d429548d306ca1936/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "158485968b01bff4358382334b831c69b823648b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/158485968b01bff4358382334b831c69b823648b",
+     "html_url": "https://github.com/microsoft/vscode/commit/158485968b01bff4358382334b831c69b823648b"
+    },
+    {
+     "sha": "1d589a33e04d7e6a88afc2693802bb8e330248f2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1d589a33e04d7e6a88afc2693802bb8e330248f2",
+     "html_url": "https://github.com/microsoft/vscode/commit/1d589a33e04d7e6a88afc2693802bb8e330248f2"
+    }
+   ]
+  },
+  {
+   "sha": "b57be144ee02c8ce189819046d3ded721f7692ca",
+   "node_id": "C_kwDORKS1RtoAKGI1N2JlMTQ0ZWUwMmM4Y2UxODk4MTkwNDZkM2RlZDcyMWY3NjkyY2E",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hottdogg2008@gmail.com",
+     "date": "2026-07-17T18:41:52Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-07-17T18:41:52Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "a8f6879df30fac11ed3faf81035b8db23df34ad3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a8f6879df30fac11ed3faf81035b8db23df34ad3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b57be144ee02c8ce189819046d3ded721f7692ca",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqWndwCRC1aQ7uu5UhlAAAwnQQAFDqCQEJQGFScPaCZKmxjZa3\nXDBnJ7Xx6ir0IdGqJ5TugXrNqy0+hJ93aVGbwLNQKprSywnsUKOai3ogd8nY+SHp\n10JsJVGn25w7nLksQEKttHT+BsM431/6IJgIsfdviS/N1fYWrgnFC/5GOqT5IoJ1\nBnuLXsS95/wvyM6VOSxhbFklYBkrqq1x24Gyi6q4djBWO1kg5pYGOgHiGOt2lQn+\na16iRRFmKltdYGCAmq9TGy9/8cC2+gpQyULA5H0avlFfagqjaII3Hhw+DdLO0wCI\ns32SmFClALFNSYRT2XNWXUzwerYn2s3ZlVZWwI+ul+faBozPOLiyEHu7Bd76ZIiK\n0dKuL8HIY1otq9qPbJqruPTmlugwGpBDigfZaGVrqX50teL7qbbGlDt8Mo/Lxr21\nBZJbE9hlE1hYuN55NR+dmpHuqijni2R8992TUUAi0wNLXNT2j0sXERe+hJSqmvMN\n1dw/u7cdyXIzhv1jz4pJ0ebBPOpbAj5WWJ2iEKtVUCs4t+B5GKTlyHXAwJy7iyYV\nCy2Vep4q9hVMgC/Ol3+qbgCr5fheIOa6mjRVBS5BG/Ue9iPCe/g4t16cS84GqDSP\n8/UHWhArEkukE+9is9sYKcDvypBNDX0PBnuXZdslDhe6NRCQcrotwX406gWguRwj\nu/0nm96NmiQtCA7ilhIY\n=0hAN\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a8f6879df30fac11ed3faf81035b8db23df34ad3\nparent 43ffc33671919a4c63fa6e9d429548d306ca1936\nparent a147b7608ccf7e6c393576ecc688e34aa7cb2695\nauthor Illia Panasenko <hottdogg2008@gmail.com> 1784313712 +0200\ncommitter GitHub <noreply@github.com> 1784313712 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-07-17T18:41:52Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b57be144ee02c8ce189819046d3ded721f7692ca",
+   "html_url": "https://github.com/microsoft/vscode/commit/b57be144ee02c8ce189819046d3ded721f7692ca",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b57be144ee02c8ce189819046d3ded721f7692ca/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "43ffc33671919a4c63fa6e9d429548d306ca1936",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/43ffc33671919a4c63fa6e9d429548d306ca1936",
+     "html_url": "https://github.com/microsoft/vscode/commit/43ffc33671919a4c63fa6e9d429548d306ca1936"
+    },
+    {
+     "sha": "a147b7608ccf7e6c393576ecc688e34aa7cb2695",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a147b7608ccf7e6c393576ecc688e34aa7cb2695",
+     "html_url": "https://github.com/microsoft/vscode/commit/a147b7608ccf7e6c393576ecc688e34aa7cb2695"
+    }
+   ]
+  },
+  {
+   "sha": "5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+   "node_id": "C_kwDORKS1RtoAKDVkNWFmYTg3ZDVhNmU5MGJiMTlhN2RjZDkzMmJmODM1YWUxZWU0MTc",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-08-05T13:03:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-05T13:03:29Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "2da3b402878068f8ad2b55ce71fa84c8bfcc0729",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2da3b402878068f8ad2b55ce71fa84c8bfcc0729"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqczShCRC1aQ7uu5UhlAAAIaoQAGFAqFtPDzAzC8evBdBuj65z\ny2AHietlz25UT61IonTgL2mdPauPPciwLoZUTBA/AQ+sPWxRhj/JTGUL3IJ/Lh+X\naTR5jNtKnB0DPMYlCC9BgmCwOBg5+UGXLdfb1k2N83uGwb2X1Aq3AUkqHRoe4v/C\nDvkUR9w79bDCPs0juO1evIUbEmlgLndU47Hr5lDiQAzDbFCudnrYMqGSfLttUy/+\n5wNk3RdUvVV+9O4+QvGaoxdqrmFf9eWWLi5JCP46jJdUChRUgec70m9hn1I/4Qpf\nMDmE7tz91PBEVJezCzmKRRgx2fdCXfu/cMsXocL2sRiynAH265VVJ1v6voUwgUO9\nJHIRPbi4ozRreIYE3NmCoSQuI1TaevzZchZSNWsYsT4/A+4x/UeCgxh8mjTa9hag\nwg9j/bAC5X2Wq2Rl0ImsYNocIWbam7aEW57RJE3aZD3mR18dn5FkdIb0KUF5CVaF\nn3nT3yDf1YE7MvYh/W6ug1wXaqR95demTPG9xH2s3R9tK2VcwvfTNmrIB3GeohQ0\nwn6BCGJvrP7DZ5UCJqY/oZWt9cggd6ci+e42jCrkXhD0cG/lIW9ifW21dBklgAUN\npdFsejeEtGcgZhfCK8FoVDZNzYMqWE5an0r12KJlL+eCVNRMJbecfa7hOSrJ2EIB\n/PLtW+Q2dGFMHE5at49D\n=niaT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2da3b402878068f8ad2b55ce71fa84c8bfcc0729\nparent b57be144ee02c8ce189819046d3ded721f7692ca\nparent 9f57500448ddef1b880e62c93b2832936a3142f6\nauthor Illia Panasenko <hello@ipanasenko.me> 1785935009 +0200\ncommitter GitHub <noreply@github.com> 1785935009 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-08-05T13:03:36Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+   "html_url": "https://github.com/microsoft/vscode/commit/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b57be144ee02c8ce189819046d3ded721f7692ca",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b57be144ee02c8ce189819046d3ded721f7692ca",
+     "html_url": "https://github.com/microsoft/vscode/commit/b57be144ee02c8ce189819046d3ded721f7692ca"
+    },
+    {
+     "sha": "9f57500448ddef1b880e62c93b2832936a3142f6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9f57500448ddef1b880e62c93b2832936a3142f6",
+     "html_url": "https://github.com/microsoft/vscode/commit/9f57500448ddef1b880e62c93b2832936a3142f6"
+    }
+   ]
+  },
+  {
+   "sha": "654e404ee54c54f2c9d9048d107f843b7dee29ab",
+   "node_id": "C_kwDORKS1RtoAKDY1NGU0MDRlZTU0YzU0ZjJjOWQ5MDQ4ZDEwN2Y4NDNiN2RlZTI5YWI",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-08-11T07:17:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-11T07:17:44Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "e5e512031c2dfade05eb2399109a05a1f93814fd",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e5e512031c2dfade05eb2399109a05a1f93814fd"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/654e404ee54c54f2c9d9048d107f843b7dee29ab",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqesyYCRC1aQ7uu5UhlAAAZ8oQACsRAnLtDu/118BpZPfFh/5+\nCmNOO6AICbpYXQLIgLytJQDgzZrkjLW7ekEhSBXrI0pndlZu+TZaW5wEMr5wxjwK\nwZEtniYbsPPqpfduklSjD97YSrTg1k4rWAHYqdQ8+mLLyMa+5wSeDC0qR8RoOiCu\n10i7RGshgJgue4Lcr2UEJC4ZQgfIjAE6yEcAVD3m4dWzwimnlP9Sp/ZkymZ8w5f9\nMTAK7je3NsI+91r+7vNXwpuM5O0KY7nJna78s8NP2kcenZ3zxUdvXk8kqWiwhNul\nNQ7y4NXTYaxxQ6GSikd8+MA7RbNyHhRuQgAmOqbRP8yUipli784FBcYvrUMqHj0V\nC63zmTxbUiJ4id6TNd4FQcwb4nIQ9RryKWgtFzu+fyu6OvgpirLbgutL6A6XR6uO\nOtuuU4gGcln6A86OJ6PlF8jn//DEafPKlktY0yKWrv+i90pVcAy7w64f7dqf/eXV\nR1j1kKsi3H57dO6h86s2F0ZqR3G0HJG3HVucFzzB9T9PyN89kchKJFPX7rFYyFwI\nPa3UlMVD0EwivyBvwqjn4zxNRVN3e8sGUVUXOptO5wfWiIooKjD48a3geg/CtYR+\nzYWMHF0xGmaaRmJhYE5R1nKxSKoZ7HntpeddrDZ5ppBn2yZ0PefFZD1Um9kGdRF+\ntaN2rlE3hDszIXw8y9x9\n=7k3h\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree e5e512031c2dfade05eb2399109a05a1f93814fd\nparent 5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417\nparent f30e3f3600f472ec8f4f08f7444300475fd25a2a\nauthor Illia Panasenko <hello@ipanasenko.me> 1786432664 +0200\ncommitter GitHub <noreply@github.com> 1786432664 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-08-11T07:17:50Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/654e404ee54c54f2c9d9048d107f843b7dee29ab",
+   "html_url": "https://github.com/microsoft/vscode/commit/654e404ee54c54f2c9d9048d107f843b7dee29ab",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/654e404ee54c54f2c9d9048d107f843b7dee29ab/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417",
+     "html_url": "https://github.com/microsoft/vscode/commit/5d5afa87d5a6e90bb19a7dcd932bf835ae1ee417"
+    },
+    {
+     "sha": "f30e3f3600f472ec8f4f08f7444300475fd25a2a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f30e3f3600f472ec8f4f08f7444300475fd25a2a",
+     "html_url": "https://github.com/microsoft/vscode/commit/f30e3f3600f472ec8f4f08f7444300475fd25a2a"
+    }
+   ]
+  },
+  {
+   "sha": "36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+   "node_id": "C_kwDORKS1RtoAKDM2YzNjZWYxYWQwY2JjN2Q4ZDRkOTg0ZTZkNWIzZDRlMjYzMWQzYzM",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-08-16T14:02:28Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-08-16T14:02:28Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input\n\n# Conflicts:\n#\tsrc/vs/platform/quickinput/browser/quickInputController.ts",
+    "tree": {
+     "sha": "ca5394e9a8a268dcb45e74ee6149a7d59769fed7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ca5394e9a8a268dcb45e74ee6149a7d59769fed7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+   "html_url": "https://github.com/microsoft/vscode/commit/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "654e404ee54c54f2c9d9048d107f843b7dee29ab",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/654e404ee54c54f2c9d9048d107f843b7dee29ab",
+     "html_url": "https://github.com/microsoft/vscode/commit/654e404ee54c54f2c9d9048d107f843b7dee29ab"
+    },
+    {
+     "sha": "6c27443ce6fdf6ac798c64025d45175e2e23c4b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6c27443ce6fdf6ac798c64025d45175e2e23c4b4",
+     "html_url": "https://github.com/microsoft/vscode/commit/6c27443ce6fdf6ac798c64025d45175e2e23c4b4"
+    }
+   ]
+  },
+  {
+   "sha": "d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+   "node_id": "C_kwDORKS1RtoAKGQwMGNlNmU0NDczNGYwYjVjNTVkZThjMDBlMTNiNjQ2ZjQ1ODZlODY",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-01T20:10:06Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-01T20:10:06Z"
+    },
+    "message": "Merge remote-tracking branch 'origin/main' into resize-quick-input\n\n# Conflicts:\n#\tsrc/vs/platform/quickinput/browser/media/quickInput.css\n#\tsrc/vs/platform/quickinput/browser/quickInputController.ts",
+    "tree": {
+     "sha": "6aee49661e892635f291792305bb11ae2dea8874",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6aee49661e892635f291792305bb11ae2dea8874"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+   "html_url": "https://github.com/microsoft/vscode/commit/d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d00ce6e44734f0b5c55de8c00e13b646f4586e86/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3",
+     "html_url": "https://github.com/microsoft/vscode/commit/36c3cef1ad0cbc7d8d4d984e6d5b3d4e2631d3c3"
+    },
+    {
+     "sha": "c89cda63706360aa2fe45a0e5669c76fb20f29f8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c89cda63706360aa2fe45a0e5669c76fb20f29f8",
+     "html_url": "https://github.com/microsoft/vscode/commit/c89cda63706360aa2fe45a0e5669c76fb20f29f8"
+    }
+   ]
+  },
+  {
+   "sha": "2a50867d9c807951d3d39ecb84d134cf18f83230",
+   "node_id": "C_kwDORKS1RtoAKDJhNTA4NjdkOWM4MDc5NTFkM2QzOWVjYjg0ZDEzNGNmMThmODMyMzA",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-04T13:15:05Z"
+    },
+    "committer": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-04T13:15:05Z"
+    },
+    "message": "Merge remote-tracking branch 'refs/remotes/origin/main' into resize-quick-input",
+    "tree": {
+     "sha": "c42a9faf904e11823f7169bb3ced08ca9028975a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c42a9faf904e11823f7169bb3ced08ca9028975a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2a50867d9c807951d3d39ecb84d134cf18f83230",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2a50867d9c807951d3d39ecb84d134cf18f83230",
+   "html_url": "https://github.com/microsoft/vscode/commit/2a50867d9c807951d3d39ecb84d134cf18f83230",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2a50867d9c807951d3d39ecb84d134cf18f83230/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d00ce6e44734f0b5c55de8c00e13b646f4586e86",
+     "html_url": "https://github.com/microsoft/vscode/commit/d00ce6e44734f0b5c55de8c00e13b646f4586e86"
+    },
+    {
+     "sha": "adb039934267026ce1cfc4ce250b57f2ae380f70",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/adb039934267026ce1cfc4ce250b57f2ae380f70",
+     "html_url": "https://github.com/microsoft/vscode/commit/adb039934267026ce1cfc4ce250b57f2ae380f70"
+    }
+   ]
+  },
+  {
+   "sha": "e520bd24828a7b0e179368411d7e494132710973",
+   "node_id": "C_kwDORKS1RtoAKGU1MjBiZDI0ODI4YTdiMGUxNzkzNjg0MTFkN2U0OTQxMzI3MTA5NzM",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-12T15:34:52Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-12T15:34:52Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "2a1ffffd2a5c367133154dccffc5eea7ea0e7659",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2a1ffffd2a5c367133154dccffc5eea7ea0e7659"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e520bd24828a7b0e179368411d7e494132710973",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqpXEdCRC1aQ7uu5UhlAAA0koQAJOM14cb1lcVwPDDxLrzqM3X\nwrG19IsUgZkje2J64FQTXKbWqb9VJkI+ulgr3o95VExjTx9WGDS53Zq9YzuZNi+4\n3vJTDvSARuuAgnXKbG1UTz6/yaWIEsmPJAaZy3/301Mh3W+lvRiae/+U+UiM/dcy\n3QpzevnOK7QvCEXZJgCCzE4pafPweOOgoM6b14pCjh9qjtHGdgpXYOlLs8nU6eL4\nwezA/Gz0EpMzQoRw9xvgHfB1bKmiW/lbF61dZc+dASonM9AQ3dPNIu9VKeoUKeIj\n3QSKmc1BFzOoWnw8KlJhSvqCN0Bc9Ke5+hkVwPu5OSKaf5BTashtyykX6eeNZcQQ\nEuRyjMa1kcXN8cciID1iqM3+dHYcZxyezseqt/NusqIxofax+61bdpt7MTy7Te2R\nsJTke/kUC6djb552mjv6b6YaSraA97R9n8QwX9C04ocv1Mbue0Vhe+8D8j8N1ACu\nTWL4f2GxvhSARvk1O44Umtd7MC3KT6aslaNzvy2jRP5jUInsnFR7LEfvBOKuRoRP\nB7OJa2ck7I4k3p8x/CjIVn4YiDs67fTUi8j+BWelTb2FRWSZrGEVQpZbhNMXwK3j\nmRAdZeJzidwZ/wakXn7s1Bg809g+rrnwgE0oncO2eRlbBSAVpouTg71B0toNUhXB\nc21owpqDAHqNpa3Eia25\n=zvcT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2a1ffffd2a5c367133154dccffc5eea7ea0e7659\nparent 2a50867d9c807951d3d39ecb84d134cf18f83230\nparent 041d1b6643abf1aae6c94c0877cb4699a028ca0d\nauthor Illia Panasenko <hello@ipanasenko.me> 1789227292 +0200\ncommitter GitHub <noreply@github.com> 1789227292 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-09-12T15:34:53Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e520bd24828a7b0e179368411d7e494132710973",
+   "html_url": "https://github.com/microsoft/vscode/commit/e520bd24828a7b0e179368411d7e494132710973",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e520bd24828a7b0e179368411d7e494132710973/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2a50867d9c807951d3d39ecb84d134cf18f83230",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2a50867d9c807951d3d39ecb84d134cf18f83230",
+     "html_url": "https://github.com/microsoft/vscode/commit/2a50867d9c807951d3d39ecb84d134cf18f83230"
+    },
+    {
+     "sha": "041d1b6643abf1aae6c94c0877cb4699a028ca0d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/041d1b6643abf1aae6c94c0877cb4699a028ca0d",
+     "html_url": "https://github.com/microsoft/vscode/commit/041d1b6643abf1aae6c94c0877cb4699a028ca0d"
+    }
+   ]
+  },
+  {
+   "sha": "5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+   "node_id": "C_kwDORKS1RtoAKDViMjJkMjM2ZTQ3YzEzYjRkNzgwYmY0MDZjYTJhZWJmNWZjY2FjZGI",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-09-26T14:52:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-26T14:52:02Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "c359c00b5863df385ccf8e99a44b1b5f95d4b8c7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c359c00b5863df385ccf8e99a44b1b5f95d4b8c7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqt9wSCRC1aQ7uu5UhlAAAcNoQACzJxmkNeTfZthMxylvKQ88z\nYf+Y59ar9braS4AZjXysOIb3QFL+kukMOB3lheHgHrrsjePSFQenvFLWahz/p8mc\n0M3pi1QQgDE73N+6uSuX38FT3G9bfN8Yl10AAHAMbmFFjzddJsKj2q2Y1f/kiNfp\njcRWK7CS5ncZVVg8tOUH9MCtSEHEEAqXchHBA3ONu/x3hZ832Afz2sHout8TclJS\nTMTWGbw3istn9/OpIZi5EfEXhSY5ePEn4Z69cRQtPkEKJqppYtA1LJt6Tu7nZMKF\n0EZcIuHeh5AGcZvXH8Ne9WQiGcPCEK1JLEI7C6ygi7OB5OzwDpRTLwDYxifb7VXI\nILucIm9cyvoy7Y+QvuYdfDXljqXb/8e7FZZjqaddQ/3ebdHQ5CRLKwIG04Xa6gFW\ngB5pkJSnRVNO6LM97UfuHO3qw3Y+U9BCcy1ROqz5v9Uwszt68AyQ+VQVoUPnAG7I\n4igjh037AdboOwpgasT4wL0yjG3Hbn78mKruraYvx6iEYf77pNpuyvU/vhQTx6wE\nSG9pAIyBZEm8BnTyQ6YvOcipU1xmvfag1m0CZvUsrJPNS9VwHCWfRzitIAJ3Ule9\nQGGTbQsRfCDN7v7ylsYUuE2Zd5y1ao+UvL4HXeqhCNlg15q6aw1cyvJy0+KWIG9g\nf/bFH5ZpzHrp3VmjfB6D\n=OMzW\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c359c00b5863df385ccf8e99a44b1b5f95d4b8c7\nparent e520bd24828a7b0e179368411d7e494132710973\nparent 90da900128e93064765cc94c989059265443b389\nauthor Illia Panasenko <hello@ipanasenko.me> 1790434322 +0200\ncommitter GitHub <noreply@github.com> 1790434322 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-09-26T14:52:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+   "html_url": "https://github.com/microsoft/vscode/commit/5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5b22d236e47c13b4d780bf406ca2aebf5fccacdb/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e520bd24828a7b0e179368411d7e494132710973",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e520bd24828a7b0e179368411d7e494132710973",
+     "html_url": "https://github.com/microsoft/vscode/commit/e520bd24828a7b0e179368411d7e494132710973"
+    },
+    {
+     "sha": "90da900128e93064765cc94c989059265443b389",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/90da900128e93064765cc94c989059265443b389",
+     "html_url": "https://github.com/microsoft/vscode/commit/90da900128e93064765cc94c989059265443b389"
+    }
+   ]
+  },
+  {
+   "sha": "bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "node_id": "C_kwDORKS1RtoAKGJmMzAxZmE1ZWEwOTAwMmY4NzNmZmU3ODEzZGIzZGQ2ZjEwODhkYzI",
+   "commit": {
+    "author": {
+     "name": "Illia Panasenko",
+     "email": "hello@ipanasenko.me",
+     "date": "2026-10-13T19:32:04Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-13T19:32:04Z"
+    },
+    "message": "Merge branch 'main' into resize-quick-input",
+    "tree": {
+     "sha": "154e9781cb1c4ef34be37d5584e1f7519ee4e6bb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/154e9781cb1c4ef34be37d5584e1f7519ee4e6bb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqzoc0CRC1aQ7uu5UhlAAAzS4QAI7KgB2Cin1U7rBgrNyVKe3A\nBaSQkZm1agk6/kTzuNgrdJ+OhTetG/YzXtlw/ueBWlfwv1Ec/YBU26wTvEHH0xYG\n+kHMWJ4HqFjkI8vBEAxFzNNFNWrIvJ2T20glE5V/UbRpE3Z6B7tPM6+8RGaUAl21\nk8ewT3jp5Zk/jIO1obZ2F6C6C5R1VCyQlV1XjRryAYzrecjpYQ1a4SIIosXF6Rpr\nXzhT6yFJH8bTOs99U4zEvuPeH8znB0edDwtND8o1BfaJ1Hu589ddYHxwTec4FIYP\nIAm84Zf1JKvcKg11w2D7rAWyo6N2ws4eHSYzFwvF2oc/XPiK2UsmcScGi5U2NocG\nwyLX7KFzSokb6bono0FRzWYWEoseN85wUrHCsXApQpEVpymOZ/sVWFvn6Zy0putJ\nHJ6Kbpz0dY/1qxSstlaK3O8GHCX2R6FdhrjvuiZhPc1j64fTDiAlPcesn75pZmrg\nOXFZtXE36Jr8grLKpsdVb1+KAYVod1YtuRNu5tErAnsC0AlHv/bdFAwCEn0ru2Kf\nCf08fk14zXXw44WtQx0mO1H722v3tHcnvLdX6r9bUH0X+RIOPe8pmZRA7rEZZie0\nc0KtCOzbPCiVRLsMPb6RnhWttZZa3201UxHeEbYviTsX2WrkGEFw+YgSinsHiAd3\nCrC9w+AexRu7V/uFvuct\n=tNDt\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 154e9781cb1c4ef34be37d5584e1f7519ee4e6bb\nparent 5b22d236e47c13b4d780bf406ca2aebf5fccacdb\nparent 495961f8408ed58d1e9aee44dfbc538587799a0b\nauthor Illia Panasenko <hello@ipanasenko.me> 1791919924 +0200\ncommitter GitHub <noreply@github.com> 1791919924 +0200\n\nMerge branch 'main' into resize-quick-input",
+     "verified_at": "2026-10-13T19:32:05Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "html_url": "https://github.com/microsoft/vscode/commit/bf301fa5ea09002f873ffe7813db3dd6f1088dc2",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bf301fa5ea09002f873ffe7813db3dd6f1088dc2/comments",
+   "author": {
+    "login": "ipanasenko",
+    "id": 576152,
+    "node_id": "MDQ6VXNlcjU3NjE1Mg==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/576152?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ipanasenko",
+    "html_url": "https://github.com/ipanasenko",
+    "followers_url": "https://api.github.com/users/ipanasenko/followers",
+    "following_url": "https://api.github.com/users/ipanasenko/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ipanasenko/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ipanasenko/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ipanasenko/subscriptions",
+    "organizations_url": "https://api.github.com/users/ipanasenko/orgs",
+    "repos_url": "https://api.github.com/users/ipanasenko/repos",
+    "events_url": "https://api.github.com/users/ipanasenko/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ipanasenko/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5b22d236e47c13b4d780bf406ca2aebf5fccacdb",
+     "html_url": "https://github.com/microsoft/vscode/commit/5b22d236e47c13b4d780bf406ca2aebf5fccacdb"
+    },
+    {
+     "sha": "495961f8408ed58d1e9aee44dfbc538587799a0b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/495961f8408ed58d1e9aee44dfbc538587799a0b",
+     "html_url": "https://github.com/microsoft/vscode/commit/495961f8408ed58d1e9aee44dfbc538587799a0b"
+    }
+   ]
+  }
+ ]
+}

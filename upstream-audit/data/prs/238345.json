@@ -1,0 +1,746 @@
+{
+ "fetchedAt": "2026-11-01T00:51:56.053Z",
+ "pr": {
+  "number": 238345,
+  "title": "Add option to move the Find dialog to the bottom of the document view",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-01-21T09:43:01Z",
+  "updated_at": "2026-01-20T10:13:49Z",
+  "user": "crestyeagle",
+  "author_association": "NONE",
+  "additions": 67,
+  "deletions": 4,
+  "changed_files": 4,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 5,
+  "review_comments": 0,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "add-find-dialog-position-option",
+   "sha": "592d303548ce683371abd8e4eac4a18180992572",
+   "repo": "crestyeagle/vscode",
+   "label": "crestyeagle:add-find-dialog-position-option"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Fixes #238337\n\nAdd option to move the Find dialog to the bottom of the document view.\n\n* Update `OverlayWidgetPositionPreference` enum in `src/vs/editor/browser/editorBrowser.ts` to include a new value `BOTTOM_CENTER`.\n* Modify `FindWidget` class in `src/vs/editor/contrib/find/browser/findWidget.ts` to support positioning the Find dialog at the bottom based on the new configuration option.\n* Adjust `_reveal` and `_hide` methods in `src/vs/editor/contrib/find/browser/findWidget.ts` to handle the new bottom position.\n* Add CSS styles in `src/vs/editor/contrib/find/browser/findWidget.css` to handle the new bottom position of the Find dialog.\n\n---\n\nFor more details, open the [Copilot Workspace session](https://copilot-workspace.githubnext.com/microsoft/vscode/pull/238345?shareId=8e8893ab-a979-487d-8c44-2cc38a18114b).",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "aa9870e1a11608ecd9d22c7400ac849f9a0c665d",
+   "filename": ".eslintrc.json",
+   "status": "added",
+   "additions": 5,
+   "deletions": 0,
+   "changes": 5,
+   "blob_url": "https://github.com/microsoft/vscode/blob/592d303548ce683371abd8e4eac4a18180992572/.eslintrc.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/592d303548ce683371abd8e4eac4a18180992572/.eslintrc.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.eslintrc.json?ref=592d303548ce683371abd8e4eac4a18180992572",
+   "patch": "@@ -0,0 +1,5 @@\n+{\n+  \"rules\": {\n+    \"find.dialogPosition\": [\"error\", { \"allowedValues\": [\"top\", \"bottom\"] }]\n+  }\n+}"
+  },
+  {
+   "sha": "0d283b43cf5a571f8fa90096b38d3ec71872a71c",
+   "filename": "src/vs/editor/browser/editorBrowser.ts",
+   "status": "modified",
+   "additions": 16,
+   "deletions": 1,
+   "changes": 17,
+   "blob_url": "https://github.com/microsoft/vscode/blob/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fbrowser%2FeditorBrowser.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fbrowser%2FeditorBrowser.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fbrowser%2FeditorBrowser.ts?ref=592d303548ce683371abd8e4eac4a18180992572",
+   "patch": "@@ -239,7 +239,22 @@ export const enum OverlayWidgetPositionPreference {\n \t/**\n \t * Position the overlay widget in the top center\n \t */\n-\tTOP_CENTER\n+\tTOP_CENTER,\n+\n+\t/**\n+\t * Position the overlay widget in the bottom center\n+\t */\n+\tBOTTOM_CENTER,\n+\n+\t/**\n+\t * Position the overlay widget in the left center\n+\t */\n+\tLEFT_CENTER,\n+\n+\t/**\n+\t * Position the overlay widget in the right center\n+\t */\n+\tRIGHT_CENTER\n }\n \n "
+  },
+  {
+   "sha": "1081d1f7a859b66d286fa8885e8944efccb6073f",
+   "filename": "src/vs/editor/contrib/find/browser/findWidget.css",
+   "status": "modified",
+   "additions": 27,
+   "deletions": 0,
+   "changes": 27,
+   "blob_url": "https://github.com/microsoft/vscode/blob/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.css",
+   "raw_url": "https://github.com/microsoft/vscode/raw/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.css",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.css?ref=592d303548ce683371abd8e4eac4a18180992572",
+   "patch": "@@ -282,3 +282,30 @@\n \ttop: 5px;\n \tright: 4px;\n }\n+\n+/* CSS styles for bottom position of the Find dialog */\n+.monaco-editor .find-widget.bottom {\n+\ttransform: translateY(calc(100% + 10px)); /* shadow (10px) */\n+\tborder-top: 1px solid var(--vscode-widget-border);\n+\tborder-top-left-radius: 4px;\n+\tborder-top-right-radius: 4px;\n+\tborder-bottom: none;\n+}\n+\n+/* CSS styles for left position of the Find dialog */\n+.monaco-editor .find-widget.left {\n+\ttransform: translateX(calc(-100% - 10px)); /* shadow (10px) */\n+\tborder-right: 1px solid var(--vscode-widget-border);\n+\tborder-top-left-radius: 4px;\n+\tborder-bottom-left-radius: 4px;\n+\tborder-left: none;\n+}\n+\n+/* CSS styles for right position of the Find dialog */\n+.monaco-editor .find-widget.right {\n+\ttransform: translateX(calc(100% + 10px)); /* shadow (10px) */\n+\tborder-left: 1px solid var(--vscode-widget-border);\n+\tborder-top-right-radius: 4px;\n+\tborder-bottom-right-radius: 4px;\n+\tborder-right: none;\n+}"
+  },
+  {
+   "sha": "2e9c31c0673557a826fa674e2f4abcdc83dff5b7",
+   "filename": "src/vs/editor/contrib/find/browser/findWidget.ts",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 3,
+   "changes": 22,
+   "blob_url": "https://github.com/microsoft/vscode/blob/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/592d303548ce683371abd8e4eac4a18180992572/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindWidget.ts?ref=592d303548ce683371abd8e4eac4a18180992572",
+   "patch": "@@ -302,9 +302,25 @@ export class FindWidget extends Widget implements IOverlayWidget, IVerticalSashL\n \n \tpublic getPosition(): IOverlayWidgetPosition | null {\n \t\tif (this._isVisible) {\n-\t\t\treturn {\n-\t\t\t\tpreference: OverlayWidgetPositionPreference.TOP_RIGHT_CORNER\n-\t\t\t};\n+\t\t\tconst dialogPosition = this._codeEditor.getOption(EditorOption.find).dialogPosition;\n+\t\t\tswitch (dialogPosition) {\n+\t\t\t\tcase 'bottom':\n+\t\t\t\t\treturn {\n+\t\t\t\t\t\tpreference: OverlayWidgetPositionPreference.BOTTOM_CENTER\n+\t\t\t\t\t};\n+\t\t\t\tcase 'left':\n+\t\t\t\t\treturn {\n+\t\t\t\t\t\tpreference: OverlayWidgetPositionPreference.LEFT_CENTER\n+\t\t\t\t\t};\n+\t\t\t\tcase 'right':\n+\t\t\t\t\treturn {\n+\t\t\t\t\t\tpreference: OverlayWidgetPositionPreference.RIGHT_CENTER\n+\t\t\t\t\t};\n+\t\t\t\tdefault:\n+\t\t\t\t\treturn {\n+\t\t\t\t\t\tpreference: OverlayWidgetPositionPreference.TOP_RIGHT_CORNER\n+\t\t\t\t\t};\n+\t\t\t}\n \t\t}\n \t\treturn null;\n \t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2565238988,
+   "node_id": "PRR_kwDOAn8RLM6Y5nDM",
+   "user": {
+    "login": "nqcm",
+    "id": 17216922,
+    "node_id": "MDQ6VXNlcjE3MjE2OTIy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/17216922?u=7e3e5b9d7f5b85b4fab5ab756efcff6cc5b36cca&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nqcm",
+    "html_url": "https://github.com/nqcm",
+    "followers_url": "https://api.github.com/users/nqcm/followers",
+    "following_url": "https://api.github.com/users/nqcm/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nqcm/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nqcm/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nqcm/subscriptions",
+    "organizations_url": "https://api.github.com/users/nqcm/orgs",
+    "repos_url": "https://api.github.com/users/nqcm/repos",
+    "events_url": "https://api.github.com/users/nqcm/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nqcm/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#pullrequestreview-2565238988",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/238345",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/238345#pullrequestreview-2565238988"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/238345"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-01-21T17:06:00Z",
+   "commit_id": "9a181ad1bc32f603def80771bfabe064a8e9a90b"
+  },
+  {
+   "id": 2565239496,
+   "node_id": "PRR_kwDOAn8RLM6Y5nLI",
+   "user": {
+    "login": "ahmuh1306",
+    "id": 13902198,
+    "node_id": "MDQ6VXNlcjEzOTAyMTk4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13902198?u=a66f8e36516ecbb4186f16c54186e107e7d5388a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ahmuh1306",
+    "html_url": "https://github.com/ahmuh1306",
+    "followers_url": "https://api.github.com/users/ahmuh1306/followers",
+    "following_url": "https://api.github.com/users/ahmuh1306/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ahmuh1306/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ahmuh1306/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ahmuh1306/subscriptions",
+    "organizations_url": "https://api.github.com/users/ahmuh1306/orgs",
+    "repos_url": "https://api.github.com/users/ahmuh1306/repos",
+    "events_url": "https://api.github.com/users/ahmuh1306/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ahmuh1306/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#pullrequestreview-2565239496",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/238345",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/238345#pullrequestreview-2565239496"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/238345"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-01-21T17:06:06Z",
+   "commit_id": "9a181ad1bc32f603def80771bfabe064a8e9a90b"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2604218744",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#issuecomment-2604218744",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/238345",
+   "id": 2604218744,
+   "node_id": "IC_kwDOAn8RLM6bOTl4",
+   "user": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-01-21T09:57:22Z",
+   "updated_at": "2025-01-21T09:57:22Z",
+   "body": "> @crestyeagle please read the following Contributor License Agreement(CLA). If you agree with the CLA, please reply with the following information.\r\n> \r\n> ```\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n> ```\r\n> \r\n> > Options:\r\n> > \r\n> > * (default - no company specified) I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree\r\n> > ```\r\n> > \r\n> > \r\n> >     \r\n> >       \r\n> >     \r\n> > \r\n> >       \r\n> >     \r\n> > \r\n> >     \r\n> >   \r\n> > \r\n> > * (when company given) I am making Submissions in the course of work for my employer (or my employer has intellectual property rights in my Submissions by contract or applicable law). I have permission from my employer to make Submissions and enter into this Agreement on behalf of my employer. By signing below, the defined term “You” includes me and my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree company=\"Microsoft\"\r\n> > ```\r\n> \r\n> Contributor License Agreement\r\n> ### Contribution License Agreement\r\n> This Contribution License Agreement (**“Agreement”**) is agreed to by the party signing below (**“You”**), and conveys certain license rights to Microsoft Corporation and its affiliates (“Microsoft”) for Your contributions to Microsoft open source projects. This Agreement is effective as of the latest signature date below.\r\n> \r\n> 1. **Definitions**.\r\n>    **“Code”** means the computer software code, whether in human-readable or machine-executable form,\r\n>    that is delivered by You to Microsoft under this Agreement.\r\n>    **“Project”** means any of the projects owned or managed by Microsoft and offered under a license\r\n>    approved by the Open Source Initiative ([www.opensource.org](http://www.opensource.org)).\r\n>    **“Submit”** is the act of uploading, submitting, transmitting, or distributing code or other content to any\r\n>    Project, including but not limited to communication on electronic mailing lists, source code control\r\n>    systems, and issue tracking systems that are managed by, or on behalf of, the Project for the purpose of\r\n>    discussing and improving that Project, but excluding communication that is conspicuously marked or\r\n>    otherwise designated in writing by You as “Not a Submission.”\r\n>    **“Submission”** means the Code and any other copyrightable material Submitted by You, including any\r\n>    associated comments and documentation.\r\n> 2. **Your Submission**. You must agree to the terms of this Agreement before making a Submission to any\r\n>    Project. This Agreement covers any and all Submissions that You, now or in the future (except as\r\n>    described in Section 4 below), Submit to any Project.\r\n> 3. **Originality of Work**. You represent that each of Your Submissions is entirely Your original work.\r\n>    Should You wish to Submit materials that are not Your original work, You may Submit them separately\r\n>    to the Project if You (a) retain all copyright and license information that was in the materials as You\r\n>    received them, (b) in the description accompanying Your Submission, include the phrase “Submission\r\n>    containing materials of a third party:” followed by the names of the third party and any licenses or other\r\n>    restrictions of which You are aware, and (c) follow any other instructions in the Project’s written\r\n>    guidelines concerning Submissions.\r\n> 4. **Your Employer**. References to “employer” in this Agreement include Your employer or anyone else\r\n>    for whom You are acting in making Your Submission, e.g. as a contractor, vendor, or agent. If Your\r\n>    Submission is made in the course of Your work for an employer or Your employer has intellectual\r\n>    property rights in Your Submission by contract or applicable law, You must secure permission from Your\r\n>    employer to make the Submission before signing this Agreement. In that case, the term “You” in this\r\n>    Agreement will refer to You and the employer collectively. If You change employers in the future and\r\n>    desire to Submit additional Submissions for the new employer, then You agree to sign a new Agreement\r\n>    and secure permission from the new employer before Submitting those Submissions.\r\n> 5. **Licenses**.\r\n> \r\n> * **Copyright License**. You grant Microsoft, and those who receive the Submission directly or\r\n>   indirectly from Microsoft, a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license in the\r\n>   Submission to reproduce, prepare derivative works of, publicly display, publicly perform, and distribute\r\n>   the Submission and such derivative works, and to sublicense any or all of the foregoing rights to third\r\n>   parties.\r\n> * **Patent License**. You grant Microsoft, and those who receive the Submission directly or\r\n>   indirectly from Microsoft, a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license under\r\n>   Your patent claims that are necessarily infringed by the Submission or the combination of the\r\n>   Submission with the Project to which it was Submitted to make, have made, use, offer to sell, sell and\r\n>   import or otherwise dispose of the Submission alone or with the Project.\r\n> * **Other Rights Reserved**. Each party reserves all rights not expressly granted in this Agreement.\r\n>   No additional licenses or rights whatsoever (including, without limitation, any implied licenses) are\r\n>   granted by implication, exhaustion, estoppel or otherwise.\r\n> \r\n> 6. **Representations and Warranties**. You represent that You are legally entitled to grant the above\r\n>    licenses. You represent that each of Your Submissions is entirely Your original work (except as You may\r\n>    have disclosed under Section 3). You represent that You have secured permission from Your employer to\r\n>    make the Submission in cases where Your Submission is made in the course of Your work for Your\r\n>    employer or Your employer has intellectual property rights in Your Submission by contract or applicable\r\n>    law. If You are signing this Agreement on behalf of Your employer, You represent and warrant that You\r\n>    have the necessary authority to bind the listed employer to the obligations contained in this Agreement.\r\n>    You are not expected to provide support for Your Submission, unless You choose to do so. UNLESS\r\n>    REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE WARRANTIES\r\n>    EXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED UNDER THIS AGREEMENT IS\r\n>    PROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTY OF\r\n>    NONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\r\n> 7. **Notice to Microsoft**. You agree to notify Microsoft in writing of any facts or circumstances of which\r\n>    You later become aware that would make Your representations in this Agreement inaccurate in any\r\n>    respect.\r\n> 8. **Information about Submissions**. You agree that contributions to Projects and information about\r\n>    contributions may be maintained indefinitely and disclosed publicly, including Your name and other\r\n>    information that You submit with Your Submission.\r\n> 9. **Governing Law/Jurisdiction**. This Agreement is governed by the laws of the State of Washington, and\r\n>    the parties consent to exclusive jurisdiction and venue in the federal courts sitting in King County,\r\n>    Washington, unless no federal subject matter jurisdiction exists, in which case the parties consent to\r\n>    exclusive jurisdiction and venue in the Superior Court of King County, Washington. The parties waive all\r\n>    defenses of lack of personal jurisdiction and forum non-conveniens.\r\n> 10. **Entire Agreement/Assignment**. This Agreement is the entire agreement between the parties, and\r\n>     supersedes any and all prior agreements, understandings or communications, written or oral, between\r\n>     the parties relating to the subject matter hereof. This Agreement may be assigned by Microsoft.\r\n\r\n@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2604218744/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2606880818",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#issuecomment-2606880818",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/238345",
+   "id": 2606880818,
+   "node_id": "IC_kwDOAn8RLM6bYdgy",
+   "user": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-01-22T10:40:00Z",
+   "updated_at": "2025-01-22T10:40:00Z",
+   "body": "I am trying to figure out why one of the tests is failing. hopefully I should have a fix in a day or two.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2606880818/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2633241890",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#issuecomment-2633241890",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/238345",
+   "id": 2633241890,
+   "node_id": "IC_kwDOAn8RLM6c9BUi",
+   "user": {
+    "login": "syockit",
+    "id": 5764966,
+    "node_id": "MDQ6VXNlcjU3NjQ5NjY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5764966?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/syockit",
+    "html_url": "https://github.com/syockit",
+    "followers_url": "https://api.github.com/users/syockit/followers",
+    "following_url": "https://api.github.com/users/syockit/following{/other_user}",
+    "gists_url": "https://api.github.com/users/syockit/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/syockit/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/syockit/subscriptions",
+    "organizations_url": "https://api.github.com/users/syockit/orgs",
+    "repos_url": "https://api.github.com/users/syockit/repos",
+    "events_url": "https://api.github.com/users/syockit/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/syockit/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-04T08:46:55Z",
+   "updated_at": "2025-02-04T08:46:55Z",
+   "body": "The result of the failed CI has long since gone due to its age, but what failed was the gulp hygiene check. I remember it said that monaco was outdated or something, so maybe you can confirm the version on your side and try again.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2633241890/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2633291109",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#issuecomment-2633291109",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/238345",
+   "id": 2633291109,
+   "node_id": "IC_kwDOAn8RLM6c9NVl",
+   "user": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-04T09:08:46Z",
+   "updated_at": "2025-02-04T09:08:46Z",
+   "body": "> The result of the failed CI has long since gone due to its age, but what failed was the gulp hygiene check. I remember it said that monaco was outdated or something, so maybe you can confirm the version on your side and try again.\r\n\r\nokay. I was also having  issues on my local with some node dependencies and was therefore unable to properly test it locally so maybe a bug slipped passed and also I have been a bit away so was unable to look at it again but I'll take a look as soon as I can. ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2633291109/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2657315781",
+   "html_url": "https://github.com/microsoft/vscode/pull/238345#issuecomment-2657315781",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/238345",
+   "id": 2657315781,
+   "node_id": "IC_kwDOAn8RLM6eY2vF",
+   "user": {
+    "login": "hediet",
+    "id": 2931520,
+    "node_id": "MDQ6VXNlcjI5MzE1MjA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2931520?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hediet",
+    "html_url": "https://github.com/hediet",
+    "followers_url": "https://api.github.com/users/hediet/followers",
+    "following_url": "https://api.github.com/users/hediet/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hediet/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hediet/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hediet/subscriptions",
+    "organizations_url": "https://api.github.com/users/hediet/orgs",
+    "repos_url": "https://api.github.com/users/hediet/repos",
+    "events_url": "https://api.github.com/users/hediet/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hediet/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-02-13T17:40:15Z",
+   "updated_at": "2025-02-13T17:40:15Z",
+   "body": "Thanks for the PR! Let's wait a bit to see how much the referenced feature request is in demand!",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2657315781/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+   "node_id": "C_kwDONtUutNoAKDdjNjhlN2JkYmMzNGM3MWMxNmIxMzI1ZDY1ZThiYmUyODdhZjg5YzM",
+   "commit": {
+    "author": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-21T09:42:59Z"
+    },
+    "committer": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-21T09:42:59Z"
+    },
+    "message": "Add option to move the Find dialog to the bottom of the document view\n\nFixes #238337\n\nAdd option to move the Find dialog to the bottom of the document view.\n\n* Update `OverlayWidgetPositionPreference` enum in `src/vs/editor/browser/editorBrowser.ts` to include a new value `BOTTOM_CENTER`.\n* Modify `FindWidget` class in `src/vs/editor/contrib/find/browser/findWidget.ts` to support positioning the Find dialog at the bottom based on the new configuration option.\n* Adjust `_reveal` and `_hide` methods in `src/vs/editor/contrib/find/browser/findWidget.ts` to handle the new bottom position.\n* Add CSS styles in `src/vs/editor/contrib/find/browser/findWidget.css` to handle the new bottom position of the Find dialog.\n\n---\n\nFor more details, open the [Copilot Workspace session](https://copilot-workspace.githubnext.com/microsoft/vscode/issues/238337?shareId=XXXX-XXXX-XXXX-XXXX).",
+    "tree": {
+     "sha": "601d3d3ed39d58a6cc089cdb91960433f3a9600a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/601d3d3ed39d58a6cc089cdb91960433f3a9600a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+   "html_url": "https://github.com/microsoft/vscode/commit/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3/comments",
+   "author": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ae56ecf9e1b211bbcaec567b2a88c3826f9c7ec8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ae56ecf9e1b211bbcaec567b2a88c3826f9c7ec8",
+     "html_url": "https://github.com/microsoft/vscode/commit/ae56ecf9e1b211bbcaec567b2a88c3826f9c7ec8"
+    }
+   ]
+  },
+  {
+   "sha": "93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+   "node_id": "C_kwDONtUutNoAKDkzZTY4NjQyYWYwYzQ1YTFhMzlkZDhmY2IyNjkxZjE5MTVmOGFhYTY",
+   "commit": {
+    "author": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-21T09:57:36Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-01-21T09:57:36Z"
+    },
+    "message": "Merge branch 'main' into add-find-dialog-position-option",
+    "tree": {
+     "sha": "a1a88c4c63a7a9fe7303ffcf52e63e327a7b082c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a1a88c4c63a7a9fe7303ffcf52e63e327a7b082c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnj2+QCRC1aQ7uu5UhlAAArtgQAIdrOhZOxsUALbAZzurMI5l4\nkaQVCRdLKEn+wlhQ4EygeIIzbNpzOYiVBXQN6MyYeHJbh0TDVToHBKa2/msVDHbw\nLgexxiNiQGD4CCd6mdhxwNG3Jc8OaHhwBbiqMsapFbDkHu/fI2krBycdQ/bOXBFk\nrtw4nA+s7rA1nd6zZ5Kx/5OkbjIhVEscVbN0MHswz0Uv+uSLKMYrjuN0PzvNjrSt\n7UgoVC7+dWT5EG5fzA2fPCKZQHXoceRG3UB/8GV5dn5DjSsNjzw2qxk+KrNIQpIb\nUgxi8tWw9mKoNERh95sTGFIaOwKl9eoRreIFxiCAf68N7ONjSzpaNKQ5Xib8EGI9\nicIAumSY8NdtcOJbq0CSqIer5QXaJTTsO+X8NR5e7eFIoozW6iLIy8T0KnuhEtxf\nO+Oz7xGw2sLNKdul59jU2Sj2VacXaCxnz9GY3zVccYiiBMH9bb5rKzdkrhYITgZL\nBnUvs8UpFCjwsK30O9qIdVLqyvESqxLYLfJ75gBWo+U9+XLghowkBq85cWdYIqqm\nNWhYIVNyYidOOrJRUbKqeVLsMbOO45JA7GxtsMX+LB2Lv4BSkgM3byRSetxH3mmD\noi9XbOO8HIX3nMvSGydXAiB3gbdNPf+in6dNMslm64uqYH8vFaJr96TgVlf+jFDK\nds8I9UOSh9MCktM3zmlW\n=3ZEZ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a1a88c4c63a7a9fe7303ffcf52e63e327a7b082c\nparent 7c68e7bdbc34c71c16b1325d65e8bbe287af89c3\nparent 05e660dbeb13f851c5a71ee6c769ac85de30066d\nauthor Umar <168269207+crestyeagle@users.noreply.github.com> 1737453456 +0200\ncommitter GitHub <noreply@github.com> 1737453456 +0200\n\nMerge branch 'main' into add-find-dialog-position-option",
+     "verified_at": "2025-01-21T09:57:41Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+   "html_url": "https://github.com/microsoft/vscode/commit/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6/comments",
+   "author": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3",
+     "html_url": "https://github.com/microsoft/vscode/commit/7c68e7bdbc34c71c16b1325d65e8bbe287af89c3"
+    },
+    {
+     "sha": "05e660dbeb13f851c5a71ee6c769ac85de30066d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/05e660dbeb13f851c5a71ee6c769ac85de30066d",
+     "html_url": "https://github.com/microsoft/vscode/commit/05e660dbeb13f851c5a71ee6c769ac85de30066d"
+    }
+   ]
+  },
+  {
+   "sha": "9a181ad1bc32f603def80771bfabe064a8e9a90b",
+   "node_id": "C_kwDONtUutNoAKDlhMTgxYWQxYmMzMmY2MDNkZWY4MDc3MWJmYWJlMDY0YThlOWE5MGI",
+   "commit": {
+    "author": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-21T11:20:59Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-01-21T11:20:59Z"
+    },
+    "message": "Merge branch 'main' into add-find-dialog-position-option",
+    "tree": {
+     "sha": "432338b555e54ef1d60b4b6c9fea7a313418350a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/432338b555e54ef1d60b4b6c9fea7a313418350a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9a181ad1bc32f603def80771bfabe064a8e9a90b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJnj4MbCRC1aQ7uu5UhlAAAKd8QAB3pC42ndRX+fmEYFxV8qsRu\nuRjTnvvTpz1CwSUwEv0m8aYkswDLAYoUO9FtCYhZKkxFVJYLEC49mHVIrTfG6bip\nZ4yJSy9MTnMjPZxUhu6RSrxqhyzps0McVyFfLyCp3MS/mv23sr/6LhoAF1ZLFvff\nvD0BOXCX80SkKndi+cP0V3UkOr+yDE7lB5vha0WF2eK3Ibn9YkbMkDpqz5hsNduB\nau1YSichreuQe/sS8vKR515SuMhTNFhVXQHrO+34ThX3nCWGrXFrKHU3aHbhPgnl\neJpgcQ5cypE9kCObg6vwV6P3xTcD6xun3VOC6HKx+ZIwOieuxRme/P0E0gu+zmCa\ndjVab+AauIypc+gK0j+8dqGCeE0Y+aNSPBfovLovXFMVQcVrRu2rq9k0pYoKpBrv\n55dn9c8ZUTiKbGOmcbI7eRpOIuQujW3XYCFxV3k7zKbzn54qiWpNUHcgF+wfH7j5\nk0w1ogVJJtyyoUx4PjPCpBOh1HNzJMX0otcyj23oE7FMo9a3KMLckaGid3FvG8J5\nE4kOKGPU53cJgHTgxnQuizNua55ioJi4JxQcyGY0An7rfX00jArs9xmwIvVjTbp1\ns4xW/BUfjDn0E7vrXf4tKpdskkkm+2S4HZW4xsrhnvvwFjAaSWAp2vGPhWhEs87r\nHcKEbwGB4D0wR5yClx2x\n=BTtN\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 432338b555e54ef1d60b4b6c9fea7a313418350a\nparent 93e68642af0c45a1a39dd8fcb2691f1915f8aaa6\nparent 959d01a2a5ccad380c1c2737361d57472579eab3\nauthor Umar <168269207+crestyeagle@users.noreply.github.com> 1737458459 +0200\ncommitter GitHub <noreply@github.com> 1737458459 +0200\n\nMerge branch 'main' into add-find-dialog-position-option",
+     "verified_at": "2025-01-21T11:21:02Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9a181ad1bc32f603def80771bfabe064a8e9a90b",
+   "html_url": "https://github.com/microsoft/vscode/commit/9a181ad1bc32f603def80771bfabe064a8e9a90b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9a181ad1bc32f603def80771bfabe064a8e9a90b/comments",
+   "author": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6",
+     "html_url": "https://github.com/microsoft/vscode/commit/93e68642af0c45a1a39dd8fcb2691f1915f8aaa6"
+    },
+    {
+     "sha": "959d01a2a5ccad380c1c2737361d57472579eab3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/959d01a2a5ccad380c1c2737361d57472579eab3",
+     "html_url": "https://github.com/microsoft/vscode/commit/959d01a2a5ccad380c1c2737361d57472579eab3"
+    }
+   ]
+  },
+  {
+   "sha": "592d303548ce683371abd8e4eac4a18180992572",
+   "node_id": "C_kwDONtUutNoAKDU5MmQzMDM1NDhjZTY4MzM3MWFiZDhlNGVhYzRhMTgxODA5OTI1NzI",
+   "commit": {
+    "author": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-22T07:09:54Z"
+    },
+    "committer": {
+     "name": "Umar",
+     "email": "168269207+crestyeagle@users.noreply.github.com",
+     "date": "2025-01-22T07:09:54Z"
+    },
+    "message": "Add new positions for Find dialog in editor\n\n* Update `OverlayWidgetPositionPreference` enum in `editorBrowser.ts` to include `BOTTOM_CENTER`, `LEFT_CENTER`, and `RIGHT_CENTER`\n* Modify `FindWidget` class in `findWidget.ts` to support positioning the Find dialog at the bottom, left, or right based on the new configuration option\n* Adjust `_reveal` and `_hide` methods in `findWidget.ts` to handle the new positions\n* Add CSS styles in `findWidget.css` to handle the new bottom, left, and right positions of the Find dialog",
+    "tree": {
+     "sha": "2104ea2313d125feeb272f34f5f5c3dc30379a13",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2104ea2313d125feeb272f34f5f5c3dc30379a13"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/592d303548ce683371abd8e4eac4a18180992572",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/592d303548ce683371abd8e4eac4a18180992572",
+   "html_url": "https://github.com/microsoft/vscode/commit/592d303548ce683371abd8e4eac4a18180992572",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/592d303548ce683371abd8e4eac4a18180992572/comments",
+   "author": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "crestyeagle",
+    "id": 168269207,
+    "node_id": "U_kgDOCgeVlw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/168269207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/crestyeagle",
+    "html_url": "https://github.com/crestyeagle",
+    "followers_url": "https://api.github.com/users/crestyeagle/followers",
+    "following_url": "https://api.github.com/users/crestyeagle/following{/other_user}",
+    "gists_url": "https://api.github.com/users/crestyeagle/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/crestyeagle/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/crestyeagle/subscriptions",
+    "organizations_url": "https://api.github.com/users/crestyeagle/orgs",
+    "repos_url": "https://api.github.com/users/crestyeagle/repos",
+    "events_url": "https://api.github.com/users/crestyeagle/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/crestyeagle/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9a181ad1bc32f603def80771bfabe064a8e9a90b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9a181ad1bc32f603def80771bfabe064a8e9a90b",
+     "html_url": "https://github.com/microsoft/vscode/commit/9a181ad1bc32f603def80771bfabe064a8e9a90b"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,355 @@
+{
+ "fetchedAt": "2026-11-01T00:55:12.690Z",
+ "pr": {
+  "number": 336949,
+  "title": "refactor: remove hoisting and add JSDoc to matchTag in Emmet",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-20T20:33:39Z",
+  "updated_at": "2026-10-31T22:15:11Z",
+  "user": "vedanshshetti",
+  "author_association": "NONE",
+  "additions": 28,
+  "deletions": 20,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "refctor-improve-matchTagFile",
+   "sha": "e842cac2d183e26670079585f05700f576a6ac72",
+   "repo": "vedanshshetti/vscode",
+   "label": "vedanshshetti:refctor-improve-matchTagFile"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "461c750c9fa6c90052aff25eb93646ee62d2afd8"
+  },
+  "body": "## Description:\r\nThis PR refactors extensions/emmet/src/matchTag.ts to improve code readability and logical flow.\r\n## Changes:\r\n- Moved the helper function getUpdatedSelections above the main exported function matchTag. This follows a \"define-before-use\" pattern, allowing readers to understand the implementation details before seeing the high-level logic.\r\n- Added JSDoc comments to matchTag to clearly describe its purpose and behavior.\r\n- Added explicit : void return type to matchTag for better TypeScript clarity.\r\n## Motivation:\r\nThe previous structure required jumping to the bottom of the file to understand the core logic used in matchTag. By reordering the functions and adding documentation, the file becomes easier to read and maintain for new contributors without changing any runtime behavior.\r\n\r\n>Side-Note, if you think the commit message looks off or something, that's because I used GH Copilot to write the commit msg. But I wrote the code myself.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "3bf7200d96e863731d2ab11a35d1035767ceada2",
+   "filename": "extensions/emmet/src/matchTag.ts",
+   "status": "modified",
+   "additions": 28,
+   "deletions": 20,
+   "changes": 48,
+   "blob_url": "https://github.com/microsoft/vscode/blob/e842cac2d183e26670079585f05700f576a6ac72/extensions%2Femmet%2Fsrc%2FmatchTag.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/e842cac2d183e26670079585f05700f576a6ac72/extensions%2Femmet%2Fsrc%2FmatchTag.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Femmet%2Fsrc%2FmatchTag.ts?ref=e842cac2d183e26670079585f05700f576a6ac72",
+   "patch": "@@ -8,7 +8,34 @@ import { validate, getHtmlFlatNode, offsetRangeToSelection } from './util';\n import { getRootNode } from './parseDocument';\n import { HtmlNode as HtmlFlatNode } from 'EmmetFlatNode';\n \n-export function matchTag() {\n+function getUpdatedSelections(document: vscode.TextDocument, rootNode: HtmlFlatNode, position: vscode.Position): vscode.Selection | undefined {\n+\tconst offset = document.offsetAt(position);\n+\tconst currentNode = getHtmlFlatNode(document.getText(), rootNode, offset, true);\n+\tif (!currentNode) {\n+\t\treturn;\n+\t}\n+\n+\t// If no opening/closing tag or cursor is between open and close tag, then no-op\n+\tif (!currentNode.open\n+\t\t|| !currentNode.close\n+\t\t|| (offset > currentNode.open.end && offset < currentNode.close.start)) {\n+\t\treturn;\n+\t}\n+\n+\t// Place cursor inside the close tag if cursor is inside the open tag, else place it inside the open tag\n+\tconst finalOffset = (offset <= currentNode.open.end) ? currentNode.close.start + 2 : currentNode.start + 1;\n+\treturn offsetRangeToSelection(document, finalOffset, finalOffset);\n+}\n+\n+\n+/**\n+ * This function implements the \"Match Tag\" feature in VSCode's HTML editing. When the user triggers it\n+ * (usually via a keybinding or command), it jumps your cursor from an opening HTML tag to its corresponding closing tag,\n+ * or vice versa.\n+ * In short: It’s the logic behind \"jump to matching tag.\"\n+ * @returns {void} Void - Updates editor selections in place.\n+ */\n+export function matchTag(): void {\n \tif (!validate(false) || !vscode.window.activeTextEditor) {\n \t\treturn;\n \t}\n@@ -32,22 +59,3 @@ export function matchTag() {\n \t\teditor.revealRange(editor.selections[updatedSelections.length - 1]);\n \t}\n }\n-\n-function getUpdatedSelections(document: vscode.TextDocument, rootNode: HtmlFlatNode, position: vscode.Position): vscode.Selection | undefined {\n-\tconst offset = document.offsetAt(position);\n-\tconst currentNode = getHtmlFlatNode(document.getText(), rootNode, offset, true);\n-\tif (!currentNode) {\n-\t\treturn;\n-\t}\n-\n-\t// If no opening/closing tag or cursor is between open and close tag, then no-op\n-\tif (!currentNode.open\n-\t\t|| !currentNode.close\n-\t\t|| (offset > currentNode.open.end && offset < currentNode.close.start)) {\n-\t\treturn;\n-\t}\n-\n-\t// Place cursor inside the close tag if cursor is inside the open tag, else place it inside the open tag\n-\tconst finalOffset = (offset <= currentNode.open.end) ? currentNode.close.start + 2 : currentNode.start + 1;\n-\treturn offsetRangeToSelection(document, finalOffset, finalOffset);\n-}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5261668432,
+   "node_id": "PRR_kwDOAn8RLM8AAAABOZ6wUA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/336949#pullrequestreview-5261668432",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/336949",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/336949#pullrequestreview-5261668432"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/336949"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-09-20T20:33:45Z",
+   "commit_id": "6b172614f958ece47e9d06d5e54e61866fbe5c88"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "6b172614f958ece47e9d06d5e54e61866fbe5c88",
+   "node_id": "C_kwDOUi2JJdoAKDZiMTcyNjE0Zjk1OGVjZTQ3ZTlkMDZkNWU1NGU2MTg2NmZiZTVjODg",
+   "commit": {
+    "author": {
+     "name": "Vedansh Shetti",
+     "email": "vedansh.shetti@gmail.com",
+     "date": "2026-09-20T20:29:47Z"
+    },
+    "committer": {
+     "name": "Vedansh Shetti",
+     "email": "vedansh.shetti@gmail.com",
+     "date": "2026-09-20T20:29:47Z"
+    },
+    "message": "refactor: move getUpdatedSelections function inside matchTag for better encapsulation",
+    "tree": {
+     "sha": "8b0dd42f0fcf6e16d32ae8b2f809f962aa944b33",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8b0dd42f0fcf6e16d32ae8b2f809f962aa944b33"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6b172614f958ece47e9d06d5e54e61866fbe5c88",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAAhcAAAAHc3NoLXJzYQAAAAMBAAEAAAIBAOjzzADs7Ppmm01rMIXG7A\nrPrafUdKbNAPl7KVEjoH1IHrjEuZ5+zmNuRr1xVooikL0HPnX9Rlt061H3cFfPP2noVcUJ\nqEAaC7tnNbMU1K9MSbMk9pybrBg33u+CsYkrDat3qMWrhbpXE8Q1C2KUT8eSwzR9Tv25VY\nr+pqb/XfJez9T/RVa2zMAqaR193K4GBWEL424WTSqg+/pBeDrGDVzTzCaXxoljgIG/eXoc\nTOpCLBmKRM4d3c3aGq75kmh33/pMPtU4ObbEwqQP3UqbNNq08ytfZnJvk8kus13eHdfu4g\npza8pGqJDdvgbBWf2o3611MbCGbL0r6597VDcrF3PuPvD9nIN4WpEGSNgtC3rEaxzdk8x4\nBj10F8hVvDD6KTopKbGzEmSH0catCbVzYzkDoOP5d4WElTqObIAkkh/n32WPloRzs4GXN7\n8+jfQXXQhr/mUBWrkYp1asfc5rQcpagg2gn6UdwUOBCSgBDpJkrxZdewOymadSSu94wcuL\nWy7JU/aeWqHWt86EgH38ThUbu5QUGHOIhBjOD1/xopDkD6U+EdrX9DaFS0F8uZWm2ip/H+\n+3awfVBK+z/Gj6RPdTwH2RZPEj3kFRO9NhkZOmgRplA2QVWX1aVk+GSPvUwOiAbirrCjS6\nDxSVu4npEXPEiMbXG3uR2ebxBhdk0oflAAAAA2dpdAAAAAAAAAAGc2hhNTEyAAACFAAAAA\nxyc2Etc2hhMi01MTIAAAIAenK3Ep+uLAxtDoT2IHUIOqJR/W7uOEuAh+in0lSkrndx7jrA\nV6ey8in4DgtdiwDgEGmFOV8Saa/H+ki5ZvKwJjGR7BeyK+uKPNw13IY1muYkDr/wQILYbZ\nPjYsp7U8kOKRJD9aXrj5xGYIsl1+DM78X42GRJYGFc+spYVFiCRRtdTveEz90G4GiHSOwe\nJFJJaBFo8GD9GY/zGxZefAIyhfZKmQhaMMRRyNkzO/Zh2+dk/5jQ8tvwPiCVKtSyD8U2nf\n81GhjCO8BrZtZSY4epj/iQsFtV9eJQxcIlfIfxZKcWmBJmOsyVALumRMvjvbvhnnXwU0cZ\n2BOSXaDbL6ycFJ6Lg25aQ5m5caQZRdBi8J6BmjGy7sHPBhaX/1yfd950RqlO16bSdi+gil\nO0rNVkApgH3AfVG1Wpj5oYolfBbcwzPSaShbZF98a3cF2z0E0TP38uTQQTed2Az7CnYR8+\nIf9y8L2jbLN+SUnBo4yhtVr+eGXJXOx5J+/c5RmlhtHIe7HjWp4nlXYpGSd0agkss2sGEp\nDHxy/FuVe8cefXD6VJataA7juz2An6H2EBYt1v+3rXwfZlhfptmMTnMNLVl0oY/6a30y0P\nuK8otvt/EKhR7HfLlrESs8lLfvDWpSw1St1IM7LcytNE76WdizBP8cHXtxPIxUIjBD38qw\nNHqNg=\n-----END SSH SIGNATURE-----",
+     "payload": "tree 8b0dd42f0fcf6e16d32ae8b2f809f962aa944b33\nparent 67bc84bbea3aae4e8d61a48eccb983fa2534323a\nauthor Vedansh Shetti <vedansh.shetti@gmail.com> 1789936187 +0200\ncommitter Vedansh Shetti <vedansh.shetti@gmail.com> 1789936187 +0200\n\nrefactor: move getUpdatedSelections function inside matchTag for better encapsulation\n",
+     "verified_at": "2026-09-20T20:29:56Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6b172614f958ece47e9d06d5e54e61866fbe5c88",
+   "html_url": "https://github.com/microsoft/vscode/commit/6b172614f958ece47e9d06d5e54e61866fbe5c88",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6b172614f958ece47e9d06d5e54e61866fbe5c88/comments",
+   "author": {
+    "login": "vedanshshetti",
+    "id": 253360210,
+    "node_id": "U_kgDODxn4Ug",
+    "avatar_url": "https://avatars.githubusercontent.com/u/253360210?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vedanshshetti",
+    "html_url": "https://github.com/vedanshshetti",
+    "followers_url": "https://api.github.com/users/vedanshshetti/followers",
+    "following_url": "https://api.github.com/users/vedanshshetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vedanshshetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vedanshshetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vedanshshetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/vedanshshetti/orgs",
+    "repos_url": "https://api.github.com/users/vedanshshetti/repos",
+    "events_url": "https://api.github.com/users/vedanshshetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vedanshshetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "vedanshshetti",
+    "id": 253360210,
+    "node_id": "U_kgDODxn4Ug",
+    "avatar_url": "https://avatars.githubusercontent.com/u/253360210?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vedanshshetti",
+    "html_url": "https://github.com/vedanshshetti",
+    "followers_url": "https://api.github.com/users/vedanshshetti/followers",
+    "following_url": "https://api.github.com/users/vedanshshetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vedanshshetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vedanshshetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vedanshshetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/vedanshshetti/orgs",
+    "repos_url": "https://api.github.com/users/vedanshshetti/repos",
+    "events_url": "https://api.github.com/users/vedanshshetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vedanshshetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "67bc84bbea3aae4e8d61a48eccb983fa2534323a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/67bc84bbea3aae4e8d61a48eccb983fa2534323a",
+     "html_url": "https://github.com/microsoft/vscode/commit/67bc84bbea3aae4e8d61a48eccb983fa2534323a"
+    }
+   ]
+  },
+  {
+   "sha": "6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+   "node_id": "C_kwDOUi2JJdoAKDZiMTMwYzUyNzc0OTFmNWQ2YWQ3ZjNiYWUyNWYxYzRkZjNmZWMyOTc",
+   "commit": {
+    "author": {
+     "name": "Vedansh Shetti",
+     "email": "vedansh.shetti@gmail.com",
+     "date": "2026-10-25T18:54:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-25T18:54:02Z"
+    },
+    "message": "Merge branch 'main' into refctor-improve-matchTagFile",
+    "tree": {
+     "sha": "075b085a88af1ad5954f8a23cc6e03b51249d33b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/075b085a88af1ad5954f8a23cc6e03b51249d33b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq3lBKCRC1aQ7uu5UhlAAAYWwQAJnMXnM1sf6oxxSqzL1vIkgn\nR1nN39Epu+rqZa/gd7BVAeVk1w3x2++QyKBKvk/6Ig88KUPt8STrWhm3/DJKrsVD\nY59oBk9S/glLOtlSbKHILxp4/vBd/+1kI0COj68NKKd8FSENb+sDZrYl92YLj73j\n37zIJXEkaNi2GPLZR8vUjHonj8Y3uaA8zcJOPIPEgW89KlFHyCNW5Z6YPyX7VVq4\nCOlMGVfv1qfeiG0HWOU8wJzykSmsB3nIME4pxgtZyC5lulV5u3gnR03bIvK7j8rZ\nBq55ZI1RIWpt3KP0oj619IbVD4lff0MIckSFJrv+NtuiHWKgW9S0SN+Nwj8b2Uwm\nfqEX1jIZY8uwfpJae3/8iMBrF5xdTKy0mOz9hATC7FRt6wacgspAuIAAACmblTAW\nXqPvAxb6RHn0Psd7Ub5eqIhSyKu1DIZIoS/ZOIBLvZd1gCrlvqTSQ2Sdb2v2mwO/\n/vPstoR4Z+xXx9wuYWWGy2QFiI8XQRvfc3I19FxfFu4oHqZYahmJ7xhp1RDwIHp7\nB5pdwLb6vqjvdMBvdpGPbXkhKMgChr4pl02CUJWd7fsvfRDxAOPPJamUv88eyVpS\nUPwBOtBG7A0fLgFTpTVFGIH11WaoEVQIrrExFe4PfIvs3vA60h59SYbc6Clf51sO\nxKGMZl3EWFTx7lGIGlVZ\n=j6lT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 075b085a88af1ad5954f8a23cc6e03b51249d33b\nparent 6b172614f958ece47e9d06d5e54e61866fbe5c88\nparent b208bc2501cdd0285e47951603d0c1059c6fb2f7\nauthor Vedansh Shetti <vedansh.shetti@gmail.com> 1792954442 +0100\ncommitter GitHub <noreply@github.com> 1792954442 +0100\n\nMerge branch 'main' into refctor-improve-matchTagFile",
+     "verified_at": "2026-10-25T18:54:02Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+   "html_url": "https://github.com/microsoft/vscode/commit/6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6b130c5277491f5d6ad7f3bae25f1c4df3fec297/comments",
+   "author": {
+    "login": "vedanshshetti",
+    "id": 253360210,
+    "node_id": "U_kgDODxn4Ug",
+    "avatar_url": "https://avatars.githubusercontent.com/u/253360210?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vedanshshetti",
+    "html_url": "https://github.com/vedanshshetti",
+    "followers_url": "https://api.github.com/users/vedanshshetti/followers",
+    "following_url": "https://api.github.com/users/vedanshshetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vedanshshetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vedanshshetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vedanshshetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/vedanshshetti/orgs",
+    "repos_url": "https://api.github.com/users/vedanshshetti/repos",
+    "events_url": "https://api.github.com/users/vedanshshetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vedanshshetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6b172614f958ece47e9d06d5e54e61866fbe5c88",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6b172614f958ece47e9d06d5e54e61866fbe5c88",
+     "html_url": "https://github.com/microsoft/vscode/commit/6b172614f958ece47e9d06d5e54e61866fbe5c88"
+    },
+    {
+     "sha": "b208bc2501cdd0285e47951603d0c1059c6fb2f7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b208bc2501cdd0285e47951603d0c1059c6fb2f7",
+     "html_url": "https://github.com/microsoft/vscode/commit/b208bc2501cdd0285e47951603d0c1059c6fb2f7"
+    }
+   ]
+  },
+  {
+   "sha": "e842cac2d183e26670079585f05700f576a6ac72",
+   "node_id": "C_kwDOUi2JJdoAKGU4NDJjYWMyZDE4M2UyNjY3MDA3OTU4NWYwNTcwMGY1NzZhNmFjNzI",
+   "commit": {
+    "author": {
+     "name": "Vedansh Shetti",
+     "email": "vedansh.shetti@gmail.com",
+     "date": "2026-10-31T22:15:09Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-31T22:15:09Z"
+    },
+    "message": "Merge branch 'microsoft:main' into refctor-improve-matchTagFile",
+    "tree": {
+     "sha": "61a402ac93e97d4957b10ddc1c7d27314b33a17e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/61a402ac93e97d4957b10ddc1c7d27314b33a17e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e842cac2d183e26670079585f05700f576a6ac72",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq5mhtCRC1aQ7uu5UhlAAA0ysQADvu7oROB4SVvOYo5pe/F8Ve\nQs85X9xj2ON8PmdW7EL8Jmfl0s4I2HsV5FzPoNtv1rxYkVqp6Gj0H38SP8LyCevQ\nK6fT/xUJUhGz6SHh5BKDGqfWSE617f1Q6X+5+kYvKilZ7/1xzxvULUfnqIGiKhAV\ndQkFpjUm6OZMRD+RBxTZi1HG5j+0ZDNdMBtHvHt8biYH/5tQraCQY68iKT2hkBd/\nZDO1i0udZtHysUV8gHczr7CoQfgnV2cACbkZ3eOb41xF/1W4iJi0Mrcn3FQhyMCP\nKFrAeP1/SpLfRMYKn6CUJYIIHScwRtSdajwIdwjW0wcaAwD02UrLnYZ6L1zYu0V4\nbpov5THOJkTmq+vyJHStvgi/XZr78CXFbEXr20ccetW+kZcvSgk+TzyszGGbE5nb\n/ZZcnK9Arqe3+oubbwXWibRXlCzi1de39b12g4OykE5ZRz0S6OUbegUWe4ZIoaO1\n5P15hH+kL3t8SQtb8D4UzJeU9EWJ05ngRtPfh/VYZTos6nadPVC72h4d53qEhbZ7\nHNSKbfKQ7jHoeejVrzWvB6SjwtwvINF+i4cPGyHGCRVIBJswaDq7+zgM0rQwRtiR\nFUjDg+V4Pgy+B9ycBvtgZm04eDoIjQ522QseEFWklkKYZ4b9mcwSeci89vaawipe\nZ0QUjTV+IbATBSRdBMB5\n=kLWz\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 61a402ac93e97d4957b10ddc1c7d27314b33a17e\nparent 6b130c5277491f5d6ad7f3bae25f1c4df3fec297\nparent 461c750c9fa6c90052aff25eb93646ee62d2afd8\nauthor Vedansh Shetti <vedansh.shetti@gmail.com> 1793484909 +0100\ncommitter GitHub <noreply@github.com> 1793484909 +0100\n\nMerge branch 'microsoft:main' into refctor-improve-matchTagFile\n",
+     "verified_at": "2026-10-31T22:15:13Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e842cac2d183e26670079585f05700f576a6ac72",
+   "html_url": "https://github.com/microsoft/vscode/commit/e842cac2d183e26670079585f05700f576a6ac72",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e842cac2d183e26670079585f05700f576a6ac72/comments",
+   "author": {
+    "login": "vedanshshetti",
+    "id": 253360210,
+    "node_id": "U_kgDODxn4Ug",
+    "avatar_url": "https://avatars.githubusercontent.com/u/253360210?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vedanshshetti",
+    "html_url": "https://github.com/vedanshshetti",
+    "followers_url": "https://api.github.com/users/vedanshshetti/followers",
+    "following_url": "https://api.github.com/users/vedanshshetti/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vedanshshetti/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vedanshshetti/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vedanshshetti/subscriptions",
+    "organizations_url": "https://api.github.com/users/vedanshshetti/orgs",
+    "repos_url": "https://api.github.com/users/vedanshshetti/repos",
+    "events_url": "https://api.github.com/users/vedanshshetti/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vedanshshetti/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6b130c5277491f5d6ad7f3bae25f1c4df3fec297",
+     "html_url": "https://github.com/microsoft/vscode/commit/6b130c5277491f5d6ad7f3bae25f1c4df3fec297"
+    },
+    {
+     "sha": "461c750c9fa6c90052aff25eb93646ee62d2afd8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/461c750c9fa6c90052aff25eb93646ee62d2afd8",
+     "html_url": "https://github.com/microsoft/vscode/commit/461c750c9fa6c90052aff25eb93646ee62d2afd8"
+    }
+   ]
+  }
+ ]
+}

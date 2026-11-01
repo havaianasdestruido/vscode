@@ -1,0 +1,290 @@
+{
+ "fetchedAt": "2026-11-01T00:55:34.733Z",
+ "pr": {
+  "number": 339434,
+  "title": "base: avoid Base64 encoding string-chain amplification",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-02T23:48:57Z",
+  "updated_at": "2026-10-29T15:23:49Z",
+  "user": "karthiknadig",
+  "author_association": "MEMBER",
+  "additions": 60,
+  "deletions": 15,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [
+   "perf"
+  ],
+  "milestone": null,
+  "requested_reviewers": [
+   "aeschli"
+  ],
+  "head": {
+   "ref": "karthiknadig/fix-base64-memory",
+   "sha": "ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "repo": "karthiknadig/vscode",
+   "label": "karthiknadig:karthiknadig/fix-base64-memory"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "e1eafb38b7179f09c61af3482d63dd2aac021784"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n\r\nEncodes into one sized byte buffer instead of building a chain of tiny strings. For the same **4 MiB input**, output is byte-for-byte identical with much less blocking and retained memory.\r\n\r\n| Measured operation | Before | After |\r\n|---|---:|---:|\r\n| Encoding time | 254.2 ms | 13.6 ms |\r\n| Memory while output lives | 106.67 MiB | 5.33 MiB |\r\n\r\n![Recorded before and after measurements for Base64 - less memory and renderer blocking](https://raw.githubusercontent.com/karthiknadig/vscode/8a50bfd61d53df3579025ef6b9f0e58ab1fbbd95/brief-performance-proof/base64-proof.png)\r\n\r\n**Proof scope:** Memory includes heap plus backing storage. Encoder probe, not a full plugin-sync test. 44 codec tests passed in each of Node and Electron; 37 RPC/resource-transfer tests passed.\r\n\r\nTiny inputs can be slower because of allocation overhead. The table measures storage with the output alive after GC, **not peak or temporary allocation**. [Independent renderer/RPC measurements](https://github.com/microsoft/vscode/pull/339434#issuecomment-6003860282) confirm the large-buffer improvement and these limits.\r\n\r\n<details>\r\n<summary>Reproduction clips (startup removed), implementation, and full validation commands</summary>\r\n\r\nThe clips below are brief measured-result excerpts. The comparison above is the primary performance proof; clip duration is not a benchmark.\r\n\r\nAddresses the encoder memory-amplification path in #334892.\r\n\r\n## Root cause\r\n\r\n`encodeBase64` concatenates four individual characters for every three input bytes. The resulting string chain can retain far more memory than the encoded payload and blocks the renderer synchronously. The Agent Host client's reverse `resourceRead` path invokes this helper on complete resource contents, including plugin binaries.\r\n\r\nIn a bounded renderer reproduction, a **4 MiB** input produced a **5.33 MiB** Base64 result but retained **106.7 MiB** while that result was alive, even after garbage collection.\r\n\r\n## Change\r\n\r\nWrite the same Base64 ASCII characters into one exact-size `VSBuffer`, then convert it to a string once. The public signature and output remain unchanged:\r\n\r\n- Standard and URL-safe alphabets.\r\n- Padded and unpadded output.\r\n- Empty input and all input-length remainders.\r\n- Buffer views with nonzero offsets, without encoding surrounding bytes.\r\n\r\nThis uses existing portable buffer/string primitives, not `Uint8Array.toBase64`, which is available in the tested renderer but absent in the supported Node 24.20 runtime. No protocol, permission, plugin-discovery, or enablement behavior changes.\r\n\r\n## Before / after evidence\r\n\r\nSame scenario, actual production encoder, synthetic buffers capped at 4 MiB. One warm-up followed by five measured samples per size. Every result is checked byte-for-byte against the renderer's native encoder.\r\n\r\nWindows 11 x64, AMD EPYC 7763 (32 logical processors), 128 GiB RAM, Code OSS 1.141.0 Dev. Benchmark runs were sequential, without concurrent builds.\r\n\r\n| 4 MiB input | Before | After |\r\n|---|---:|---:|\r\n| Median encode time | 254.2 ms | 13.6 ms |\r\n| Worst encode time | 318.4 ms | 21.9 ms |\r\n| Retained memory, output alive after GC | 106.7 MiB | 5.33 MiB |\r\n| Encoded characters | 5,592,408 | 5,592,408 |\r\n| Matches native output | Yes | Yes |\r\n\r\nApproximately **19x faster** and **95% less retained memory** for this case. The unchanged scenario fails the memory budget before the fix and passes **3/3** after it; after-run medians were 13.7, 13.4, and 13.6 ms.\r\n\r\nMemory includes **both JavaScript heap and CDP-reported backing storage**. The fixed `TextDecoder` result is externally backed in Chromium, so counting only JS heap would incorrectly report nearly zero memory. These are retained-result measurements, not whole-process RSS or peak memory.\r\n\r\n### Independent validation\r\n\r\n[dmitrivMS independently tested this PR](https://github.com/microsoft/vscode/pull/339434#issuecomment-6003860282) on main `bd64649b` with only this PR's delta, using Electron 43.7.7. Their 4 MiB renderer results were 249.4 ms versus 13.5 ms and 106.67 MiB versus 5.33 MiB of combined output-alive storage. A real reverse `resourceRead` RPC also preserved exact decoded bytes and permission/error behavior. Those are separate measurements, not replacements for the runs above.\r\n\r\nThe independent run observed **10.67 MiB of backing storage immediately after encoding**, consistent with the temporary ASCII buffer and resulting string; after GC with the output alive, 5.33 MiB remained. This is an aggregate sample, not a continuously measured peak. The full plugin-sync workflow, original large-file crash, and concurrent large transfers remain unverified.\r\n\r\n### Before\r\n\r\n![Before: a 4 MiB input retains 106.7 MiB and blocks for 254.2 ms - measured-result excerpt, startup removed](https://raw.githubusercontent.com/karthiknadig/vscode/8a50bfd61d53df3579025ef6b9f0e58ab1fbbd95/brief-performance-proof/base64-before-short.gif)\r\n\r\n### After\r\n\r\n![After: the same input retains only its 5.33 MiB output and encodes in about 14 ms - measured-result excerpt, startup removed](https://raw.githubusercontent.com/karthiknadig/vscode/8a50bfd61d53df3579025ef6b9f0e58ab1fbbd95/brief-performance-proof/base64-after-short.gif)\r\n\r\nThe recordings contain clearly labeled test instrumentation, not a simulated plugin-sync UI. The after GIF records the first successful run; the table uses the saved final after-run data.\r\n\r\n[Scenario](https://github.com/karthiknadig/vscode/blob/5275e62deff89293f8a453431f4a2249295744d7/base64-334892/base64.scenario.cjs) · [Before raw measurements](https://github.com/karthiknadig/vscode/blob/5275e62deff89293f8a453431f4a2249295744d7/base64-334892/base64-before-results.json) · [After raw measurements](https://github.com/karthiknadig/vscode/blob/5275e62deff89293f8a453431f4a2249295744d7/base64-334892/base64-after-results.json)\r\n\r\nBaseline: `dcb81648f8a8f1863d2577f8fec98e805e5f95a0`. Fixed: `7741eed6c238c3ef6829e4c8ca9f92fa736267af`, based on `51860071a3853d3d08c0e5be743ce5dad0825a0d`. The encoder and original codec tests are unchanged between the baseline and the fix's parent.\r\n\r\n## Validation\r\n\r\n```powershell\r\nnpm run compile-client\r\n# PASSED: zero compilation/type errors.\r\n\r\n.\\scripts\\test.bat --run src\\vs\\base\\test\\common\\buffer.test.ts --reporter dot\r\n# PASSED: 44 tests in Electron/browser.\r\n\r\nnpm run test-node -- --run src\\vs\\base\\test\\common\\buffer.test.ts --reporter dot\r\n# PASSED: 44 tests in Node, including the Buffer-backed path.\r\n\r\ncmd.exe /d /s /c '.\\scripts\\test.bat --run src\\vs\\workbench\\services\\extensions\\test\\common\\rpcProtocol.test.ts --run src\\vs\\platform\\agentHost\\test\\electron-browser\\agentHostProtocolClient.test.ts --grep \"RPCProtocol|resourceRead|resourceWrite|reverse\" --reporter dot'\r\n# PASSED: 37 RPC and Agent Host resource-transfer compatibility tests.\r\n\r\nnpm run eslint -- src\\vs\\base\\common\\buffer.ts src\\vs\\base\\test\\common\\buffer.test.ts\r\n# PASSED: both changed files.\r\n\r\ngit diff origin/main --check\r\n# PASSED.\r\n```\r\n\r\nExact performance commands (with local path aliases for readability):\r\n\r\n```powershell\r\n$runner = 'C:\\Users\\kanadig\\.copilot\\skills\\bug-swarm\\scripts\\run-scenario.mjs'\r\n$evidence = 'C:\\Users\\kanadig\\.copilot\\session-state\\5be74984-e914-4843-8a16-9065f861cc4a\\files\\perf-hunt-round2'\r\n$scenario = \"$evidence\\base64.scenario.cjs\"\r\n\r\n$env:BASE64_RESULTS_FILE = 'base64-before-results.json'\r\nnode $runner --scenario $scenario --checkout 'Q:\\GIT\\vscode' --isolation perf-5be-b64-before --gif \"$evidence\\base64-before.gif\"\r\n# EXPECTED FAILURE: 106.7 MiB retained for a 5.33 MiB result.\r\n\r\n$env:BASE64_RESULTS_FILE = 'base64-after-results.json'\r\nnode $runner --scenario $scenario --checkout 'Q:\\GIT\\vscode.worktrees\\perf-fixes-5be74984' --isolation perf-5be-b64-after --repeat 3 --gif \"$evidence\\base64-after.gif\"\r\n# PASSED 3/3: bounded retained memory and exact output.\r\n```\r\n\r\n### Scope and tradeoffs\r\n\r\n- The encoder temporarily allocates an output-sized byte buffer rather than millions of concatenated strings. Tiny inputs have measurable sub-microsecond overhead. The independent renderer probe measured 1 byte at 0.060 versus 0.335 microseconds and 64 bytes at 0.670 versus 0.975 microseconds. The crossover is runtime-dependent: the earlier Node probe improved at 64 bytes, while the renderer probe improved at 4 KiB. This is not a speedup at every input size.\r\n- This proves the reported encoder mechanism at bounded sizes; it does not recreate the original 4 GiB crash, copy a real large plugin, or guarantee unlimited-size transfers. Resource reads and transport serialization still materialize complete payloads.\r\n- The issue's separate plugin-disablement concern is not changed.\r\n- macOS/Linux UI runs and the full repository suite were not run locally.\r\n\r\n</details>\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "376a285aff3f5ba72363c3aba85678c2a35d4806",
+   "filename": "src/vs/base/common/buffer.ts",
+   "status": "modified",
+   "additions": 20,
+   "deletions": 15,
+   "changes": 35,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ac00000337b6f4b41b1a0af65ea27245eea48870/src%2Fvs%2Fbase%2Fcommon%2Fbuffer.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ac00000337b6f4b41b1a0af65ea27245eea48870/src%2Fvs%2Fbase%2Fcommon%2Fbuffer.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fcommon%2Fbuffer.ts?ref=ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "patch": "@@ -427,40 +427,45 @@ export function decodeBase64(encoded: string) {\n const base64Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';\n const base64UrlSafeAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';\n \n-/** Encodes a buffer to a base64 string. */\n+/** Encodes a buffer to a base64 string without retaining a per-character string chain. */\n export function encodeBase64({ buffer }: VSBuffer, padded = true, urlSafe = false) {\n \tconst dictionary = urlSafe ? base64UrlSafeAlphabet : base64Alphabet;\n-\tlet output = '';\n-\n \tconst remainder = buffer.byteLength % 3;\n+\tconst output = VSBuffer.alloc(Math.ceil(buffer.byteLength / 3) * 4 - (!padded && remainder > 0 ? 3 - remainder : 0));\n+\tlet outputIndex = 0;\n \n \tlet i = 0;\n \tfor (; i < buffer.byteLength - remainder; i += 3) {\n \t\tconst a = buffer[i + 0];\n \t\tconst b = buffer[i + 1];\n \t\tconst c = buffer[i + 2];\n \n-\t\toutput += dictionary[a >>> 2];\n-\t\toutput += dictionary[(a << 4 | b >>> 4) & 0b111111];\n-\t\toutput += dictionary[(b << 2 | c >>> 6) & 0b111111];\n-\t\toutput += dictionary[c & 0b111111];\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt(a >>> 2);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt((a << 4 | b >>> 4) & 0b111111);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt((b << 2 | c >>> 6) & 0b111111);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt(c & 0b111111);\n \t}\n \n \tif (remainder === 1) {\n \t\tconst a = buffer[i + 0];\n-\t\toutput += dictionary[a >>> 2];\n-\t\toutput += dictionary[(a << 4) & 0b111111];\n-\t\tif (padded) { output += '=='; }\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt(a >>> 2);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt((a << 4) & 0b111111);\n+\t\tif (padded) {\n+\t\t\toutput.buffer[outputIndex++] = 61; // '='\n+\t\t\toutput.buffer[outputIndex++] = 61;\n+\t\t}\n \t} else if (remainder === 2) {\n \t\tconst a = buffer[i + 0];\n \t\tconst b = buffer[i + 1];\n-\t\toutput += dictionary[a >>> 2];\n-\t\toutput += dictionary[(a << 4 | b >>> 4) & 0b111111];\n-\t\toutput += dictionary[(b << 2) & 0b111111];\n-\t\tif (padded) { output += '='; }\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt(a >>> 2);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt((a << 4 | b >>> 4) & 0b111111);\n+\t\toutput.buffer[outputIndex++] = dictionary.charCodeAt((b << 2) & 0b111111);\n+\t\tif (padded) {\n+\t\t\toutput.buffer[outputIndex++] = 61;\n+\t\t}\n \t}\n \n-\treturn output;\n+\treturn output.toString();\n }\n \n const hexChars = '0123456789abcdef';"
+  },
+  {
+   "sha": "2c3086365366815878df64efdc655d37e53f5b7f",
+   "filename": "src/vs/base/test/common/buffer.test.ts",
+   "status": "modified",
+   "additions": 40,
+   "deletions": 0,
+   "changes": 40,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ac00000337b6f4b41b1a0af65ea27245eea48870/src%2Fvs%2Fbase%2Ftest%2Fcommon%2Fbuffer.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ac00000337b6f4b41b1a0af65ea27245eea48870/src%2Fvs%2Fbase%2Ftest%2Fcommon%2Fbuffer.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Ftest%2Fcommon%2Fbuffer.test.ts?ref=ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "patch": "@@ -586,6 +586,46 @@ suite('Buffer', () => {\n \t\t\t}\n \t\t});\n \n+\t\tfor (const padded of [true, false]) {\n+\t\t\tfor (const urlSafe of [true, false]) {\n+\t\t\t\tfunction expectedEncoding(base64: string): string {\n+\t\t\t\t\tconst result = urlSafe ? base64.replace(/\\+/g, '-').replace(/\\//g, '_') : base64;\n+\t\t\t\t\treturn padded ? result : result.replace(/=+$/, '');\n+\t\t\t\t}\n+\n+\t\t\t\ttest(`encodes base64 with padded=${padded} and urlSafe=${urlSafe}`, () => {\n+\t\t\t\t\tassert.deepStrictEqual(\n+\t\t\t\t\t\ttestCases.map(([bytes]) => encodeBase64(VSBuffer.wrap(bytes), padded, urlSafe)),\n+\t\t\t\t\t\ttestCases.map(([, base64]) => expectedEncoding(base64)),\n+\t\t\t\t\t);\n+\t\t\t\t});\n+\n+\t\t\t\ttest(`encodes only the buffer view with padded=${padded} and urlSafe=${urlSafe}`, () => {\n+\t\t\t\t\tconst actual = testCases.map(([bytes]) => {\n+\t\t\t\t\t\tconst storage = new Uint8Array(bytes.length + 4).fill(255);\n+\t\t\t\t\t\tstorage.set(bytes, 2);\n+\t\t\t\t\t\treturn encodeBase64(VSBuffer.wrap(storage.subarray(2, bytes.length + 2)), padded, urlSafe);\n+\t\t\t\t\t});\n+\n+\t\t\t\t\tassert.deepStrictEqual(actual, testCases.map(([, base64]) => expectedEncoding(base64)));\n+\t\t\t\t});\n+\n+\t\t\t\ttest(`encodes large buffers with all remainders, padded=${padded} and urlSafe=${urlSafe}`, () => {\n+\t\t\t\t\tconst groups = 64 * 1024;\n+\t\t\t\t\tconst input = VSBuffer.alloc(groups * 3 + 2);\n+\t\t\t\t\tconst bytes = [0, 128, 255];\n+\t\t\t\t\tfor (let i = 0; i < input.byteLength; i++) {\n+\t\t\t\t\t\tinput.buffer[i] = bytes[i % bytes.length];\n+\t\t\t\t\t}\n+\n+\t\t\t\t\tassert.deepStrictEqual(\n+\t\t\t\t\t\t[0, 1, 2].map(remainder => encodeBase64(input.slice(0, groups * 3 + remainder), padded, urlSafe)),\n+\t\t\t\t\t\t['', 'AA==', 'AIA='].map(tail => expectedEncoding('AID/'.repeat(groups) + tail)),\n+\t\t\t\t\t);\n+\t\t\t\t});\n+\t\t\t}\n+\t\t}\n+\n \t\ttest('decodes, base64', () => {\n \t\t\tfor (const [expected, encoded] of testCases) {\n \t\t\t\tassert.deepStrictEqual(new Uint8Array(decodeBase64(encoded).buffer), expected);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5397952316,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQb43PA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe allocation and remainder logic are correct, preserve existing behavior, and are comprehensively tested.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nReworks Base64 encoding to avoid memory-heavy string-chain amplification while preserving output behavior.\n\n**Changes:**\n- Writes encoded bytes into one exact-size `VSBuffer`.\n- Adds coverage for padding, URL-safe encoding, buffer views, large inputs, and remainders.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/​vs/​base/​common/​buffer.ts` | Implements bounded Base64 output-buffer construction. |\r\n| `src/​vs/​base/​test/​common/​buffer.test.ts` | Expands encoder correctness and regression coverage. |\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339434#pullrequestreview-5397952316",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339434",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339434#pullrequestreview-5397952316"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339434"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-02T23:53:09Z",
+   "commit_id": "7741eed6c238c3ef6829e4c8ca9f92fa736267af"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6003860282",
+   "html_url": "https://github.com/microsoft/vscode/pull/339434#issuecomment-6003860282",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/339434",
+   "id": 6003860282,
+   "node_id": "IC_kwDOAn8RLM8AAAABZdujOg",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-10-05T21:56:49Z",
+   "updated_at": "2026-10-05T21:56:49Z",
+   "body": "## Independent measurements and test coverage\r\n\r\nIndependently reproduced the large-input encoder improvement in **actual Code OSS**, including a bounded **real reverse `resourceRead` RPC** roundtrip. These are new measurements, not the numbers from the PR description.\r\n\r\n### What was compared\r\n\r\n- **Baseline:** main at `bd64649be19f2da0f09c2ab84c066c6c764b83be`.\r\n- **Candidate:** that same baseline plus **only** the complete PR delta from merge base `51860071a3853d3d08c0e5be743ce5dad0825a0d` to reviewed head `7741eed6c238c3ef6829e4c8ca9f92fa736267af`. The patch applied without conflicts or repairs; unrelated newer-main changes were preserved.\r\n- **Runtime:** Windows, Electron **43.7.7**, Chromium **150.0.7871.250**; Node test/reference harness **24.18.0**. Both variants used the same runtime.\r\n- Used the already-loaded production encoder in the workbench renderer, verified its loaded source against the compiled output, and accessed the same canonical module URL. Complete output manifests differed only in the two expected compiled files.\r\n- Fresh empty user/extensions/shared-data profiles and inert synthetic inputs; no private plugin contents or authenticated profile.\r\n\r\n### Encoder time and memory\r\n\r\nTwo warmup batches followed by **seven measured batches per size**. Small inputs used 20,000 calls/batch, 4 KiB used 1,000, and 1/4 MiB used one. Timing covers only synchronous encoding; input generation, GC, transport, hashing and reference comparisons are outside it. Samples were unprofiled, sequential runs on a shared host, not a randomized statistical benchmark.\r\n\r\n| Input | Baseline median | Candidate median | Observed range: baseline / candidate |\r\n|---|---:|---:|---|\r\n| Empty | 0.030 us | 0.225 us | 0.025-0.035 / 0.215-0.250 us |\r\n| 1 byte | 0.060 us | 0.335 us | 0.050-0.065 / 0.325-0.355 us |\r\n| 2 bytes | 0.060 us | 0.325 us | 0.055-0.070 / 0.320-0.345 us |\r\n| 3 bytes | 0.070 us | 0.330 us | 0.060-0.090 / 0.325-0.335 us |\r\n| 64 bytes | 0.670 us | 0.975 us | 0.670-0.685 / 0.965-1.245 us |\r\n| 4 KiB | 0.0344 ms | 0.0179 ms | 0.0340-0.0351 / 0.0178-0.0182 ms |\r\n| 1 MiB | 53.2 ms | 3.5 ms | 52.0-55.1 / 3.5-3.9 ms |\r\n| **4 MiB** | **249.4 ms** | **13.5 ms** | **215.7-272.8 / 13.4-13.7 ms** |\r\n\r\nThe tiny-input allocation cost is observable; this is **not** an improvement at every input size.\r\n\r\nFor the **4 MiB** input, both versions produce exactly **5,592,408 ASCII characters**, byte-for-byte equal to Node's native Buffer Base64 reference.\r\n\r\nMemory was sampled with CDP `Runtime.getHeapUsage`, keeping **JS heap and backing storage separate**. Deltas exclude the already-live input:\r\n\r\n| 4 MiB input: median delta | Baseline | Candidate |\r\n|---|---:|---:|\r\n| JS heap after GC, output still alive | 111,847,924 bytes | 20 bytes |\r\n| Backing storage after GC, output still alive | 0 bytes | 5,592,408 bytes |\r\n| Combined output-alive storage | **106.67 MiB** | **5.33 MiB** |\r\n| Backing storage immediately after encoding | 0 bytes | 11,184,816 bytes |\r\n| Heap + backing after releasing output and GC | 0 bytes | 0 bytes |\r\n\r\nThe candidate temporarily has about **10.67 MiB of backing storage** immediately after return, consistent with the ASCII buffer plus the resulting string. The 5.33 MiB output-alive result must not be read as zero temporary allocation. These are renderer aggregate samples, **not** encoder self-size, whole-process RSS or a continuously measured peak. Some baseline samples had small unrelated aggregate deltas, including negative after-release deltas; no cause is assigned to that noise.\r\n\r\n<details>\r\n<summary>Individual 4 MiB encoder timings (ms, rounded to 0.1)</summary>\r\n\r\n- Baseline: `249.4, 243.7, 272.8, 270.7, 215.7, 253.7, 218.4`\r\n- Candidate: `13.6, 13.5, 13.5, 13.4, 13.7, 13.5, 13.4`\r\n\r\n</details>\r\n\r\n### Correctness and actual product integration\r\n\r\n- **108 exact-output assertions per timed variant passed.** Supplementary matched live runs also passed a **52-case matrix per variant using the production decoder**.\r\n- Covered standard/URL-safe alphabets, padding on/off, empty/tiny inputs, every length remainder, all byte values, binary/mixed content, sliced nonzero-offset views and unchanged surrounding sentinels.\r\n- Exercised both Node's Buffer-backed path in existing tests and the actual renderer's Buffer-absent/TextDecoder path. The implementation does not depend on `Uint8Array.toBase64`, which is absent in the tested Node runtime.\r\n- Located the **existing production resource service and connected local protocol client**, rather than constructing substitute instances.\r\n- Real local path: renderer client -> local agent host -> client filesystem provider -> **reverse `resourceRead`** -> renderer file service -> Base64 RPC response, using `AgentHostIpcChannelTransport`.\r\n- Both variants transferred **0, 3 and 4,194,304 bytes** with `encoding: \"base64\"` and expected encoded lengths **0, 4 and 5,592,408**. A temporary transport listener observed the actual reverse requests and was disposed afterward.\r\n- The 4 MiB decoded-byte SHA-256 matched in both variants: `866213f530ea2c9a982972d26b78d60a1a5702a7c0534ecc89b5a3cf3ce24391`.\r\n- Missing-file reverse RPC rejected with **-32008**. A separate actual resource-service read under an ungranted synthetic identity returned `AgentHostResourcePermissionError`; no permission grant/setting was changed.\r\n- Historical coverage: #71993 wrapping/text conversion, #76076 slice/view behavior, and #251527/#272389 BOM preservation passed at the relevant unit/primitive level. Both live variants also read a real inert BOM-prefixed filename successfully. The original Explorer-click sequence and full debug-memory/hex-editor workflow from #133643 were **not** run.\r\n\r\n### Existing test suites\r\n\r\nAll counts below are successful runner totals, not counts inferred from source. The resource metadata/collection suites are not being presented as file-transfer or permission tests.\r\n\r\n| Test selection | Baseline | Candidate |\r\n|---|---:|---:|\r\n| Node codec suite alone | 32 passed | Included in combined selection below |\r\n| Electron codec suite alone | 32 passed | Included in combined selection below |\r\n| Node codec + resource metadata/collection | Not run together | **62 passed** |\r\n| Node resource-permission service | Included with codec below | **42 passed** |\r\n| Node codec + resource-permission service | **73 passed** | Run separately/as above |\r\n| Electron codec + Agent Host protocol client + resource metadata | **247 passed** | **259 passed** |\r\n\r\nThe protocol/resource tests cover reverse permission denials, permission-request cancellation, attachment grants, connection-close cleanup, reconnect/error handling and pending requests. These are **unit tests**, distinct from the live RPC evidence above; live `resourceRead` cancellation was not injected.\r\n\r\n<details>\r\n<summary>Exact successful test commands</summary>\r\n\r\n```text\r\n# Baseline: 32 passed in Node; 32 passed in Electron.\r\nnpm run test-node -- --run src/vs/base/test/common/buffer.test.ts\r\nscripts\\test.bat --run src/vs/base/test/common/buffer.test.ts\r\n\r\n# Candidate: 62 passed.\r\nnpm run test-node -- --run src/vs/base/test/common/buffer.test.ts --run src/vs/platform/agentHost/test/common/agentHostResources.test.ts --run src/vs/platform/agentHost/test/node/agentHostResources.test.ts\r\n\r\n# Candidate: 42 passed.\r\nnpm run test-node -- --run src/vs/workbench/services/agentHost/test/common/agentHostResourceService.test.ts\r\n\r\n# Baseline: 73 passed.\r\nnpm run test-node -- --run src/vs/base/test/common/buffer.test.ts --run src/vs/workbench/services/agentHost/test/common/agentHostResourceService.test.ts\r\n\r\n# Baseline: 247 passed. Candidate: 259 passed.\r\nscripts\\test.bat --run src/vs/base/test/common/buffer.test.ts --run src/vs/platform/agentHost/test/electron-browser/agentHostProtocolClient.test.ts --run src/vs/platform/agentHost/test/common/agentHostResources.test.ts\r\n```\r\n\r\nSource variants were rebuilt with `npm run transpile-client` successfully. Built-in extension/resource compilation and `git diff --check` also passed. Generic extension `RPCProtocol` tests, eslint and a broad client typecheck were not independently rerun.\r\n\r\n</details>\r\n\r\n### Scope and execution caveats\r\n\r\nThis independently supports the **bounded encoder allocation/blocking improvement**, not a permanent-retention-leak diagnosis or a full resolution of #334892. The original 228,410,016-byte executable / 4 GiB crash, full plugin synchronization, plugin enablement mismatch, remote-network/provider behavior, concurrent large transfers and other platforms remain unverified.\r\n\r\nInitial harness attempts failed before measurements (dev-workbench URL/readiness and CDP evaluation/shutdown handling); those failures were preserved separately, and the successful matched runs above used the corrected harness without product repairs. The first dependency restore also had a Windows environment-name casing defect that defeated its intended npm-cache isolation; that was corrected before product validation, but isolation is not claimed for that restore.\r\n\r\nOriginal samples, hashes, commands and logs are retained locally. The baseline and matching outputs were restored clean, and all owned product instances were closed.\r\n",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6003860282/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6004726608",
+   "html_url": "https://github.com/microsoft/vscode/pull/339434#issuecomment-6004726608",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/339434",
+   "id": 6004726608,
+   "node_id": "IC_kwDOAn8RLM8AAAABZejbUA",
+   "user": {
+    "login": "karthiknadig",
+    "id": 3840081,
+    "node_id": "MDQ6VXNlcjM4NDAwODE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3840081?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/karthiknadig",
+    "html_url": "https://github.com/karthiknadig",
+    "followers_url": "https://api.github.com/users/karthiknadig/followers",
+    "following_url": "https://api.github.com/users/karthiknadig/following{/other_user}",
+    "gists_url": "https://api.github.com/users/karthiknadig/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/karthiknadig/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/karthiknadig/subscriptions",
+    "organizations_url": "https://api.github.com/users/karthiknadig/orgs",
+    "repos_url": "https://api.github.com/users/karthiknadig/repos",
+    "events_url": "https://api.github.com/users/karthiknadig/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/karthiknadig/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-10-05T22:46:07Z",
+   "updated_at": "2026-10-05T22:46:07Z",
+   "body": "Thanks for the independent measurements and real reverse `resourceRead` validation. I've updated the PR description to link your results and make the tradeoffs explicit:\n\n- The large-buffer improvement is not a speedup at every size: your renderer measurements show sub-microsecond overhead for tiny inputs, including 64 bytes. The crossover differs from the earlier Node probe.\n- **5.33 MiB** is output-alive storage after GC, not zero temporary allocation. Your immediate **10.67 MiB backing-storage** sample is now documented, without calling it a measured peak or process RSS.\n- The bounded RPC/encoder evidence does not establish full plugin-sync behavior or resolution of the original large-file crash.\n\nThe existing before/after table retains its original provenance; your measurements are identified separately. No product-code changes in this clarification.",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6004726608/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "node_id": "C_kwDOPFrBqNoAKGFjMDAwMDAzMzdiNmY0YjQxYjFhMGFmNjVlYTI3MjQ1ZWVhNDg4NzA",
+   "commit": {
+    "author": {
+     "name": "Karthik Nadig",
+     "email": "kanadig@microsoft.com",
+     "date": "2026-10-02T23:40:20Z"
+    },
+    "committer": {
+     "name": "Karthik Nadig",
+     "email": "kanadig@microsoft.com",
+     "date": "2026-10-29T01:58:58Z"
+    },
+    "message": "base: avoid Base64 encoding string-chain amplification\n\nWrite Base64 ASCII bytes into an exact-size buffer and decode once instead of retaining a concatenated string for every output character. Preserve padded, unpadded, URL-safe and subarray behavior without depending on newer Uint8Array APIs.\n\nAddresses #334892.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "89253aad5f8387234cca05c8dd3251ec9e4c3fe6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/89253aad5f8387234cca05c8dd3251ec9e4c3fe6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ac00000337b6f4b41b1a0af65ea27245eea48870",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgbDZLYA7Cf4gd0Dscdm0AweqRDf\nWhO3QTBFtB8sDvDEUAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQO+S/qfpcDqLQutL4ErsPTJ9uMMd7dsuEkN0xcLeov5jZOz6Dx1I0AhNJSvPwt1W+E\nAcn4UXcyeyHBC8H1COcQo=\n-----END SSH SIGNATURE-----",
+     "payload": "tree 89253aad5f8387234cca05c8dd3251ec9e4c3fe6\nparent f68264eaab6ab7e6c3a078300934ef6d69323ffd\nauthor Karthik Nadig <kanadig@microsoft.com> 1790984420 -0700\ncommitter Karthik Nadig <kanadig@microsoft.com> 1793239138 -0700\n\nbase: avoid Base64 encoding string-chain amplification\n\nWrite Base64 ASCII bytes into an exact-size buffer and decode once instead of retaining a concatenated string for every output character. Preserve padded, unpadded, URL-safe and subarray behavior without depending on newer Uint8Array APIs.\n\nAddresses #334892.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n",
+     "verified_at": "2026-10-29T02:00:37Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "html_url": "https://github.com/microsoft/vscode/commit/ac00000337b6f4b41b1a0af65ea27245eea48870",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ac00000337b6f4b41b1a0af65ea27245eea48870/comments",
+   "author": {
+    "login": "karthiknadig",
+    "id": 3840081,
+    "node_id": "MDQ6VXNlcjM4NDAwODE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3840081?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/karthiknadig",
+    "html_url": "https://github.com/karthiknadig",
+    "followers_url": "https://api.github.com/users/karthiknadig/followers",
+    "following_url": "https://api.github.com/users/karthiknadig/following{/other_user}",
+    "gists_url": "https://api.github.com/users/karthiknadig/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/karthiknadig/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/karthiknadig/subscriptions",
+    "organizations_url": "https://api.github.com/users/karthiknadig/orgs",
+    "repos_url": "https://api.github.com/users/karthiknadig/repos",
+    "events_url": "https://api.github.com/users/karthiknadig/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/karthiknadig/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "karthiknadig",
+    "id": 3840081,
+    "node_id": "MDQ6VXNlcjM4NDAwODE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3840081?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/karthiknadig",
+    "html_url": "https://github.com/karthiknadig",
+    "followers_url": "https://api.github.com/users/karthiknadig/followers",
+    "following_url": "https://api.github.com/users/karthiknadig/following{/other_user}",
+    "gists_url": "https://api.github.com/users/karthiknadig/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/karthiknadig/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/karthiknadig/subscriptions",
+    "organizations_url": "https://api.github.com/users/karthiknadig/orgs",
+    "repos_url": "https://api.github.com/users/karthiknadig/repos",
+    "events_url": "https://api.github.com/users/karthiknadig/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/karthiknadig/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "parents": [
+    {
+     "sha": "f68264eaab6ab7e6c3a078300934ef6d69323ffd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f68264eaab6ab7e6c3a078300934ef6d69323ffd",
+     "html_url": "https://github.com/microsoft/vscode/commit/f68264eaab6ab7e6c3a078300934ef6d69323ffd"
+    }
+   ]
+  }
+ ]
+}

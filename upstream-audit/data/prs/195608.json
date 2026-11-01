@@ -1,0 +1,1105 @@
+{
+ "fetchedAt": "2026-11-01T00:51:24.952Z",
+ "pr": {
+  "number": 195608,
+  "title": "Fix monaco-edit color picker not working inside shadow dom (195606)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2023-10-13T23:16:53Z",
+  "updated_at": "2026-01-20T10:13:53Z",
+  "user": "mak1A4",
+  "author_association": "NONE",
+  "additions": 8,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 6,
+  "review_comments": 0,
+  "commits_count": 9,
+  "labels": [
+   "blocked"
+  ],
+  "milestone": null,
+  "requested_reviewers": [
+   "hediet"
+  ],
+  "head": {
+   "ref": "monaco-editor/issues/3845",
+   "sha": "2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+   "repo": "mak1A4/vscode",
+   "label": "mak1A4:monaco-editor/issues/3845"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Added an additional check in the mousemove event to fix _onMouseLeave triggering when Monaco Editor is inside a Shadow DOM. Previously, _onMouseLeave would trigger even if the mouse was still inside the editor, due to event retargeting to the web component itself. This check resolves the issue with the color picker always closing.\r\n\r\nIssue Link: https://github.com/microsoft/vscode/issues/195606\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "442df92c8641c3902446d4986407c717b2999a6b",
+   "filename": "src/vs/editor/browser/controller/mouseHandler.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 1,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/2ed8e05ff14f0d0a8f19e217631ac7265cd42087/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseHandler.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/2ed8e05ff14f0d0a8f19e217631ac7265cd42087/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseHandler.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseHandler.ts?ref=2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+   "patch": "@@ -101,7 +101,14 @@ export class MouseHandler extends ViewEventHandler {\n \n \t\t\tif (!this._mouseLeaveMonitor) {\n \t\t\t\tthis._mouseLeaveMonitor = dom.addDisposableListener(this.viewHelper.viewDomNode.ownerDocument, 'mousemove', (e) => {\n-\t\t\t\t\tif (!this.viewHelper.viewDomNode.contains(e.target as Node | null)) {\n+\t\t\t\t\tconst viewRoot = this.viewHelper.viewDomNode.getRootNode() as ShadowRoot | Document;\n+\t\t\t\t\tconst viewRootIsShadowRoot = viewRoot instanceof ShadowRoot;\n+\t\t\t\t\t// Get root node of viewDomNode so we can check if we are inside Shadow DOM\n+\t\t\t\t\t// The `mousemove` event doesn't work as expected inside Shadow DOM because events are retargeted.\n+\t\t\t\t\t// When the editor is within a Shadow DOM, `e.target` will point to the Web Component itself,\n+\t\t\t\t\t// which will cause `this.viewHelper.viewDomNode.contains(e.target)` to always return `false`.\n+\t\t\t\t\t// To work around this, we don't trigger `this._onMouseLeave` if viewRoot is a shadow root.\n+\t\t\t\t\tif (!this.viewHelper.viewDomNode.contains(e.target as Node | null) && !viewRootIsShadowRoot) {\n \t\t\t\t\t\t// went outside the editor!\n \t\t\t\t\t\tthis._onMouseLeave(new EditorMouseEvent(e, false, this.viewHelper.viewDomNode));\n \t\t\t\t\t}"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1763892846",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-1763892846",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 1763892846,
+   "node_id": "IC_kwDOAn8RLM5pIt5u",
+   "user": {
+    "login": "aiday-mar",
+    "id": 61460952,
+    "node_id": "MDQ6VXNlcjYxNDYwOTUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61460952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aiday-mar",
+    "html_url": "https://github.com/aiday-mar",
+    "followers_url": "https://api.github.com/users/aiday-mar/followers",
+    "following_url": "https://api.github.com/users/aiday-mar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aiday-mar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aiday-mar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aiday-mar/subscriptions",
+    "organizations_url": "https://api.github.com/users/aiday-mar/orgs",
+    "repos_url": "https://api.github.com/users/aiday-mar/repos",
+    "events_url": "https://api.github.com/users/aiday-mar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aiday-mar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2023-10-16T07:33:13Z",
+   "updated_at": "2023-10-16T07:33:13Z",
+   "body": "Hi there is an error in the CI that says:\r\n\r\n```\r\n[tsec-compile-check      ] src/vs/editor/browser/controller/mouseHandler.ts(108,66): error TS2345: Argument of type 'EventTarget | null' is not assignable to parameter of type 'Node | null'.\r\n[tsec-compile-check      ]   Type 'EventTarget' is missing the following properties from type 'Node': baseURI, childNodes, firstChild, isConnected, and 43 more.\r\n[tsec-compile-check      ] src/vs/editor/browser/controller/mouseHandler.ts(108,89): error TS2339: Property 'host' does not exist on type 'Node'.\r\n\r\n```",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1763892846/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1765425176",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-1765425176",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 1765425176,
+   "node_id": "IC_kwDOAn8RLM5pOkAY",
+   "user": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-10-16T23:32:49Z",
+   "updated_at": "2023-10-16T23:33:16Z",
+   "body": "Hi : ) I made some changes and the type errors should be solved now",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1765425176/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1765964585",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-1765964585",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 1765964585,
+   "node_id": "IC_kwDOAn8RLM5pQnsp",
+   "user": {
+    "login": "DevMammadov",
+    "id": 51964170,
+    "node_id": "MDQ6VXNlcjUxOTY0MTcw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/51964170?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DevMammadov",
+    "html_url": "https://github.com/DevMammadov",
+    "followers_url": "https://api.github.com/users/DevMammadov/followers",
+    "following_url": "https://api.github.com/users/DevMammadov/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DevMammadov/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DevMammadov/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DevMammadov/subscriptions",
+    "organizations_url": "https://api.github.com/users/DevMammadov/orgs",
+    "repos_url": "https://api.github.com/users/DevMammadov/repos",
+    "events_url": "https://api.github.com/users/DevMammadov/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DevMammadov/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-10-17T08:50:35Z",
+   "updated_at": "2023-10-17T08:50:35Z",
+   "body": "Hi there, monaco devs did not reviwed PR yet, i am facing this issue how can i solve it for now ? @mak1A4 ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1765964585/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1767243096",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-1767243096",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 1767243096,
+   "node_id": "IC_kwDOAn8RLM5pVf1Y",
+   "user": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-10-17T21:48:38Z",
+   "updated_at": "2023-10-17T21:48:38Z",
+   "body": "> Hi there, monaco devs did not reviwed PR yet, i am facing this issue how can i solve it for now ? @mak1A4\r\n\r\nI can only tell you how I fixed it for now, I'm using the esm version of monaco-editor and I just patched the File `/vs/editor/browser/controller/mouseHandler.ts` inside node_modules. In my case esbuild will then use the patched file instead of upstream for building. I use patch-package to apply the patch automatically on postinstall.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1767243096/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1806101476",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-1806101476",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 1806101476,
+   "node_id": "IC_kwDOAn8RLM5rpuvk",
+   "user": {
+    "login": "aiday-mar",
+    "id": 61460952,
+    "node_id": "MDQ6VXNlcjYxNDYwOTUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61460952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aiday-mar",
+    "html_url": "https://github.com/aiday-mar",
+    "followers_url": "https://api.github.com/users/aiday-mar/followers",
+    "following_url": "https://api.github.com/users/aiday-mar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aiday-mar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aiday-mar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aiday-mar/subscriptions",
+    "organizations_url": "https://api.github.com/users/aiday-mar/orgs",
+    "repos_url": "https://api.github.com/users/aiday-mar/repos",
+    "events_url": "https://api.github.com/users/aiday-mar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aiday-mar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2023-11-10T17:09:18Z",
+   "updated_at": "2023-11-10T17:09:18Z",
+   "body": "Hey @hediet, it appears the author of this PR would like a review from the person responsible for developing the monaco-editor.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1806101476/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2944388323",
+   "html_url": "https://github.com/microsoft/vscode/pull/195608#issuecomment-2944388323",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/195608",
+   "id": 2944388323,
+   "node_id": "IC_kwDOAn8RLM6vf8zj",
+   "user": {
+    "login": "aiday-mar",
+    "id": 61460952,
+    "node_id": "MDQ6VXNlcjYxNDYwOTUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61460952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aiday-mar",
+    "html_url": "https://github.com/aiday-mar",
+    "followers_url": "https://api.github.com/users/aiday-mar/followers",
+    "following_url": "https://api.github.com/users/aiday-mar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aiday-mar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aiday-mar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aiday-mar/subscriptions",
+    "organizations_url": "https://api.github.com/users/aiday-mar/orgs",
+    "repos_url": "https://api.github.com/users/aiday-mar/repos",
+    "events_url": "https://api.github.com/users/aiday-mar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aiday-mar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-06-05T13:37:51Z",
+   "updated_at": "2025-06-05T13:37:51Z",
+   "body": "I am currently not able to review and verify this PR because the monaco editor has to adopt some ESM changes first. Currently when I compile the code and run the monaco editor playground from VS Code I see the following:\r\n\r\n![Screenshot 2025-06-05 at 15 36 28](https://github.com/user-attachments/assets/bf2d40d8-63fd-45d4-9fb3-abc35fe5ed53)\r\n\r\nThis PR will be deferred until this other issue is fixed. ",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2944388323/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "88f47f49058a0e196990ef14833f5b7032ae9028",
+   "node_id": "C_kwDOKgEz5doAKDg4ZjQ3ZjQ5MDU4YTBlMTk2OTkwZWYxNDgzM2Y1YjcwMzJhZTkwMjg",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2023-10-13T23:05:22Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2023-10-13T23:05:22Z"
+    },
+    "message": "Fix for monaco-editor/issues/3845 - ColorPicker not working inside shadow dom\n\nAdded an additional check in the mousemove event to fix _onMouseLeave triggering when Monaco Editor is inside a Shadow DOM. Previously, _onMouseLeave would trigger even if the mouse was still inside the editor, due to event retargeting to the web component itself. This check resolves the issue with the color picker always closing.",
+    "tree": {
+     "sha": "0484a500d5d7b5f920011de6692d33424b13e0ed",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0484a500d5d7b5f920011de6692d33424b13e0ed"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/88f47f49058a0e196990ef14833f5b7032ae9028",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlKc0yCRBK7hj4Ov3rIwAAiQMIAA9kQfAvxsevsn/2T/XuD6do\nk/k2WxpecG3J8QlGRMHe5qHR/FBULazkUQoPA479HGxtJR6owWC2mjHB2ibe6CwP\nYcuBwRcUSpX4beI2DhfpEomb+BQDgvchiNW9rfRJoYelM+QIlAkVLLTdCAGWiLsK\nqc/cZSynomPATDoFAKL+wW2ASXmYFZCtBmIFPyLVd2QoegkYKdtqsMgFCZV09bg4\ndLzxm/M2CoLjyU7VNdxz9c6wkaHua3Zf8WYHJz5TOkrSXPWejQfrwIUqmzzhUBJg\nw3egr0S6NRYyZs7hXCAzMPsy1yrdUvSfphuDagn6G6QsCOxACDMC0Z4NwCoLgUc=\n=oBVT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 0484a500d5d7b5f920011de6692d33424b13e0ed\nparent e614d43eb4f00baa1ea50a9db7b6362e14819463\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1697238322 +0200\ncommitter GitHub <noreply@github.com> 1697238322 +0200\n\nFix for monaco-editor/issues/3845 - ColorPicker not working inside shadow dom\n\nAdded an additional check in the mousemove event to fix _onMouseLeave triggering when Monaco Editor is inside a Shadow DOM. Previously, _onMouseLeave would trigger even if the mouse was still inside the editor, due to event retargeting to the web component itself. This check resolves the issue with the color picker always closing.",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/88f47f49058a0e196990ef14833f5b7032ae9028",
+   "html_url": "https://github.com/microsoft/vscode/commit/88f47f49058a0e196990ef14833f5b7032ae9028",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/88f47f49058a0e196990ef14833f5b7032ae9028/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e614d43eb4f00baa1ea50a9db7b6362e14819463",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e614d43eb4f00baa1ea50a9db7b6362e14819463",
+     "html_url": "https://github.com/microsoft/vscode/commit/e614d43eb4f00baa1ea50a9db7b6362e14819463"
+    }
+   ]
+  },
+  {
+   "sha": "9aad4bbbd761d51b64deedb02246b509f2d7975d",
+   "node_id": "C_kwDOKgEz5doAKDlhYWQ0YmJiZDc2MWQ1MWI2NGRlZWRiMDIyNDZiNTA5ZjJkNzk3NWQ",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2023-10-13T23:19:55Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2023-10-13T23:19:55Z"
+    },
+    "message": "Merge branch 'main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "cfe0f37db649a9cfba42228b7be1967687cfe9cb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/cfe0f37db649a9cfba42228b7be1967687cfe9cb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9aad4bbbd761d51b64deedb02246b509f2d7975d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlKdCbCRBK7hj4Ov3rIwAAw7oIAFqx+n87hsmYeReoWv4ZIHuO\nfxzJbRpLqdh4GVGywi+mxXo0FNdm6dkOeLSFrE6vwP84yOeON4vCOj5A/CP4tNV3\nfEY0wddpLY1v6SXmxxVyfczd61tKAI0UAQI7pqVQvUKe3rqiV6GY8G0Ck6Od+5RX\nVozRgE1tTslEOcUFGhFLr1bJPuMzGiUrzxaEfLX7CYy9j+JDUvozRRahDmfYQ76m\nrxtKo4Mq0XnduPQ9Mj/cUg6MfqwGEXAr0IPFkRx3PG4LUiFz2eEOTHBFs2aFnKX+\n2bkJkLDqBB6Y46Y1ZTTYAk8l/X2jzmFc9xKa1GD8ZnAddpD+GxZrMr3LBIxgAzU=\n=xw29\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree cfe0f37db649a9cfba42228b7be1967687cfe9cb\nparent 88f47f49058a0e196990ef14833f5b7032ae9028\nparent 54afbddf867c0c03baf67e5184dd0a07b7abf26a\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1697239195 +0200\ncommitter GitHub <noreply@github.com> 1697239195 +0200\n\nMerge branch 'main' into monaco-editor/issues/3845",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9aad4bbbd761d51b64deedb02246b509f2d7975d",
+   "html_url": "https://github.com/microsoft/vscode/commit/9aad4bbbd761d51b64deedb02246b509f2d7975d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9aad4bbbd761d51b64deedb02246b509f2d7975d/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "88f47f49058a0e196990ef14833f5b7032ae9028",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/88f47f49058a0e196990ef14833f5b7032ae9028",
+     "html_url": "https://github.com/microsoft/vscode/commit/88f47f49058a0e196990ef14833f5b7032ae9028"
+    },
+    {
+     "sha": "54afbddf867c0c03baf67e5184dd0a07b7abf26a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/54afbddf867c0c03baf67e5184dd0a07b7abf26a",
+     "html_url": "https://github.com/microsoft/vscode/commit/54afbddf867c0c03baf67e5184dd0a07b7abf26a"
+    }
+   ]
+  },
+  {
+   "sha": "c0cb545f4c6b133b9a233db3a75d5fb693248575",
+   "node_id": "C_kwDOKgEz5doAKGMwY2I1NDVmNGM2YjEzM2I5YTIzM2RiM2E3NWQ1ZmI2OTMyNDg1NzU",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2023-10-16T13:59:15Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2023-10-16T13:59:15Z"
+    },
+    "message": "Merge branch 'microsoft:main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "f335fcd7f2eb9fc713a26811bdf7adee0538f302",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f335fcd7f2eb9fc713a26811bdf7adee0538f302"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c0cb545f4c6b133b9a233db3a75d5fb693248575",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlLUGzCRBK7hj4Ov3rIwAAaoIIAFQCca95pzfvSVVOj470il3z\naVhfZGb/LqrTlTTqlLeGMiY9KHWvu2KN9y8U+FJATv4NbCrgpy7MxkUawvBSCkS/\nrzwF65SOkUXQ+K6szHiormV9WRz78jsWd8MXVhk6bbjh93f2w4a3fHxK511ntc6f\neZWjL7nNEkyFPlzb3OmEJekBfHUNI/4FCY28MUcmFYXQ3vukxV84soxPX+wKKQwn\nq6a2VUOtK7xlH4AcWvEqObwiLkyR/4qHcrtU3hiwT6xtS4KnGTpUUdl5ohwIeDDJ\nlHA1VRLokYMV06FyUwBNv2wgd7j1OSnOktgrvL6+B5imBIGuo9sM5OxM3DG/x54=\n=yNCC\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f335fcd7f2eb9fc713a26811bdf7adee0538f302\nparent 9aad4bbbd761d51b64deedb02246b509f2d7975d\nparent 9905225b1ac83292f6a4ed08debfe29cad5ece4e\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1697464755 +0200\ncommitter GitHub <noreply@github.com> 1697464755 +0200\n\nMerge branch 'microsoft:main' into monaco-editor/issues/3845\n",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c0cb545f4c6b133b9a233db3a75d5fb693248575",
+   "html_url": "https://github.com/microsoft/vscode/commit/c0cb545f4c6b133b9a233db3a75d5fb693248575",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c0cb545f4c6b133b9a233db3a75d5fb693248575/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9aad4bbbd761d51b64deedb02246b509f2d7975d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9aad4bbbd761d51b64deedb02246b509f2d7975d",
+     "html_url": "https://github.com/microsoft/vscode/commit/9aad4bbbd761d51b64deedb02246b509f2d7975d"
+    },
+    {
+     "sha": "9905225b1ac83292f6a4ed08debfe29cad5ece4e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9905225b1ac83292f6a4ed08debfe29cad5ece4e",
+     "html_url": "https://github.com/microsoft/vscode/commit/9905225b1ac83292f6a4ed08debfe29cad5ece4e"
+    }
+   ]
+  },
+  {
+   "sha": "1ed6ef80c77dad513fcec1c33549897d09737eec",
+   "node_id": "C_kwDOKgEz5doAKDFlZDZlZjgwYzc3ZGFkNTEzZmNlYzFjMzM1NDk4OTdkMDk3MzdlZWM",
+   "commit": {
+    "author": {
+     "name": "Martin Kirchweger",
+     "email": "m.kirchweger@protonmail.com",
+     "date": "2023-10-16T15:17:36Z"
+    },
+    "committer": {
+     "name": "Martin Kirchweger",
+     "email": "m.kirchweger@protonmail.com",
+     "date": "2023-10-16T15:17:36Z"
+    },
+    "message": "fixed typescript errors",
+    "tree": {
+     "sha": "c467b49c10579919851772e7f100a3b6499fe9c6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c467b49c10579919851772e7f100a3b6499fe9c6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1ed6ef80c77dad513fcec1c33549897d09737eec",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1ed6ef80c77dad513fcec1c33549897d09737eec",
+   "html_url": "https://github.com/microsoft/vscode/commit/1ed6ef80c77dad513fcec1c33549897d09737eec",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1ed6ef80c77dad513fcec1c33549897d09737eec/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c0cb545f4c6b133b9a233db3a75d5fb693248575",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c0cb545f4c6b133b9a233db3a75d5fb693248575",
+     "html_url": "https://github.com/microsoft/vscode/commit/c0cb545f4c6b133b9a233db3a75d5fb693248575"
+    }
+   ]
+  },
+  {
+   "sha": "459e0f106f67e82b3b4547b5225f337c0391efa6",
+   "node_id": "C_kwDOKgEz5doAKDQ1OWUwZjEwNmY2N2U4MmIzYjQ1NDdiNTIyNWYzMzdjMDM5MWVmYTY",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2023-10-16T23:26:46Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2023-10-16T23:26:46Z"
+    },
+    "message": "Merge branch 'microsoft:main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "b27292156afc75d4e49c89355ff556c9a1c07ec6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b27292156afc75d4e49c89355ff556c9a1c07ec6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/459e0f106f67e82b3b4547b5225f337c0391efa6",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlLca2CRBK7hj4Ov3rIwAAljcIAKGIlI0ghlUoytiHCpn8maw2\nYRXiTKZz2SPePurMi4iGPilMEm2ygUWDH2o/bslR6+uSrH7rRCWmfBm7+iWDYkeZ\nKiKLZxB3EsS8gfuXyMwSKQX2Mb253NZDSGf3nMd64w334Y+WLYC3eyvh9kCOx8lt\nbH1eT+vgRJLmlITB1OqsQInAhOl+44r+U2pKLLcO7prb4LYIHb11bk7cNbkkIZz6\nFKg9/SIBZHQ4aanb6DamPaYe4/SVf6YgkYOmGrOWs/ZoLD2jiibca3zSgBkiqO7m\nk+YYWCRMZ3dIGJvjteQarI8lCfDV3PhwkJbuV5l4zI7NhUpcqWSptGaqkxbe0C4=\n=QFQ5\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b27292156afc75d4e49c89355ff556c9a1c07ec6\nparent 1ed6ef80c77dad513fcec1c33549897d09737eec\nparent 8b4165fadab129f86a02b90e3fb0561fb7428819\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1697498806 +0200\ncommitter GitHub <noreply@github.com> 1697498806 +0200\n\nMerge branch 'microsoft:main' into monaco-editor/issues/3845\n",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/459e0f106f67e82b3b4547b5225f337c0391efa6",
+   "html_url": "https://github.com/microsoft/vscode/commit/459e0f106f67e82b3b4547b5225f337c0391efa6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/459e0f106f67e82b3b4547b5225f337c0391efa6/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1ed6ef80c77dad513fcec1c33549897d09737eec",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1ed6ef80c77dad513fcec1c33549897d09737eec",
+     "html_url": "https://github.com/microsoft/vscode/commit/1ed6ef80c77dad513fcec1c33549897d09737eec"
+    },
+    {
+     "sha": "8b4165fadab129f86a02b90e3fb0561fb7428819",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8b4165fadab129f86a02b90e3fb0561fb7428819",
+     "html_url": "https://github.com/microsoft/vscode/commit/8b4165fadab129f86a02b90e3fb0561fb7428819"
+    }
+   ]
+  },
+  {
+   "sha": "36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+   "node_id": "C_kwDOKgEz5doAKDM2ZDgwNGI4ZTRlYWU3ZWVkNDZlNmVlNDllMzA0YjVjY2Y4NGJkYzg",
+   "commit": {
+    "author": {
+     "name": "Martin Kirchweger",
+     "email": "m.kirchweger@protonmail.com",
+     "date": "2023-10-16T23:30:20Z"
+    },
+    "committer": {
+     "name": "Martin Kirchweger",
+     "email": "m.kirchweger@protonmail.com",
+     "date": "2023-10-16T23:30:28Z"
+    },
+    "message": "Handle potential null target in viewDomNode check",
+    "tree": {
+     "sha": "0161700f6282391d687373f7ed7af6a095931401",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0161700f6282391d687373f7ed7af6a095931401"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+   "html_url": "https://github.com/microsoft/vscode/commit/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "459e0f106f67e82b3b4547b5225f337c0391efa6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/459e0f106f67e82b3b4547b5225f337c0391efa6",
+     "html_url": "https://github.com/microsoft/vscode/commit/459e0f106f67e82b3b4547b5225f337c0391efa6"
+    }
+   ]
+  },
+  {
+   "sha": "1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+   "node_id": "C_kwDOKgEz5doAKDFhYzVjZmZmNzM3ZDQ2ZjViNTFkYTcxYTdhN2FkMjExMjgxYzg1NWU",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2023-10-18T00:12:27Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2023-10-18T00:12:27Z"
+    },
+    "message": "Merge branch 'main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "2c3b732b4c5dfd462b19b0aa3c5364d1ca347225",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2c3b732b4c5dfd462b19b0aa3c5364d1ca347225"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsBcBAABCAAQBQJlLyLrCRBK7hj4Ov3rIwAA9vAIADwBYVMrYZ9iqi1GeGLrEm5s\nw5poAo0si7Jj1FYij/Hvcq/dwH8MfB89ryI3CvrD+zdhnaeDfTY+nuMlP7iisvRp\nQ/zmAuhRX4ERjrWFmDbElWauuRXOfMhxpAHmliIvh7PYmOnkdy4PNMehsF+Yk6n1\nAaYpsWSBZZT5ElURBhwanj0qfAeyctwdD1Mf16ybOx6vKnaJT1xcrfPPBd2YwNKX\nyeUydfyIAJhkLg+df1m3ZoK9izbmtEk3LHFyCX9tp2QA4AQYCposD29lqaAFQCIT\nVsL8PZIwcy0W6xRNrcyEhglaJuG4OceFYB5GgYahuoKzWbq/i1kldrb5fG4EyzA=\n=9Q4b\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 2c3b732b4c5dfd462b19b0aa3c5364d1ca347225\nparent 36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8\nparent e5b7340d189d6814b139401009b2f8ab3cda0ea1\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1697587947 +0200\ncommitter GitHub <noreply@github.com> 1697587947 +0200\n\nMerge branch 'main' into monaco-editor/issues/3845",
+     "verified_at": "2024-01-16T19:59:59Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+   "html_url": "https://github.com/microsoft/vscode/commit/1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1ac5cfff737d46f5b51da71a7a7ad211281c855e/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8",
+     "html_url": "https://github.com/microsoft/vscode/commit/36d804b8e4eae7eed46e6ee49e304b5ccf84bdc8"
+    },
+    {
+     "sha": "e5b7340d189d6814b139401009b2f8ab3cda0ea1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e5b7340d189d6814b139401009b2f8ab3cda0ea1",
+     "html_url": "https://github.com/microsoft/vscode/commit/e5b7340d189d6814b139401009b2f8ab3cda0ea1"
+    }
+   ]
+  },
+  {
+   "sha": "21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+   "node_id": "C_kwDOKgEz5doAKDIxZWZkM2MyMWMzYzNlYjA5Y2ZmZDIyZjEyZjQzYzY5ZTI5ZTdiZDk",
+   "commit": {
+    "author": {
+     "name": "mak1A4",
+     "email": "59345209+mak1A4@users.noreply.github.com",
+     "date": "2024-04-14T07:19:56Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-04-14T07:19:56Z"
+    },
+    "message": "Merge branch 'main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "38ccf06e4d4aaaa76ea7199d0f5231094d9acfb2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/38ccf06e4d4aaaa76ea7199d0f5231094d9acfb2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmG4OcCRC1aQ7uu5UhlAAAHgoQAEBn19TtgsyHAAneqPsqfKNH\nMZa5unsohF30tiD75IHfQ/CSUMZU/R9dYoU6MNA/XguYMi7X7GzCob0nPX5FRQ1u\nhrl5kWlGXLucxDrW4qfO+X1ufqjCMjZFZMYP+VomKXT3ZcYQVqXAOEO94aKaz+/k\ndJP8nM3HIY1YkHSadDIZ0vjQaP3QFAwqcHm+9o+w0bwOW8tK0AnbLOmJodreSPpz\nyT1YWJ8E0UPrO43wkErY/MV/5bvO//WdMb7tkre76SDfLtVHdj+gC93+tcD2SCTa\n1y6zknQf8Itu9ddeExdJcMbphVzL5KOzC7IHUVY6rmlA41c+FOUJiTYQVFZr0a+f\nXBzFkROMnZ9smjAFyAdrNADEPZ+UaDW+ivFgB+DmwK/zR6JfUeRvaLuQyBSifzRd\nju2/oOy/ycJtXMbs6yNIdyJrYBfR8uTSncM6nAEAQTHKRkMmx9iXAwJqiiwwb68e\nTZ01DfWZC2o+g1xEGSQIApYQObgEtA+DQssqdmlGU/30IO+nIjeaFl1rlDnXvPiI\n0P8KCn3mvx04DIk4pOnUNh7gCaBWtVcDKRC7mZHtKUTeWFjcU1gfvNc3SXc0r4wW\nl4qfdMn5z20YWOOEPITj5jCumgtoitgvCWhPJLEXWtz7pRL15X92jz751ynett+/\nLJd+1Iwf0ao3BP9M7xGn\n=r/7U\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 38ccf06e4d4aaaa76ea7199d0f5231094d9acfb2\nparent 1ac5cfff737d46f5b51da71a7a7ad211281c855e\nparent 6bdf8642bb90bf391f44b6df089a2d824890a7f5\nauthor mak1A4 <59345209+mak1A4@users.noreply.github.com> 1713079196 +0200\ncommitter GitHub <noreply@github.com> 1713079196 +0200\n\nMerge branch 'main' into monaco-editor/issues/3845",
+     "verified_at": "2024-11-14T19:24:56Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+   "html_url": "https://github.com/microsoft/vscode/commit/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9/comments",
+   "author": {
+    "login": "mak1A4",
+    "id": 59345209,
+    "node_id": "MDQ6VXNlcjU5MzQ1MjA5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59345209?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mak1A4",
+    "html_url": "https://github.com/mak1A4",
+    "followers_url": "https://api.github.com/users/mak1A4/followers",
+    "following_url": "https://api.github.com/users/mak1A4/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mak1A4/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mak1A4/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mak1A4/subscriptions",
+    "organizations_url": "https://api.github.com/users/mak1A4/orgs",
+    "repos_url": "https://api.github.com/users/mak1A4/repos",
+    "events_url": "https://api.github.com/users/mak1A4/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mak1A4/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1ac5cfff737d46f5b51da71a7a7ad211281c855e",
+     "html_url": "https://github.com/microsoft/vscode/commit/1ac5cfff737d46f5b51da71a7a7ad211281c855e"
+    },
+    {
+     "sha": "6bdf8642bb90bf391f44b6df089a2d824890a7f5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6bdf8642bb90bf391f44b6df089a2d824890a7f5",
+     "html_url": "https://github.com/microsoft/vscode/commit/6bdf8642bb90bf391f44b6df089a2d824890a7f5"
+    }
+   ]
+  },
+  {
+   "sha": "2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+   "node_id": "C_kwDOKgEz5doAKDJlZDhlMDVmZjE0ZjBkMGE4ZjE5ZTIxNzYzMWFjNzI2NWNkNDIwODc",
+   "commit": {
+    "author": {
+     "name": "Aiday Marlen Kyzy",
+     "email": "amarlenkyzy@microsoft.com",
+     "date": "2025-06-05T13:26:48Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-06-05T13:26:48Z"
+    },
+    "message": "Merge branch 'main' into monaco-editor/issues/3845",
+    "tree": {
+     "sha": "3cab9b9e82c0611e7b86f7e267ce66f7d132f1d1",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3cab9b9e82c0611e7b86f7e267ce66f7d132f1d1"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJoQZsYCRC1aQ7uu5UhlAAAA4UQAFiUCOj6nK6FiweT3WOdpQXS\nuYV+8PlRflckQV/waqzAogxq7Ogrf11VVkaKcVia/MQW65ua63j4zFfLy6eSqgFY\nTFKJbwhXuWWHfA42jSkHdMv5PXQRgCcbEc7Pp0VzTsutGk/JBMjtZKs3DDFwrHu/\nNATgdz+GKq+QkhgBaKc0dLtTKkaVk6leHbEiA5hjHhpHchAad8Cdho6CI4DMsrmu\nEsnB8rd4/ZnAC5nZ+PMMZg8KpCzbXc7R/4ExaOTuaNJueQ9TsQ/hPJqW/wEKxJlP\nHuGscfjhNAr9k3uKnsM6S0ccfSqYdsEljTsDFgI0AZ0RNIAT0CQA37tSZkHhJECH\nVPcqcyZMiEt0sW1+ewTTOrqRu/OWZBry3J27zX7kx6mkk4yPsuM3bsO2ur4ecUFk\nXyrKC8HRM9R6Wj7xL4lAerp0c9fazpew/P7arSs/t586JwYwb2l2WMhC8+kA8gUS\nfBANBLXNbPxqhyAaiANbrshaRgE5wS/D5+9ZMoNik+sjvo4XNJrbkM2quXu07Uu9\nGb8fYHc1itwqpjTVYQzkMUnN2uB8HUYZf9k3Ejj6VOvpMQ0tPHlPSuZo85XcWywN\nXofNKn5QUeDW6shdCR5hTW9zrMR9XFWPbs8EEAKEap7sN9OHlnqq38eLA9lNUrBw\nJPFGFS042VuyDDvoItDb\n=koE+\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 3cab9b9e82c0611e7b86f7e267ce66f7d132f1d1\nparent 21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9\nparent af1d248b8257ea502d9222a3afcc2b416b0654d9\nauthor Aiday Marlen Kyzy <amarlenkyzy@microsoft.com> 1749130008 +0200\ncommitter GitHub <noreply@github.com> 1749130008 +0200\n\nMerge branch 'main' into monaco-editor/issues/3845",
+     "verified_at": "2025-06-05T13:26:51Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+   "html_url": "https://github.com/microsoft/vscode/commit/2ed8e05ff14f0d0a8f19e217631ac7265cd42087",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2ed8e05ff14f0d0a8f19e217631ac7265cd42087/comments",
+   "author": {
+    "login": "aiday-mar",
+    "id": 61460952,
+    "node_id": "MDQ6VXNlcjYxNDYwOTUy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61460952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aiday-mar",
+    "html_url": "https://github.com/aiday-mar",
+    "followers_url": "https://api.github.com/users/aiday-mar/followers",
+    "following_url": "https://api.github.com/users/aiday-mar/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aiday-mar/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aiday-mar/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aiday-mar/subscriptions",
+    "organizations_url": "https://api.github.com/users/aiday-mar/orgs",
+    "repos_url": "https://api.github.com/users/aiday-mar/repos",
+    "events_url": "https://api.github.com/users/aiday-mar/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aiday-mar/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9",
+     "html_url": "https://github.com/microsoft/vscode/commit/21efd3c21c3c3eb09cffd22f12f43c69e29e7bd9"
+    },
+    {
+     "sha": "af1d248b8257ea502d9222a3afcc2b416b0654d9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/af1d248b8257ea502d9222a3afcc2b416b0654d9",
+     "html_url": "https://github.com/microsoft/vscode/commit/af1d248b8257ea502d9222a3afcc2b416b0654d9"
+    }
+   ]
+  }
+ ]
+}

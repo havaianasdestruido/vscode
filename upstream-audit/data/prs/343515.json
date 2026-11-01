@@ -1,0 +1,339 @@
+{
+ "fetchedAt": "2026-11-01T00:55:51.145Z",
+ "pr": {
+  "number": 343515,
+  "title": "debug: open Run and Debug wherever its view container is docked",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-22T14:28:30Z",
+  "updated_at": "2026-10-22T17:16:02Z",
+  "user": "cipheraxat",
+  "author_association": "CONTRIBUTOR",
+  "additions": 5,
+  "deletions": 9,
+  "changed_files": 3,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 3,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/337458-open-debug-secondary-sidebar",
+   "sha": "db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "repo": "cipheraxat/vscode",
+   "label": "cipheraxat:fix/337458-open-debug-secondary-sidebar"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "4a69a6b972a1c54d8c37dcedf05ce40329027968"
+  },
+  "body": "Fixes #337458\n\n`debug.openDebug` (`openOnSessionStart`, `openOnFirstSessionStart`, `openOnDebugBreak`) and the F5 fallback when no debuggers are installed (`debug.openView`) opened the Run and Debug container with `paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar)`. That call goes to the primary side bar, which only opens containers registered in it. Once the container is moved to the secondary side bar (or the panel), nothing happens.\n\nThese three call sites now use `IViewsService.openViewContainer(VIEWLET_ID)`. It looks up where the container currently lives and opens it there, unhiding that part if needed. Extensions already open their container this way. When the container is in the primary side bar, the underlying call is the same as before, so the default layout is unchanged.\n\n`DebugSession` now injects `IViewsService` in place of `IPaneCompositePartService`, in the same constructor position, so the existing positional test construction is unaffected.\n\n**Testing**\n- Debug unit suites pass (435 passing).\n- Manual: container moved to the secondary side bar and collapsed, `openOnSessionStart`, F5. Run and Debug opens in the secondary side bar.\n\nNot changed: `debug.openExplorerOnEnd` is gated on primary side bar visibility and has its own semantics. A few other places hard-code the primary side bar the same way (for example `fileActions.ts`, `searchActionsFind.ts`); I left those out to keep this change scoped to debug. Happy to add a unit test if you'd like one.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "234c4f572e503214b1a636729d3b4e25529cedc6",
+   "filename": "src/vs/workbench/contrib/debug/browser/debugCommands.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 4,
+   "changes": 5,
+   "blob_url": "https://github.com/microsoft/vscode/blob/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugCommands.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugCommands.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugCommands.ts?ref=db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "patch": "@@ -29,9 +29,7 @@ import { IListService } from '../../../../platform/list/browser/listService.js';\n import { INotificationService } from '../../../../platform/notification/common/notification.js';\n import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';\n import { ActiveEditorContext, PanelFocusContext, ResourceContextKey } from '../../../common/contextkeys.js';\n-import { ViewContainerLocation } from '../../../common/views.js';\n import { IEditorService } from '../../../services/editor/common/editorService.js';\n-import { IPaneCompositePartService } from '../../../services/panecomposite/browser/panecomposite.js';\n import { IViewsService } from '../../../services/views/common/viewsService.js';\n import { ChatContextKeys } from '../../chat/common/actions/chatContextKeys.js';\n import { IExtensionsWorkbenchService } from '../../extensions/common/extensions.js';\n@@ -1169,8 +1167,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({\n \tprimary: KeyCode.F5,\n \tsecondary: [KeyMod.CtrlCmd | KeyCode.F5],\n \thandler: async (accessor) => {\n-\t\tconst paneCompositeService = accessor.get(IPaneCompositePartService);\n-\t\tawait paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar, true);\n+\t\tawait accessor.get(IViewsService).openViewContainer(VIEWLET_ID, true);\n \t}\n });\n "
+  },
+  {
+   "sha": "5ac8f6e35666d0957a590023080e079e29a8c14d",
+   "filename": "src/vs/workbench/contrib/debug/browser/debugService.ts",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugService.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugService.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugService.ts?ref=db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "patch": "@@ -645,7 +645,7 @@ export class DebugService implements IDebugService {\n \t\t// Open debug viewlet based on the visibility of the side bar and openDebug setting. Do not open for 'run without debug'.\n \t\t// Note: 'openOnDebugBreak' is intentionally excluded here - that case is handled in debugSession when a breakpoint is hit.\n \t\tif (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug === 'openOnFirstSessionStart' && this.viewModel.firstSessionStart)) && !session.suppressDebugView) {\n-\t\t\tawait this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);\n+\t\t\tawait this.viewsService.openViewContainer(VIEWLET_ID);\n \t\t}\n \n \t\ttry {"
+  },
+  {
+   "sha": "a5b74d2bf40da2e15c06bb7986ddf10af1b4c080",
+   "filename": "src/vs/workbench/contrib/debug/browser/debugSession.ts",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 4,
+   "changes": 7,
+   "blob_url": "https://github.com/microsoft/vscode/blob/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugSession.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugSession.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fdebug%2Fbrowser%2FdebugSession.ts?ref=db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "patch": "@@ -33,11 +33,10 @@ import { IProductService } from '../../../../platform/product/common/productServ\n import { ICustomEndpointTelemetryService, ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';\n import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';\n import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';\n-import { ViewContainerLocation } from '../../../common/views.js';\n import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';\n import { IHostService } from '../../../services/host/browser/host.js';\n import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.js';\n-import { IPaneCompositePartService } from '../../../services/panecomposite/browser/panecomposite.js';\n+import { IViewsService } from '../../../services/views/common/viewsService.js';\n import { LiveTestResult } from '../../testing/common/testResult.js';\n import { ITestResultService } from '../../testing/common/testResultService.js';\n import { ITestService } from '../../testing/common/testService.js';\n@@ -115,7 +114,7 @@ export class DebugSession implements IDebugSession {\n \t\t@ITelemetryService private readonly telemetryService: ITelemetryService,\n \t\t@IHostService private readonly hostService: IHostService,\n \t\t@IConfigurationService private readonly configurationService: IConfigurationService,\n-\t\t@IPaneCompositePartService private readonly paneCompositeService: IPaneCompositePartService,\n+\t\t@IViewsService private readonly viewsService: IViewsService,\n \t\t@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,\n \t\t@IProductService private readonly productService: IProductService,\n \t\t@INotificationService private readonly notificationService: INotificationService,\n@@ -1390,7 +1389,7 @@ export class DebugSession implements IDebugSession {\n \n \t\t\t\t\t\t\tif (thread.stoppedDetails && !token.isCancellationRequested) {\n \t\t\t\t\t\t\t\tif (thread.stoppedDetails.reason === 'breakpoint' && this.configurationService.getValue<IDebugConfiguration>('debug').openDebug === 'openOnDebugBreak' && !this.suppressDebugView) {\n-\t\t\t\t\t\t\t\t\tawait this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);\n+\t\t\t\t\t\t\t\t\tawait this.viewsService.openViewContainer(VIEWLET_ID);\n \t\t\t\t\t\t\t\t}\n \n \t\t\t\t\t\t\t\tif (this.configurationService.getValue<IDebugConfiguration>('debug').focusWindowOnBreak && !this.workbenchEnvironmentService.extensionTestsLocationURI) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5616074773,
+   "node_id": "PRR_kwDOAn8RLM8AAAABTr6AFQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "> [!WARNING]\n> Copilot couldn't run its full agentic review because it didn't start before the timeout. Make sure your repository has a runner available, or add a `copilot-code-review.yml` file specifying one with the `runs-on` attribute. See the [docs](https://gh.io/AA11tgch) for more details.\n\n<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n<details open>\n<summary><strong>3 open issues</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [This PR changes observable UI behavior (opening the Run and Debug container in its current docked…](https://github.com/microsoft/vscode/pull/343515#discussion_r4349770882) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Previously `openPaneComposite(VIEWLET_ID, ..., /*focus?*/)` was called without an explicit focus…](https://github.com/microsoft/vscode/pull/343515#discussion_r4349770965) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Same as the session-start case: this call site previously relied on `openPaneComposite` defaults.…](https://github.com/microsoft/vscode/pull/343515#discussion_r4349771014) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nUpdates debug-related entry points to open the **Run and Debug** view container wherever it’s currently docked (primary side bar, secondary side bar, or panel), addressing cases where the container no longer opens after being moved.\n\n**Changes:**\n- Replaced `openPaneComposite(..., ViewContainerLocation.Sidebar)` with `IViewsService.openViewContainer(...)` for `debug.openDebug` flows.\n- Updated the F5 fallback (`debug.openView`) to use `openViewContainer` instead of hard-coding the primary side bar.\n- Swapped `DebugSession` dependency from `IPaneCompositePartService` to `IViewsService`.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| src/​vs/​workbench/​contrib/​debug/​browser/​debugSession.ts | Uses `IViewsService.openViewContainer` when opening Run and Debug on debug break; updates DI accordingly. |\r\n| src/​vs/​workbench/​contrib/​debug/​browser/​debugService.ts | Uses `IViewsService.openViewContainer` when opening Run and Debug on session start/first session start. |\r\n| src/​vs/​workbench/​contrib/​debug/​browser/​debugCommands.ts | Updates F5 fallback command to open the view container via `IViewsService` (location-aware). |\n</details>\n\n<sub>Review effort: Lite</sub>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/343515#pullrequestreview-5616074773",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/343515",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/343515#pullrequestreview-5616074773"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/343515"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "lite",
+   "submitted_at": "2026-10-22T14:45:16Z",
+   "commit_id": "20018ea877a794cf932f6e6ece7fe4582744992a"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6343238882",
+   "html_url": "https://github.com/microsoft/vscode/pull/343515#issuecomment-6343238882",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/343515",
+   "id": 6343238882,
+   "node_id": "IC_kwDOAn8RLM8AAAABehYk4g",
+   "user": {
+    "login": "cipheraxat",
+    "id": 40275336,
+    "node_id": "MDQ6VXNlcjQwMjc1MzM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/40275336?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cipheraxat",
+    "html_url": "https://github.com/cipheraxat",
+    "followers_url": "https://api.github.com/users/cipheraxat/followers",
+    "following_url": "https://api.github.com/users/cipheraxat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cipheraxat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cipheraxat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cipheraxat/subscriptions",
+    "organizations_url": "https://api.github.com/users/cipheraxat/orgs",
+    "repos_url": "https://api.github.com/users/cipheraxat/repos",
+    "events_url": "https://api.github.com/users/cipheraxat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cipheraxat/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-22T14:28:36Z",
+   "updated_at": "2026-10-22T14:28:36Z",
+   "body": "@connor4312 small fix for #337458. The three debug call sites now open Run and Debug wherever its container is docked, and the default layout is unchanged. Would appreciate a review when you get a chance.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6343238882/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "20018ea877a794cf932f6e6ece7fe4582744992a",
+   "node_id": "C_kwDOSM_waNoAKDIwMDE4ZWE4NzdhNzk0Y2Y5MzJmNmU2ZWNlN2ZlNDU4Mjc0NDk5MmE",
+   "commit": {
+    "author": {
+     "name": "Akshat Anand",
+     "email": "akshatanandmallik@gmail.com",
+     "date": "2026-10-22T14:25:05Z"
+    },
+    "committer": {
+     "name": "Akshat Anand",
+     "email": "akshatanandmallik@gmail.com",
+     "date": "2026-10-22T14:25:05Z"
+    },
+    "message": "debug: open Run and Debug wherever its view container is docked\n\nThe debug.openDebug setting and the F5 fallback (debug.openView) asked\nthe primary side bar to open the Run and Debug container. That part only\nopens containers registered in it, so nothing happened once the\ncontainer was moved to the secondary side bar or the panel.\n\nOpen the container through IViewsService.openViewContainer instead,\nwhich resolves the container's current location. Behavior is unchanged\nwhen the container is in the primary side bar.\n\nFixes #337458",
+    "tree": {
+     "sha": "f69019929be67a0f34dcc4d3640e76de86618c05",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f69019929be67a0f34dcc4d3640e76de86618c05"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/20018ea877a794cf932f6e6ece7fe4582744992a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/20018ea877a794cf932f6e6ece7fe4582744992a",
+   "html_url": "https://github.com/microsoft/vscode/commit/20018ea877a794cf932f6e6ece7fe4582744992a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/20018ea877a794cf932f6e6ece7fe4582744992a/comments",
+   "author": {
+    "login": "cipheraxat",
+    "id": 40275336,
+    "node_id": "MDQ6VXNlcjQwMjc1MzM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/40275336?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cipheraxat",
+    "html_url": "https://github.com/cipheraxat",
+    "followers_url": "https://api.github.com/users/cipheraxat/followers",
+    "following_url": "https://api.github.com/users/cipheraxat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cipheraxat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cipheraxat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cipheraxat/subscriptions",
+    "organizations_url": "https://api.github.com/users/cipheraxat/orgs",
+    "repos_url": "https://api.github.com/users/cipheraxat/repos",
+    "events_url": "https://api.github.com/users/cipheraxat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cipheraxat/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "cipheraxat",
+    "id": 40275336,
+    "node_id": "MDQ6VXNlcjQwMjc1MzM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/40275336?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cipheraxat",
+    "html_url": "https://github.com/cipheraxat",
+    "followers_url": "https://api.github.com/users/cipheraxat/followers",
+    "following_url": "https://api.github.com/users/cipheraxat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cipheraxat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cipheraxat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cipheraxat/subscriptions",
+    "organizations_url": "https://api.github.com/users/cipheraxat/orgs",
+    "repos_url": "https://api.github.com/users/cipheraxat/repos",
+    "events_url": "https://api.github.com/users/cipheraxat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cipheraxat/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "46121bbf1a9cd0b5f55866da3481ecba5434cbd1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/46121bbf1a9cd0b5f55866da3481ecba5434cbd1",
+     "html_url": "https://github.com/microsoft/vscode/commit/46121bbf1a9cd0b5f55866da3481ecba5434cbd1"
+    }
+   ]
+  },
+  {
+   "sha": "db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "node_id": "C_kwDOSM_waNoAKGRiNGJiM2E1NWFiODE2MjRmMzhlZTAxYWQ0YjlhMmIwZGQ0YWIyMTA",
+   "commit": {
+    "author": {
+     "name": "Akshat Anand",
+     "email": "akshatanandmallik@gmail.com",
+     "date": "2026-10-22T14:30:36Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-22T14:30:36Z"
+    },
+    "message": "Merge branch 'main' into fix/337458-open-debug-secondary-sidebar",
+    "tree": {
+     "sha": "357c297f5868c12299c5595b975e81744d7eb5df",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/357c297f5868c12299c5595b975e81744d7eb5df"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq2h4MCRC1aQ7uu5UhlAAAJi4QAHZccZ6nt+zxj3nXedHRO4WJ\n0NbGRHyhHgEjklBH3Sxs3Eb+7Xes/sCyXbiaGQvGDWoNZ+VRtgnNBYgklW6HfRHJ\nS7gF1sYkcgYp9VsG7nZl71etqL2IphsTBKGU8+INNME5rpylKTmcINxPCiWbLMRf\nEGqQ4y/52tjzzsowapdx74IY+YEfBzCMoLsqVIUSXDJZsudU0Qu7Tw8WN+re32Vp\nbLYDyes+Yrhv0sPphM9n4gZZuSL+JE/iaj/Qesoy05c2NPfeOQdGA8dPvCnlLDbQ\nG9OIYx+qwoVA/saGbTTUUttiIEJtAkizHuC6MyW9G8AS6AbOSknjN1NJxwduaqH0\niv/esKQn5j8kofUrqfd24VU7mcatMtJC+NOenpTq/Td/OgnYC7RCM7CvWUIwQtQo\neXjAAFE6by5BmyXcP9qjYkKTA7kb3GlXFpqw72zbpDLIWhcem/CWFnOCwVknQfsC\nBKK5V5Aorc2qfQjWptG04ZKhrDptYwDRLPn3WM7rzJGuG8Biyk9OTCbW5pMxxZQe\n3PTJj3MkoYN4CCJUnrIAnTdzAXj0rRDSKEw9OZoHfiBOg0j7baM1awrZJUZaGqCU\nNt3PAHumbn7TDmTdBPI/lUgJZe9GXsxxAZWp9G64dlQt29vgcGZIw3Z+I5g65S/2\nQu612Bfi9rLIULt16H4F\n=jPvy\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 357c297f5868c12299c5595b975e81744d7eb5df\nparent 20018ea877a794cf932f6e6ece7fe4582744992a\nparent 4a69a6b972a1c54d8c37dcedf05ce40329027968\nauthor Akshat Anand <akshatanandmallik@gmail.com> 1792679436 +0530\ncommitter GitHub <noreply@github.com> 1792679436 +0530\n\nMerge branch 'main' into fix/337458-open-debug-secondary-sidebar",
+     "verified_at": "2026-10-22T14:30:37Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "html_url": "https://github.com/microsoft/vscode/commit/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/db4bb3a55ab81624f38ee01ad4b9a2b0dd4ab210/comments",
+   "author": {
+    "login": "cipheraxat",
+    "id": 40275336,
+    "node_id": "MDQ6VXNlcjQwMjc1MzM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/40275336?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/cipheraxat",
+    "html_url": "https://github.com/cipheraxat",
+    "followers_url": "https://api.github.com/users/cipheraxat/followers",
+    "following_url": "https://api.github.com/users/cipheraxat/following{/other_user}",
+    "gists_url": "https://api.github.com/users/cipheraxat/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/cipheraxat/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/cipheraxat/subscriptions",
+    "organizations_url": "https://api.github.com/users/cipheraxat/orgs",
+    "repos_url": "https://api.github.com/users/cipheraxat/repos",
+    "events_url": "https://api.github.com/users/cipheraxat/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/cipheraxat/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "20018ea877a794cf932f6e6ece7fe4582744992a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/20018ea877a794cf932f6e6ece7fe4582744992a",
+     "html_url": "https://github.com/microsoft/vscode/commit/20018ea877a794cf932f6e6ece7fe4582744992a"
+    },
+    {
+     "sha": "4a69a6b972a1c54d8c37dcedf05ce40329027968",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4a69a6b972a1c54d8c37dcedf05ce40329027968",
+     "html_url": "https://github.com/microsoft/vscode/commit/4a69a6b972a1c54d8c37dcedf05ce40329027968"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,702 @@
+{
+ "fetchedAt": "2026-11-01T00:53:45.737Z",
+ "pr": {
+  "number": 314872,
+  "title": "Support for RTL text in find decorations",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-06T22:49:16Z",
+  "updated_at": "2026-10-08T22:45:46Z",
+  "user": "kamyarmg",
+  "author_association": "NONE",
+  "additions": 132,
+  "deletions": 46,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 4,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "bidi-find-problem",
+   "sha": "c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "repo": "kamyarmg/vscode",
+   "label": "kamyarmg:bidi-find-problem"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "338c5d6c343ff212fdfb9b7689f749e44c52a092"
+  },
+  "body": "## Summary\r\n\r\nFixes incorrect visual ordering when Find highlights matches inside mixed LTR/RTL text.\r\n\r\nIn lines containing RTL text, Find no longer applies inline styling that splits the rendered content into multiple bidi runs. Instead, it uses decorations that preserve the correct visual ordering of highlighted text.\r\n\r\nFixes #233573.\r\n\r\n## Problem\r\n\r\nWhen Find highlights a match inside a line containing mixed LTR and RTL text, the highlight can split the rendered content into multiple inline segments.\r\n\r\nIn some cases, this changes the visual ordering of the RTL portion of the line, causing highlighted matches to appear with characters in the wrong order even though the underlying text is correct.\r\n\r\n## Root Cause\r\n\r\nFind match decorations relied on inline text styling.\r\n\r\nWhile this works correctly for normal LTR text, applying inline styling inside mixed bidi content can split a visual bidi run into separate segments. Once split, browser bidi layout may reorder the segments visually, making the highlighted substring appear incorrect.\r\n\r\n## Fix\r\n\r\nThis change makes Find match decorations aware of RTL content.\r\n\r\n- Lines containing RTL text now use decorations that avoid inline text styling.\r\n- LTR-only lines continue using the existing rendering behavior.\r\n- Current match and regular match decorations now share the same RTL-aware decoration selection logic.\r\n\r\nThis preserves Find highlighting while avoiding the bidi run splitting that caused incorrect visual ordering.\r\n\r\n## Screenshots\r\n\r\n### Original Text\r\n\r\n<img width=\"623\" height=\"144\" alt=\"Screenshot From 2026-05-07 02-05-35\" src=\"https://github.com/user-attachments/assets/5ad809c5-f59a-4436-9f3f-67cb5bc2c30c\" />\r\n\r\n### Before\r\n\r\n<img width=\"623\" height=\"144\" alt=\"Screenshot From 2026-05-07 02-11-49\" src=\"https://github.com/user-attachments/assets/38f47687-9f60-4827-b1ae-13ff4f023819\" />\r\n\r\n### After\r\n\r\n<img width=\"623\" height=\"144\" alt=\"Screenshot From 2026-05-07 02-13-07\" src=\"https://github.com/user-attachments/assets/b14dd2f1-556d-4ccc-904c-b7e700ba188d\" />\r\n\r\n## How to Test\r\n\r\n1. Open a file containing mixed LTR/RTL text on the same line.\r\n2. Search for a substring inside the RTL portion of the line.\r\n3. Verify that the highlighted match preserves the correct visual character order.\r\n4. Repeat the same test on an LTR-only line and verify that Find highlighting still behaves normally.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "1209564d80ba8720eec97b58b97913dc1053febb",
+   "filename": "src/vs/editor/contrib/find/browser/findDecorations.ts",
+   "status": "modified",
+   "additions": 108,
+   "deletions": 46,
+   "changes": 154,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c2381ea9a88d34ea931fa787898bd8095342cf71/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindDecorations.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c2381ea9a88d34ea931fa787898bd8095342cf71/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindDecorations.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Fbrowser%2FfindDecorations.ts?ref=c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "patch": "@@ -3,11 +3,12 @@\n  *  Licensed under the MIT License. See License.txt in the project root for license information.\n  *--------------------------------------------------------------------------------------------*/\n \n+import * as strings from '../../../../base/common/strings.js';\n import { IDisposable } from '../../../../base/common/lifecycle.js';\n import { IActiveCodeEditor } from '../../../browser/editorBrowser.js';\n import { Position } from '../../../common/core/position.js';\n import { Range } from '../../../common/core/range.js';\n-import { FindMatch, IModelDecorationsChangeAccessor, IModelDeltaDecoration, MinimapPosition, OverviewRulerLane, TrackedRangeStickiness } from '../../../common/model.js';\n+import { FindMatch, IModelDecorationOptions, IModelDecorationsChangeAccessor, IModelDeltaDecoration, MinimapPosition, OverviewRulerLane, TrackedRangeStickiness } from '../../../common/model.js';\n import { ModelDecorationOptions } from '../../../common/model/textModel.js';\n import { minimapFindMatch, overviewRulerFindMatchForeground } from '../../../../platform/theme/common/colorRegistry.js';\n import { themeColorFromId } from '../../../../platform/theme/common/themeService.js';\n@@ -20,6 +21,7 @@ export class FindDecorations implements IDisposable {\n \tprivate _findScopeDecorationIds: string[];\n \tprivate _rangeHighlightDecorationId: string | null;\n \tprivate _highlightedDecorationId: string | null;\n+\tprivate _useFindMatchOverviewRuler: boolean;\n \tprivate _startPosition: Position;\n \n \tconstructor(editor: IActiveCodeEditor) {\n@@ -29,6 +31,7 @@ export class FindDecorations implements IDisposable {\n \t\tthis._findScopeDecorationIds = [];\n \t\tthis._rangeHighlightDecorationId = null;\n \t\tthis._highlightedDecorationId = null;\n+\t\tthis._useFindMatchOverviewRuler = true;\n \t\tthis._startPosition = this._editor.getPosition();\n \t}\n \n@@ -40,6 +43,7 @@ export class FindDecorations implements IDisposable {\n \t\tthis._findScopeDecorationIds = [];\n \t\tthis._rangeHighlightDecorationId = null;\n \t\tthis._highlightedDecorationId = null;\n+\t\tthis._useFindMatchOverviewRuler = true;\n \t}\n \n \tpublic reset(): void {\n@@ -48,6 +52,7 @@ export class FindDecorations implements IDisposable {\n \t\tthis._findScopeDecorationIds = [];\n \t\tthis._rangeHighlightDecorationId = null;\n \t\tthis._highlightedDecorationId = null;\n+\t\tthis._useFindMatchOverviewRuler = true;\n \t}\n \n \tpublic getCount(): number {\n@@ -103,7 +108,14 @@ export class FindDecorations implements IDisposable {\n \t\tconst candidates = this._editor.getModel().getDecorationsInRange(desiredRange);\n \t\tfor (const candidate of candidates) {\n \t\t\tconst candidateOpts = candidate.options;\n-\t\t\tif (candidateOpts === FindDecorations._FIND_MATCH_DECORATION || candidateOpts === FindDecorations._FIND_MATCH_NO_OVERVIEW_DECORATION || candidateOpts === FindDecorations._CURRENT_FIND_MATCH_DECORATION) {\n+\t\t\tif (\n+\t\t\t\tcandidateOpts === FindDecorations._FIND_MATCH_DECORATION\n+\t\t\t\t|| candidateOpts === FindDecorations._FIND_MATCH_BIDI_DECORATION\n+\t\t\t\t|| candidateOpts === FindDecorations._FIND_MATCH_NO_OVERVIEW_DECORATION\n+\t\t\t\t|| candidateOpts === FindDecorations._FIND_MATCH_NO_OVERVIEW_BIDI_DECORATION\n+\t\t\t\t|| candidateOpts === FindDecorations._CURRENT_FIND_MATCH_DECORATION\n+\t\t\t\t|| candidateOpts === FindDecorations._CURRENT_FIND_MATCH_BIDI_DECORATION\n+\t\t\t) {\n \t\t\t\treturn this._getDecorationIndex(candidate.id);\n \t\t\t}\n \t\t}\n@@ -128,12 +140,18 @@ export class FindDecorations implements IDisposable {\n \t\tif (this._highlightedDecorationId !== null || newCurrentDecorationId !== null) {\n \t\t\tthis._editor.changeDecorations((changeAccessor: IModelDecorationsChangeAccessor) => {\n \t\t\t\tif (this._highlightedDecorationId !== null) {\n-\t\t\t\t\tchangeAccessor.changeDecorationOptions(this._highlightedDecorationId, FindDecorations._FIND_MATCH_DECORATION);\n+\t\t\t\t\tconst highlightedRange = this._editor.getModel().getDecorationRange(this._highlightedDecorationId);\n+\t\t\t\t\tif (highlightedRange) {\n+\t\t\t\t\t\tchangeAccessor.changeDecorationOptions(this._highlightedDecorationId, this._getFindMatchDecorationOptions(highlightedRange, this._useFindMatchOverviewRuler));\n+\t\t\t\t\t}\n \t\t\t\t\tthis._highlightedDecorationId = null;\n \t\t\t\t}\n \t\t\t\tif (newCurrentDecorationId !== null) {\n \t\t\t\t\tthis._highlightedDecorationId = newCurrentDecorationId;\n-\t\t\t\t\tchangeAccessor.changeDecorationOptions(this._highlightedDecorationId, FindDecorations._CURRENT_FIND_MATCH_DECORATION);\n+\t\t\t\t\tconst newCurrentRange = this._editor.getModel().getDecorationRange(this._highlightedDecorationId);\n+\t\t\t\t\tif (newCurrentRange) {\n+\t\t\t\t\t\tchangeAccessor.changeDecorationOptions(this._highlightedDecorationId, this._getCurrentFindMatchDecorationOptions(newCurrentRange));\n+\t\t\t\t\t}\n \t\t\t\t}\n \t\t\t\tif (this._rangeHighlightDecorationId !== null) {\n \t\t\t\t\tchangeAccessor.removeDecoration(this._rangeHighlightDecorationId);\n@@ -156,17 +174,19 @@ export class FindDecorations implements IDisposable {\n \n \tpublic set(findMatches: FindMatch[], findScopes: Range[] | null): void {\n \t\tthis._editor.changeDecorations((accessor) => {\n+\t\t\tconst model = this._editor.getModel();\n+\t\t\tconst lineContainsRTLCache = model.mightContainRTL() ? new Map<number, boolean>() : undefined;\n \n-\t\t\tlet findMatchesOptions: ModelDecorationOptions = FindDecorations._FIND_MATCH_DECORATION;\n+\t\t\tthis._useFindMatchOverviewRuler = true;\n \t\t\tconst newOverviewRulerApproximateDecorations: IModelDeltaDecoration[] = [];\n \n \t\t\tif (findMatches.length > 1000) {\n \t\t\t\t// we go into a mode where the overview ruler gets \"approximate\" decorations\n \t\t\t\t// the reason is that the overview ruler paints all the decorations in the file and we don't want to cause freezes\n-\t\t\t\tfindMatchesOptions = FindDecorations._FIND_MATCH_NO_OVERVIEW_DECORATION;\n+\t\t\t\tthis._useFindMatchOverviewRuler = false;\n \n \t\t\t\t// approximate a distance in lines where matches should be merged\n-\t\t\t\tconst lineCount = this._editor.getModel().getLineCount();\n+\t\t\t\tconst lineCount = model.getLineCount();\n \t\t\t\tconst height = this._editor.getLayoutInfo().height;\n \t\t\t\tconst approxPixelsPerLine = height / lineCount;\n \t\t\t\tconst mergeLinesDelta = Math.max(2, Math.ceil(3 / approxPixelsPerLine));\n@@ -201,7 +221,7 @@ export class FindDecorations implements IDisposable {\n \t\t\tfor (let i = 0, len = findMatches.length; i < len; i++) {\n \t\t\t\tnewFindMatchesDecorations[i] = {\n \t\t\t\t\trange: findMatches[i].range,\n-\t\t\t\t\toptions: findMatchesOptions\n+\t\t\t\t\toptions: this._getFindMatchDecorationOptions(findMatches[i].range, this._useFindMatchOverviewRuler, lineContainsRTLCache)\n \t\t\t\t};\n \t\t\t}\n \t\t\tthis._decorations = accessor.deltaDecorations(this._decorations, newFindMatchesDecorations);\n@@ -226,6 +246,39 @@ export class FindDecorations implements IDisposable {\n \t\t});\n \t}\n \n+\tprivate _getFindMatchDecorationOptions(range: Range, includeOverviewRuler: boolean, lineContainsRTLCache?: Map<number, boolean>): ModelDecorationOptions {\n+\t\tif (this._rangeContainsRTL(range, lineContainsRTLCache)) {\n+\t\t\treturn includeOverviewRuler ? FindDecorations._FIND_MATCH_BIDI_DECORATION : FindDecorations._FIND_MATCH_NO_OVERVIEW_BIDI_DECORATION;\n+\t\t}\n+\n+\t\treturn includeOverviewRuler ? FindDecorations._FIND_MATCH_DECORATION : FindDecorations._FIND_MATCH_NO_OVERVIEW_DECORATION;\n+\t}\n+\n+\tprivate _getCurrentFindMatchDecorationOptions(range: Range): ModelDecorationOptions {\n+\t\treturn this._rangeContainsRTL(range) ? FindDecorations._CURRENT_FIND_MATCH_BIDI_DECORATION : FindDecorations._CURRENT_FIND_MATCH_DECORATION;\n+\t}\n+\n+\tprivate _rangeContainsRTL(range: Range, lineContainsRTLCache?: Map<number, boolean>): boolean {\n+\t\tconst model = this._editor.getModel();\n+\t\tif (!model.mightContainRTL()) {\n+\t\t\treturn false;\n+\t\t}\n+\n+\t\tfor (let lineNumber = range.startLineNumber; lineNumber <= range.endLineNumber; lineNumber++) {\n+\t\t\tlet containsRTL = lineContainsRTLCache?.get(lineNumber);\n+\t\t\tif (containsRTL === undefined) {\n+\t\t\t\tcontainsRTL = strings.containsRTL(model.getLineContent(lineNumber));\n+\t\t\t\tlineContainsRTLCache?.set(lineNumber, containsRTL);\n+\t\t\t}\n+\n+\t\t\tif (containsRTL) {\n+\t\t\t\treturn true;\n+\t\t\t}\n+\t\t}\n+\n+\t\treturn false;\n+\t}\n+\n \tpublic matchBeforePosition(position: Position): Range | null {\n \t\tif (this._decorations.length === 0) {\n \t\t\treturn null;\n@@ -283,46 +336,55 @@ export class FindDecorations implements IDisposable {\n \t\treturn result;\n \t}\n \n-\tpublic static readonly _CURRENT_FIND_MATCH_DECORATION = ModelDecorationOptions.register({\n-\t\tdescription: 'current-find-match',\n-\t\tstickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,\n-\t\tzIndex: 13,\n-\t\tclassName: 'currentFindMatch',\n-\t\tinlineClassName: 'currentFindMatchInline',\n-\t\tshowIfCollapsed: true,\n-\t\toverviewRuler: {\n-\t\t\tcolor: themeColorFromId(overviewRulerFindMatchForeground),\n-\t\t\tposition: OverviewRulerLane.Center\n-\t\t},\n-\t\tminimap: {\n-\t\t\tcolor: themeColorFromId(minimapFindMatch),\n-\t\t\tposition: MinimapPosition.Inline\n-\t\t}\n-\t});\n+\tprivate static _createCurrentFindMatchDecorationOptions(description: string, inlineClassName?: string): IModelDecorationOptions {\n+\t\treturn {\n+\t\t\tdescription,\n+\t\t\tstickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,\n+\t\t\tzIndex: 13,\n+\t\t\tclassName: 'currentFindMatch',\n+\t\t\tinlineClassName,\n+\t\t\tshowIfCollapsed: true,\n+\t\t\toverviewRuler: {\n+\t\t\t\tcolor: themeColorFromId(overviewRulerFindMatchForeground),\n+\t\t\t\tposition: OverviewRulerLane.Center\n+\t\t\t},\n+\t\t\tminimap: {\n+\t\t\t\tcolor: themeColorFromId(minimapFindMatch),\n+\t\t\t\tposition: MinimapPosition.Inline\n+\t\t\t}\n+\t\t};\n+\t}\n \n-\tpublic static readonly _FIND_MATCH_DECORATION = ModelDecorationOptions.register({\n-\t\tdescription: 'find-match',\n-\t\tstickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,\n-\t\tzIndex: 10,\n-\t\tclassName: 'findMatch',\n-\t\tinlineClassName: 'findMatchInline',\n-\t\tshowIfCollapsed: true,\n-\t\toverviewRuler: {\n-\t\t\tcolor: themeColorFromId(overviewRulerFindMatchForeground),\n-\t\t\tposition: OverviewRulerLane.Center\n-\t\t},\n-\t\tminimap: {\n-\t\t\tcolor: themeColorFromId(minimapFindMatch),\n-\t\t\tposition: MinimapPosition.Inline\n-\t\t}\n-\t});\n+\tprivate static _createFindMatchDecorationOptions(description: string, includeOverviewRuler: boolean, zIndex?: number, inlineClassName?: string): IModelDecorationOptions {\n+\t\treturn {\n+\t\t\tdescription,\n+\t\t\tstickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,\n+\t\t\tzIndex,\n+\t\t\tclassName: 'findMatch',\n+\t\t\tinlineClassName,\n+\t\t\tshowIfCollapsed: true,\n+\t\t\toverviewRuler: includeOverviewRuler ? {\n+\t\t\t\tcolor: themeColorFromId(overviewRulerFindMatchForeground),\n+\t\t\t\tposition: OverviewRulerLane.Center\n+\t\t\t} : undefined,\n+\t\t\tminimap: includeOverviewRuler ? {\n+\t\t\t\tcolor: themeColorFromId(minimapFindMatch),\n+\t\t\t\tposition: MinimapPosition.Inline\n+\t\t\t} : undefined\n+\t\t};\n+\t}\n \n-\tpublic static readonly _FIND_MATCH_NO_OVERVIEW_DECORATION = ModelDecorationOptions.register({\n-\t\tdescription: 'find-match-no-overview',\n-\t\tstickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,\n-\t\tclassName: 'findMatch',\n-\t\tshowIfCollapsed: true\n-\t});\n+\tpublic static readonly _CURRENT_FIND_MATCH_DECORATION = ModelDecorationOptions.register(FindDecorations._createCurrentFindMatchDecorationOptions('current-find-match', 'currentFindMatchInline'));\n+\n+\tpublic static readonly _CURRENT_FIND_MATCH_BIDI_DECORATION = ModelDecorationOptions.register(FindDecorations._createCurrentFindMatchDecorationOptions('current-find-match-bidi'));\n+\n+\tpublic static readonly _FIND_MATCH_DECORATION = ModelDecorationOptions.register(FindDecorations._createFindMatchDecorationOptions('find-match', true, 10, 'findMatchInline'));\n+\n+\tpublic static readonly _FIND_MATCH_BIDI_DECORATION = ModelDecorationOptions.register(FindDecorations._createFindMatchDecorationOptions('find-match-bidi', true, 10));\n+\n+\tpublic static readonly _FIND_MATCH_NO_OVERVIEW_DECORATION = ModelDecorationOptions.register(FindDecorations._createFindMatchDecorationOptions('find-match-no-overview', false));\n+\n+\tpublic static readonly _FIND_MATCH_NO_OVERVIEW_BIDI_DECORATION = FindDecorations._FIND_MATCH_NO_OVERVIEW_DECORATION;\n \n \tprivate static readonly _FIND_MATCH_ONLY_OVERVIEW_DECORATION = ModelDecorationOptions.register({\n \t\tdescription: 'find-match-only-overview',"
+  },
+  {
+   "sha": "c6b4462ae6c658cb6dc3a423e30af1ae361717c0",
+   "filename": "src/vs/editor/contrib/find/test/browser/findModel.test.ts",
+   "status": "modified",
+   "additions": 24,
+   "deletions": 0,
+   "changes": 24,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c2381ea9a88d34ea931fa787898bd8095342cf71/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Ftest%2Fbrowser%2FfindModel.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c2381ea9a88d34ea931fa787898bd8095342cf71/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Ftest%2Fbrowser%2FfindModel.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcontrib%2Ffind%2Ftest%2Fbrowser%2FfindModel.test.ts?ref=c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "patch": "@@ -279,6 +279,30 @@ suite('FindModel', () => {\n \t\t);\n \t});\n \n+\ttest('find decorations avoid inline styling on lines containing RTL text', () => {\n+\t\twithTestCodeEditor([\n+\t\t\t'const title = \"بنی Adam بکد گر\"',\n+\t\t\t'const subtitle = \"Adam only\"'\n+\t\t], {}, (editor) => {\n+\t\t\teditor.setPosition({ lineNumber: 1, column: 1 });\n+\t\t\tconst findState = disposables.add(new FindReplaceState());\n+\t\t\tdisposables.add(new FindModelBoundToEditorModel(editor as IActiveCodeEditor, findState));\n+\n+\t\t\tfindState.change({ searchString: 'Adam' }, true);\n+\n+\t\t\tconst decorations = editor.getModel()!.getAllDecorations().filter(decoration => decoration.options.className === 'currentFindMatch' || decoration.options.className === 'findMatch');\n+\t\t\tassert.strictEqual(decorations.length, 2);\n+\n+\t\t\tconst mixedLineDecoration = decorations.find(decoration => decoration.range.startLineNumber === 1);\n+\t\t\tassert.ok(mixedLineDecoration);\n+\t\t\tassert.strictEqual(mixedLineDecoration.options.inlineClassName, null);\n+\n+\t\t\tconst ltrLineDecoration = decorations.find(decoration => decoration.range.startLineNumber === 2);\n+\t\t\tassert.ok(ltrLineDecoration);\n+\t\t\tassert.strictEqual(ltrLineDecoration.options.inlineClassName, 'findMatchInline');\n+\t\t});\n+\t});\n+\n \tfindTest('find model updates state matchesCount', (editor) => {\n \t\tconst findState = disposables.add(new FindReplaceState());\n \t\tfindState.change({ searchString: 'hello' }, false);"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4240132047,
+   "node_id": "PRR_kwDOAn8RLM78u0fP",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR updates the editor Find match decorations to preserve correct visual ordering in mixed LTR/RTL lines by avoiding inline styling (which can split bidi runs and cause incorrect rendering). It also adds a browser-level FindModel test to validate the RTL-aware behavior.\n\n**Changes:**\n- Introduces RTL-aware selection of find match decoration options (regular/current match), falling back to non-inline decorations on lines containing RTL text.\n- Adds new “bidi” decoration option variants that omit `inlineClassName` while keeping existing find match visuals (className/overview ruler/minimap).\n- Adds a test ensuring mixed LTR/RTL lines avoid inline styling while LTR-only lines keep the existing inline styling.\n\n### Reviewed changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 3 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/editor/contrib/find/browser/findDecorations.ts | Adds RTL detection and new bidi-safe decoration options; switches find match/current match decorations based on RTL presence. |\n| src/vs/editor/contrib/find/test/browser/findModel.test.ts | Adds coverage for RTL-aware decoration selection (inline vs non-inline styling). |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/314872#pullrequestreview-4240132047",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/314872",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/314872#pullrequestreview-4240132047"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/314872"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-06T22:53:18Z",
+   "commit_id": "999222f95bfb4633bced3fa01db19b7ed2c33ab2"
+  },
+  {
+   "id": 4257765416,
+   "node_id": "PRR_kwDOAn8RLM79yFgo",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 1 comment.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/314872#pullrequestreview-4257765416",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/314872",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/314872#pullrequestreview-4257765416"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/314872"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-09T12:17:18Z",
+   "commit_id": "38968c7bde8f067f454117923ab17a5ece70539e"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4755462443",
+   "html_url": "https://github.com/microsoft/vscode/pull/314872#issuecomment-4755462443",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314872",
+   "id": 4755462443,
+   "node_id": "IC_kwDOAn8RLM8AAAABG3KZKw",
+   "user": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-19T23:34:44Z",
+   "updated_at": "2026-06-19T23:34:44Z",
+   "body": "Hi @alexdima — just checking in on this PR. It fixes a bidi rendering issue affecting Arabic/Persian/Hebrew users. I'd appreciate any feedback when you have a chance. Thanks!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4755462443/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4996831688",
+   "html_url": "https://github.com/microsoft/vscode/pull/314872#issuecomment-4996831688",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314872",
+   "id": 4996831688,
+   "node_id": "IC_kwDOAn8RLM8AAAABKdWZyA",
+   "user": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-16T21:38:30Z",
+   "updated_at": "2026-07-16T21:38:30Z",
+   "body": "@alexdima  For those of us who frequently work with a mix of left-to-right (LTR) and right-to-left (RTL) layouts, this issue and its fix would be greatly appreciated, as it's quite important for our workflow. If you have a chance, could you please take a look at it? Thanks!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4996831688/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6070555357",
+   "html_url": "https://github.com/microsoft/vscode/pull/314872#issuecomment-6070555357",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314872",
+   "id": 6070555357,
+   "node_id": "IC_kwDOAn8RLM8AAAABadVS3Q",
+   "user": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-08T22:45:46Z",
+   "updated_at": "2026-10-08T22:45:46Z",
+   "body": "@alexdima This issue is still present in the new version. Could you please check this PR and confirm it if possible? This is very important for people who work with both LTR and RTL text.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6070555357/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "65f35537070b991177d76b8cf4b55477d9a8dc20",
+   "node_id": "C_kwDOSTczY9oAKDY1ZjM1NTM3MDcwYjk5MTE3N2Q3NmI4Y2Y0YjU1NDc3ZDlhOGRjMjA",
+   "commit": {
+    "author": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T11:59:17Z"
+    },
+    "committer": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T11:59:17Z"
+    },
+    "message": "find: use bidi decorations for RTL matches\n\nChoose bidi decoration styles when a find match is on a line with RTL text. This avoids inline styling that can break mixed-direction rendering.",
+    "tree": {
+     "sha": "42d5a35870a559f98954908e1c71b93e61b4b926",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/42d5a35870a559f98954908e1c71b93e61b4b926"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/65f35537070b991177d76b8cf4b55477d9a8dc20",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/65f35537070b991177d76b8cf4b55477d9a8dc20",
+   "html_url": "https://github.com/microsoft/vscode/commit/65f35537070b991177d76b8cf4b55477d9a8dc20",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/65f35537070b991177d76b8cf4b55477d9a8dc20/comments",
+   "author": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "21b561c67fe2b2ec28eed9283a4626b5f7c0d030",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/21b561c67fe2b2ec28eed9283a4626b5f7c0d030",
+     "html_url": "https://github.com/microsoft/vscode/commit/21b561c67fe2b2ec28eed9283a4626b5f7c0d030"
+    }
+   ]
+  },
+  {
+   "sha": "76ea48f8e381639aeed5d18964076f55ed844ae3",
+   "node_id": "C_kwDOSTczY9oAKDc2ZWE0OGY4ZTM4MTYzOWFlZWQ1ZDE4OTY0MDc2ZjU1ZWQ4NDRhZTM",
+   "commit": {
+    "author": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T11:59:24Z"
+    },
+    "committer": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T11:59:24Z"
+    },
+    "message": "test: cover RTL find decorations\n\nAdd a test that checks mixed RTL and LTR lines. The test makes sure RTL matches do not use the inline decoration class.",
+    "tree": {
+     "sha": "73affe78f0216459a471f85dd65afd029a7bdf53",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/73affe78f0216459a471f85dd65afd029a7bdf53"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/76ea48f8e381639aeed5d18964076f55ed844ae3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/76ea48f8e381639aeed5d18964076f55ed844ae3",
+   "html_url": "https://github.com/microsoft/vscode/commit/76ea48f8e381639aeed5d18964076f55ed844ae3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/76ea48f8e381639aeed5d18964076f55ed844ae3/comments",
+   "author": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "65f35537070b991177d76b8cf4b55477d9a8dc20",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/65f35537070b991177d76b8cf4b55477d9a8dc20",
+     "html_url": "https://github.com/microsoft/vscode/commit/65f35537070b991177d76b8cf4b55477d9a8dc20"
+    }
+   ]
+  },
+  {
+   "sha": "96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+   "node_id": "C_kwDOSTczY9oAKDk2MTQ5Yjg0MDFlMjAwMGVhYTkyZmIzZDdkMWZlNjk5OTkyNmEwMWM",
+   "commit": {
+    "author": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T12:00:27Z"
+    },
+    "committer": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T12:00:27Z"
+    },
+    "message": "find: cache RTL line checks for decorations\n\nReuse the editor model and cache RTL checks while updating find matches. This avoids repeated line scans when many matches are decorated.",
+    "tree": {
+     "sha": "9822dc6635fa11ed83c705b57dbccb853b9be7cb",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9822dc6635fa11ed83c705b57dbccb853b9be7cb"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+   "html_url": "https://github.com/microsoft/vscode/commit/96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/96149b8401e2000eaa92fb3d7d1fe6999926a01c/comments",
+   "author": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "76ea48f8e381639aeed5d18964076f55ed844ae3",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/76ea48f8e381639aeed5d18964076f55ed844ae3",
+     "html_url": "https://github.com/microsoft/vscode/commit/76ea48f8e381639aeed5d18964076f55ed844ae3"
+    }
+   ]
+  },
+  {
+   "sha": "38968c7bde8f067f454117923ab17a5ece70539e",
+   "node_id": "C_kwDOSTczY9oAKDM4OTY4YzdiZGU4ZjA2N2Y0NTQxMTc5MjNhYjE3YTVlY2U3MDUzOWU",
+   "commit": {
+    "author": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T12:00:46Z"
+    },
+    "committer": {
+     "name": "kamyarmg",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T12:00:46Z"
+    },
+    "message": "refactor: share find decoration option builders\n\nMove shared decoration settings into helper builders so bidi and non-bidi options stay in sync. Reuse the no-overview option when the bidi variant has the same behavior.",
+    "tree": {
+     "sha": "90048e4140ed528dc95a3a6121014bc03f9c535d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/90048e4140ed528dc95a3a6121014bc03f9c535d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/38968c7bde8f067f454117923ab17a5ece70539e",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/38968c7bde8f067f454117923ab17a5ece70539e",
+   "html_url": "https://github.com/microsoft/vscode/commit/38968c7bde8f067f454117923ab17a5ece70539e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/38968c7bde8f067f454117923ab17a5ece70539e/comments",
+   "author": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/96149b8401e2000eaa92fb3d7d1fe6999926a01c",
+     "html_url": "https://github.com/microsoft/vscode/commit/96149b8401e2000eaa92fb3d7d1fe6999926a01c"
+    }
+   ]
+  },
+  {
+   "sha": "c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "node_id": "C_kwDOSTczY9oAKGMyMzgxZWE5YTg4ZDM0ZWE5MzFmYTc4Nzg5OGJkODA5NTM0MmNmNzE",
+   "commit": {
+    "author": {
+     "name": "Kamyar Ghanbarpour",
+     "email": "kmgurmia@gmail.com",
+     "date": "2026-05-09T12:25:22Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-09T12:25:22Z"
+    },
+    "message": "Potential fix for pull request finding\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "70264a562225bdaf123915f249fc37e11308f631",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/70264a562225bdaf123915f249fc37e11308f631"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c2381ea9a88d34ea931fa787898bd8095342cf71",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp/yeyCRC1aQ7uu5UhlAAA5YcQAAOpHM9HjhrBEwb4dfI4W3zY\nlzVCAcpZ8Cq1DbAyPN1Uwp0jG9oWiC2XjwzcQ7hoT19oFx4J/GxPv0nuIdglo5PQ\nxBJcPUa6RgKkUdRKdrzteHfiUafPPRM+8qrYYkRisV8IrAQspgxKkbZwp65/y08T\nJa817pFjX2BpLtob6/QhOXy3iQQRNqQwBgg0zIeH0Mc3rjbdbWYKCJ7hUcG/x1La\nzciwCuY0soJAK4aHDInDZEw7vzReT+7NiXtz/50UOijbZr72KlVC1a/+KVkaEJL2\ncRsI3dzpxGCr9ONyE5og8LghXgeX7R8GfxGsa97S3o6HkSc9J3GKJg+1my9nFb8T\n/cYoCTB/c6t72X4XsyYEz6e69CbINg9KX1BtBOHco0VAeAP/WawSEDEIf5AwZB0u\nPZ9d18pmx0NF0pnyObb6jv3f1SPpmlitJ3eK2jJP6OF2JpNiLEDGogdR2zEeEhDQ\nV5Aq1gb4aP9tHheQdjrXjo/vcGz4wAH41oGiIgDP9ktQFUTPauqlzDeGAL/JYEEu\nCShjxAcDKJUxS16ctvueIhyNiKJ0ihS5gNbsNmPI5AS40U4Je89tI8E+16cpGHub\n8jAUj5Aj+HjfgYhaRGokYEf4XTXuHMDbQ/AjrmEO+X4epuaha1e9KsqcwkxQwcy/\nE1ONlT4OOhlhfUEvU7Cz\n=oTMo\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 70264a562225bdaf123915f249fc37e11308f631\nparent 38968c7bde8f067f454117923ab17a5ece70539e\nauthor Kamyar Ghanbarpour <kmgurmia@gmail.com> 1778329522 +0330\ncommitter GitHub <noreply@github.com> 1778329522 +0330\n\nPotential fix for pull request finding\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+     "verified_at": "2026-05-09T12:25:23Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "html_url": "https://github.com/microsoft/vscode/commit/c2381ea9a88d34ea931fa787898bd8095342cf71",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c2381ea9a88d34ea931fa787898bd8095342cf71/comments",
+   "author": {
+    "login": "kamyarmg",
+    "id": 12143374,
+    "node_id": "MDQ6VXNlcjEyMTQzMzc0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12143374?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/kamyarmg",
+    "html_url": "https://github.com/kamyarmg",
+    "followers_url": "https://api.github.com/users/kamyarmg/followers",
+    "following_url": "https://api.github.com/users/kamyarmg/following{/other_user}",
+    "gists_url": "https://api.github.com/users/kamyarmg/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/kamyarmg/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/kamyarmg/subscriptions",
+    "organizations_url": "https://api.github.com/users/kamyarmg/orgs",
+    "repos_url": "https://api.github.com/users/kamyarmg/repos",
+    "events_url": "https://api.github.com/users/kamyarmg/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/kamyarmg/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "38968c7bde8f067f454117923ab17a5ece70539e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/38968c7bde8f067f454117923ab17a5ece70539e",
+     "html_url": "https://github.com/microsoft/vscode/commit/38968c7bde8f067f454117923ab17a5ece70539e"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,617 @@
+{
+ "fetchedAt": "2026-11-01T00:53:30.079Z",
+ "pr": {
+  "number": 313944,
+  "title": "Fix new window opening with title bar or status bar outside visible area on small/scaled displays",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-03T12:14:20Z",
+  "updated_at": "2026-08-27T17:36:14Z",
+  "user": "mx-92x",
+  "author_association": "NONE",
+  "additions": 34,
+  "deletions": 10,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 3,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/new-window-offscreen-chrome",
+   "sha": "472754d53b29cb86be91f31c692a584e2b891b33",
+   "repo": "mx-92x/vscode",
+   "label": "mx-92x:fix/new-window-offscreen-chrome"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "a2fb803f5c048de9914686d52e7f3337e91771ba"
+  },
+  "body": "Fixes #313942\r\n\r\n## Problem\r\nThe default workspace window size (1440×900) introduced in #262266 was never clamped to the display work area. On displays where the work area height is less than 900px logical pixels (e.g. 1366×768 laptops, or 1920×1080 at 125% DPI scaling), the new window overflows the visible area — pushing the title bar above the screen and/or the status bar behind the taskbar.\r\n\r\n## Fix\r\nSwitch new window positioning from `displayToUse.bounds` to `displayToUse.workArea` and clamp the default width/height to fit within the actual visible area.\r\n\r\n## Testing\r\nVerified on a 1920×1080 display at 125% DPI scaling — new window now opens fully within bounds with both title bar and status bar accessible.\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "49c70e3e8ae59b78d8b0d582f8b3f36827dee86f",
+   "filename": "src/vs/platform/windows/electron-main/windowsStateHandler.ts",
+   "status": "modified",
+   "additions": 34,
+   "deletions": 10,
+   "changes": 44,
+   "blob_url": "https://github.com/microsoft/vscode/blob/472754d53b29cb86be91f31c692a584e2b891b33/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowsStateHandler.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/472754d53b29cb86be91f31c692a584e2b891b33/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowsStateHandler.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fwindows%2Felectron-main%2FwindowsStateHandler.ts?ref=472754d53b29cb86be91f31c692a584e2b891b33",
+   "patch": "@@ -369,12 +369,20 @@ export class WindowsStateHandler extends Disposable {\n \t\t\t}\n \t\t}\n \n-\t\t// Compute x/y based on display bounds\n+\t\t// Compute x/y based on the display's workArea (excluding taskbar/dock) and clamp\n+\t\t// the size and position so the window chrome stays inside the visible region.\n+\t\t// Without this, default sizes larger than the workArea push the title bar above\n+\t\t// the screen and the status bar behind the taskbar.\n \t\t// Note: important to use Math.round() because Electron does not seem to be too happy about\n \t\t// display coordinates that are not absolute numbers.\n \t\tlet state = defaultWindowState(undefined, isWorkspaceIdentifier(configuration.workspace) || isSingleFolderWorkspaceIdentifier(configuration.workspace));\n-\t\tstate.x = Math.round(displayToUse.bounds.x + (displayToUse.bounds.width / 2) - (state.width! / 2));\n-\t\tstate.y = Math.round(displayToUse.bounds.y + (displayToUse.bounds.height / 2) - (state.height! / 2));\n+\t\tconst workArea = displayToUse.workArea.width > 0 && displayToUse.workArea.height > 0 ? displayToUse.workArea : displayToUse.bounds;\n+\t\tconst width = Math.min(state.width!, workArea.width);\n+\t\tconst height = Math.min(state.height!, workArea.height);\n+\t\tstate.width = width;\n+\t\tstate.height = height;\n+\t\tstate.x = Math.max(workArea.x, Math.round(workArea.x + (workArea.width / 2) - (width / 2)));\n+\t\tstate.y = Math.max(workArea.y, Math.round(workArea.y + (workArea.height / 2) - (height / 2)));\n \n \t\t// Check for newWindowDimensions setting and adjust accordingly\n \t\tconst windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');\n@@ -402,28 +410,44 @@ export class WindowsStateHandler extends Disposable {\n \t\t}\n \n \t\tif (ensureNoOverlap) {\n-\t\t\tstate = this.ensureNoOverlap(state);\n+\t\t\tstate = this.ensureNoOverlap(state, workArea);\n \t\t}\n \n \t\t(state as INewWindowState).hasDefaultState = true; // flag as default state\n \n \t\treturn state;\n \t}\n \n-\tprivate ensureNoOverlap(state: IWindowUIState): IWindowUIState {\n+\tprivate ensureNoOverlap(state: IWindowUIState, workArea: electron.Rectangle): IWindowUIState {\n \t\tif (this.windowsMainService.getWindows().length === 0) {\n \t\t\treturn state;\n \t\t}\n \n-\t\tstate.x = typeof state.x === 'number' ? state.x : 0;\n-\t\tstate.y = typeof state.y === 'number' ? state.y : 0;\n+\t\tlet x = typeof state.x === 'number' ? state.x : 0;\n+\t\tlet y = typeof state.y === 'number' ? state.y : 0;\n+\t\tconst width = state.width ?? 0;\n+\t\tconst height = state.height ?? 0;\n \n \t\tconst existingWindowBounds = this.windowsMainService.getWindows().map(window => window.getBounds());\n-\t\twhile (existingWindowBounds.some(bounds => bounds.x === state.x || bounds.y === state.y)) {\n-\t\t\tstate.x += 30;\n-\t\t\tstate.y += 30;\n+\t\twhile (existingWindowBounds.some(bounds => bounds.x === x || bounds.y === y)) {\n+\t\t\tconst nextX = x + 30;\n+\t\t\tconst nextY = y + 30;\n+\n+\t\t\t// Stop offsetting as soon as the window would no longer fit inside the work area.\n+\t\t\t// Displays arranged side by side share the same vertical origin, so windows on a\n+\t\t\t// second display collide on `y` repeatedly and the accumulated offset would\n+\t\t\t// otherwise push the title bar and status bar out of the visible region.\n+\t\t\tif (nextX + width > workArea.x + workArea.width || nextY + height > workArea.y + workArea.height) {\n+\t\t\t\tbreak;\n+\t\t\t}\n+\n+\t\t\tx = nextX;\n+\t\t\ty = nextY;\n \t\t}\n \n+\t\tstate.x = x;\n+\t\tstate.y = y;\n+\n \t\treturn state;\n \t}\n }"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4216293096,
+   "node_id": "PRR_kwDOAn8RLM77T4bo",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes default new-window placement on small/scaled displays by basing the initial window rectangle on the display *work area* (excluding taskbar/dock) and clamping the default 1440×900 (workspace) / 1200×800 (empty) sizes to the visible region.\n\n**Changes:**\n- Switches default centering from `display.bounds` to `display.workArea`.\n- Clamps default `width/height` to `workArea.width/height` before computing `x/y`.\n- Adds clarifying comments explaining the regression and why clamping is needed.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313944#pullrequestreview-4216293096",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313944",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313944#pullrequestreview-4216293096"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313944"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-03T12:18:21Z",
+   "commit_id": "bf4b8571398235c297b803621489356c726de1b9"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4507636085",
+   "html_url": "https://github.com/microsoft/vscode/pull/313944#issuecomment-4507636085",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313944",
+   "id": 4507636085,
+   "node_id": "IC_kwDOAn8RLM8AAAABDK0RdQ",
+   "user": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-21T11:14:50Z",
+   "updated_at": "2026-05-21T11:14:50Z",
+   "body": "For reference: I filed #317762 documenting a second symptom of this same regression. Clicking \"Open in Agents\" hits the same `doGetNewWindowState()` code path and produces the same offscreen-chrome behavior on small/scaled displays. The fix in this PR covers both entry points.\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4507636085/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5118373853",
+   "html_url": "https://github.com/microsoft/vscode/pull/313944#issuecomment-5118373853",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313944",
+   "id": 5118373853,
+   "node_id": "IC_kwDOAn8RLM8AAAABMRQv3Q",
+   "user": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-29T13:25:56Z",
+   "updated_at": "2026-07-29T13:25:56Z",
+   "body": "@microsoft-github-policy-service agree\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5118373853/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5118438033",
+   "html_url": "https://github.com/microsoft/vscode/pull/313944#issuecomment-5118438033",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313944",
+   "id": 5118438033,
+   "node_id": "IC_kwDOAn8RLM8AAAABMRUqkQ",
+   "user": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-07-29T13:31:28Z",
+   "updated_at": "2026-07-29T13:31:28Z",
+   "body": "Update: while testing this on a dual-monitor setup I found a second code path the\r\noriginal fix did not cover, and I have pushed another commit for it.\r\n\r\nThe bug reproduces reliably when a second display is connected, and only\r\nintermittently on a single display. The reason is `ensureNoOverlap()`, which runs\r\nafter the work area clamp and undoes it:\r\n\r\n```ts\r\nwhile (existingWindowBounds.some(bounds => bounds.x === state.x || bounds.y === state.y)) {\r\n    state.x += 30;\r\n    state.y += 30;\r\n}\r\n```\r\n\r\nThree things combine here:\r\n\r\n1. The condition is `||`, so a match on x alone or y alone is enough to trigger an offset.\r\n2. It compares against every window on every display, not just windows on the target display.\r\n3. There is no re-clamping after the loop.\r\n\r\nDisplays arranged side by side share the same vertical origin and height, so every\r\ndefault-positioned window on either display computes the same y. A window on the\r\nfirst display therefore guarantees a y collision for a new window on the second, the\r\nloop runs repeatedly, and the accumulated offset pushes the title bar above the work\r\narea and the status bar behind the taskbar.\r\n\r\nOn my setup (two 1920x1080 panels at 125%, giving a logical work area of 1536x816) a\r\nworkspace window already starts at y = -18 before any offsetting, since the default\r\nheight of 900 exceeds the 816px work area. Each subsequent collision adds another 30px.\r\n\r\nThe new commit passes the work area into `ensureNoOverlap()` and stops offsetting once\r\nthe next step would push the window outside it. Behaviour is unchanged when there is no\r\ncollision. In the worst case a new window now overlaps an existing one instead of moving\r\noff screen, which seemed the right trade since the offsetting is cosmetic while staying\r\non screen is not.\r\n\r\nVerified locally on the setup described above, with the source window both maximized\r\nand not maximized.\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5118438033/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5442879260",
+   "html_url": "https://github.com/microsoft/vscode/pull/313944#issuecomment-5442879260",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313944",
+   "id": 5442879260,
+   "node_id": "IC_kwDOAn8RLM8AAAABRGu_HA",
+   "user": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-27T17:36:14Z",
+   "updated_at": "2026-08-27T17:36:14Z",
+   "body": "@benibenj thanks for consolidating #317762 into #313942, and for the note that this PR\r\nresolves both paths.\r\n\r\nQuick summary of the change in case it is useful:\r\n\r\n- Clamps the default window size and position to `displayToUse.workArea` instead of\r\n  `displayToUse.bounds`, falling back to `bounds` when `workArea` reports zero, which can\r\n  happen on Linux/X11.\r\n- Bounds the `ensureNoOverlap()` offset loop to the same work area, so the repeated +30\r\n  offset cannot push the chrome back outside the visible region.\r\n- 30 lines in one file, `windowsStateHandler.ts`. No new dependencies, no API changes.\r\n\r\nVerified on a dual-monitor Windows 11 setup at 125% scaling, with the source window both\r\nmaximized and not.\r\n\r\nThe workflows are still awaiting approval so CI has not run yet. Happy to rework anything\r\nif the approach needs changing, and equally happy to wait if it is simply queued.\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5442879260/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "bf4b8571398235c297b803621489356c726de1b9",
+   "node_id": "C_kwDOSQgfWNoAKGJmNGI4NTcxMzk4MjM1YzI5N2I4MDM2MjE0ODkzNTZjNzI2ZGUxYjk",
+   "commit": {
+    "author": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-05-03T11:32:37Z"
+    },
+    "committer": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-05-03T11:32:37Z"
+    },
+    "message": "Fix new window opening with title bar or status bar outside visible area on small/scaled displays\n\nDefault window size (1440x900) introduced in #262266 was never clamped to\nthe display work area, causing the status bar to be hidden behind the\ntaskbar or the title bar pushed off-screen on displays with workArea\nheight < 900px. Fixes #313942. Switch positioning from displayToUse.bounds\nto displayToUse.workArea and clamp width/height to fit.",
+    "tree": {
+     "sha": "3fede5b5987dd9cb43b43dabebd3533e5801a7ad",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3fede5b5987dd9cb43b43dabebd3533e5801a7ad"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bf4b8571398235c297b803621489356c726de1b9",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bf4b8571398235c297b803621489356c726de1b9",
+   "html_url": "https://github.com/microsoft/vscode/commit/bf4b8571398235c297b803621489356c726de1b9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bf4b8571398235c297b803621489356c726de1b9/comments",
+   "author": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b0f253eec7a194f69f0b79ec89cba41fde96c5e6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b0f253eec7a194f69f0b79ec89cba41fde96c5e6",
+     "html_url": "https://github.com/microsoft/vscode/commit/b0f253eec7a194f69f0b79ec89cba41fde96c5e6"
+    }
+   ]
+  },
+  {
+   "sha": "a7c6cfb504feaf662562889568edbda84f2ca306",
+   "node_id": "C_kwDOSQgfWNoAKGE3YzZjZmI1MDRmZWFmNjYyNTYyODg5NTY4ZWRiZGE4NGYyY2EzMDY",
+   "commit": {
+    "author": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-05-03T13:00:53Z"
+    },
+    "committer": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-05-03T13:00:53Z"
+    },
+    "message": "Address Copilot review: validate workArea dimensions and use local consts",
+    "tree": {
+     "sha": "27f61a4b553f68430b756cd405fceb8811f6c4da",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/27f61a4b553f68430b756cd405fceb8811f6c4da"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a7c6cfb504feaf662562889568edbda84f2ca306",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a7c6cfb504feaf662562889568edbda84f2ca306",
+   "html_url": "https://github.com/microsoft/vscode/commit/a7c6cfb504feaf662562889568edbda84f2ca306",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a7c6cfb504feaf662562889568edbda84f2ca306/comments",
+   "author": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bf4b8571398235c297b803621489356c726de1b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bf4b8571398235c297b803621489356c726de1b9",
+     "html_url": "https://github.com/microsoft/vscode/commit/bf4b8571398235c297b803621489356c726de1b9"
+    }
+   ]
+  },
+  {
+   "sha": "120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+   "node_id": "C_kwDOSQgfWNoAKDEyMGM2ZDE2MzViZjE3NGY2ZjBjMGIyOTM0NWQ1MmUyZWExZTU0M2Y",
+   "commit": {
+    "author": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-05-14T19:14:41Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-05-14T19:14:41Z"
+    },
+    "message": "Merge branch 'main' into fix/new-window-offscreen-chrome",
+    "tree": {
+     "sha": "1e79f5eddb9b91fb492f621c74db78ed9cb87ba0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1e79f5eddb9b91fb492f621c74db78ed9cb87ba0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqBh8hCRC1aQ7uu5UhlAAAZCkQABE+zoOO+dwm3Lo7xUaQg4bU\nDAH6Ur3J6EFBki9ZMwHwifXgWbVGdfnF44sqt7iTUbDXEaXgXEsgwI4Ukun4WyaV\nB68mYFmdhTvFj7VsI5Z1prnHG8tk+UYBnMy6FH8ix0cKobtfaWOBquJUfSVcCno5\nKoYlDG3E/Yv14Nsfi2GH1z3HZsQts3uD2q1nO1xSPpAw7ROep6doYiog0YYy4z6i\nIJI1l1gyspajJ+jWB3AwKVNzh9hcz3SjsOrQA3Q0xAlpd+gmADfEJrut5rfYCzu4\n+FkHU0YbHhJ6JyhdsBdrcEj+TaoJVrzKHvBH4SHKzDv7+uX8dr2WwDBff2jMbKAT\n5B26V1FbVb9V9zGwnWE3hAL3HmruZj5e79mVVAmJVgsxKSOxcpUyRi5MaiAnGcVb\ndGplHcs9BAbbZT0M9NI1XFSLeUHcAks5R1PSjiN0jZcQW3YaqtmfC7PiUMFR8X7r\nPf24Nu6e8TCW+TwxwG+jDyyqhhJmQYn1H2IIx3IZesVtvhpmjU7vXwNPp6fyi5ty\nJ/5JNsON/86tEIP8ayYZ+xnllWyXMV3z65OqtV6sD6wSyX+1f+fd2hzNMFigCxEG\n+YUxXFVxo8UPqLmF0jmFHFcUX0KZogdGXmNZfI3lUgOmiRPK0KGx0NsCDBNfPSja\nbfB6mnlCaSDugMqTkAIU\n=6Fcb\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1e79f5eddb9b91fb492f621c74db78ed9cb87ba0\nparent a7c6cfb504feaf662562889568edbda84f2ca306\nparent a2fb803f5c048de9914686d52e7f3337e91771ba\nauthor mx-92x <96252981+mx-92x@users.noreply.github.com> 1778786081 +0530\ncommitter GitHub <noreply@github.com> 1778786081 +0530\n\nMerge branch 'main' into fix/new-window-offscreen-chrome",
+     "verified_at": "2026-05-14T19:14:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+   "html_url": "https://github.com/microsoft/vscode/commit/120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/120c6d1635bf174f6f0c0b29345d52e2ea1e543f/comments",
+   "author": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a7c6cfb504feaf662562889568edbda84f2ca306",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a7c6cfb504feaf662562889568edbda84f2ca306",
+     "html_url": "https://github.com/microsoft/vscode/commit/a7c6cfb504feaf662562889568edbda84f2ca306"
+    },
+    {
+     "sha": "a2fb803f5c048de9914686d52e7f3337e91771ba",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a2fb803f5c048de9914686d52e7f3337e91771ba",
+     "html_url": "https://github.com/microsoft/vscode/commit/a2fb803f5c048de9914686d52e7f3337e91771ba"
+    }
+   ]
+  },
+  {
+   "sha": "472754d53b29cb86be91f31c692a584e2b891b33",
+   "node_id": "C_kwDOSQgfWNoAKDQ3Mjc1NGQ1M2IyOWNiODZiZTkxZjMxYzY5MmE1ODRlMmI4OTFiMzM",
+   "commit": {
+    "author": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-07-29T12:57:01Z"
+    },
+    "committer": {
+     "name": "mx-92x",
+     "email": "96252981+mx-92x@users.noreply.github.com",
+     "date": "2026-07-29T13:17:38Z"
+    },
+    "message": "Keep default window offset inside the display work area\n\nensureNoOverlap() offsets a new window by 30px whenever it shares an x or y\ncoordinate with an existing window, but it never checked the result against\nthe display work area. Displays arranged side by side share the same vertical\norigin, so default-positioned windows on a second display collide on y\nrepeatedly and the accumulated offset pushes the title bar above the screen\nand the status bar behind the taskbar.\n\nPass the work area into ensureNoOverlap() and stop offsetting once the window\nwould no longer fit inside it.",
+    "tree": {
+     "sha": "e3c37e20c899144e5fb5bbc8354b58f513f0063f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e3c37e20c899144e5fb5bbc8354b58f513f0063f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/472754d53b29cb86be91f31c692a584e2b891b33",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/472754d53b29cb86be91f31c692a584e2b891b33",
+   "html_url": "https://github.com/microsoft/vscode/commit/472754d53b29cb86be91f31c692a584e2b891b33",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/472754d53b29cb86be91f31c692a584e2b891b33/comments",
+   "author": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mx-92x",
+    "id": 96252981,
+    "node_id": "U_kgDOBby0NQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/96252981?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mx-92x",
+    "html_url": "https://github.com/mx-92x",
+    "followers_url": "https://api.github.com/users/mx-92x/followers",
+    "following_url": "https://api.github.com/users/mx-92x/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mx-92x/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mx-92x/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mx-92x/subscriptions",
+    "organizations_url": "https://api.github.com/users/mx-92x/orgs",
+    "repos_url": "https://api.github.com/users/mx-92x/repos",
+    "events_url": "https://api.github.com/users/mx-92x/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mx-92x/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/120c6d1635bf174f6f0c0b29345d52e2ea1e543f",
+     "html_url": "https://github.com/microsoft/vscode/commit/120c6d1635bf174f6f0c0b29345d52e2ea1e543f"
+    }
+   ]
+  }
+ ]
+}

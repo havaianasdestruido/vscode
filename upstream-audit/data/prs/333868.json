@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:54:42.913Z",
+ "pr": {
+  "number": 333868,
+  "title": "Optimize hostRequirements memory threshold to 4gb (#333865)",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-01T21:14:44Z",
+  "updated_at": "2026-09-01T22:17:17Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 2,
+  "deletions": 2,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-29",
+   "sha": "15f3b2b797d36aad456458cdeda7894ec03354eb",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-29"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "ebbbc9e814f7a13ecc5401ed221a3e98edc4ea4e"
+  },
+  "body": "Lower the minimum memory requirement in devcontainer.json from 9gb to 4gb to improve cross-machine compatibility and onboard developers with mid-range hardware more smoothly. \r\n\r\nFixes #333865.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8cfcf1c82491b3f8a9b5fbf26600c40e3a849bca",
+   "filename": ".devcontainer/devcontainer.json",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/15f3b2b797d36aad456458cdeda7894ec03354eb/.devcontainer%2Fdevcontainer.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/15f3b2b797d36aad456458cdeda7894ec03354eb/.devcontainer%2Fdevcontainer.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/.devcontainer%2Fdevcontainer.json?ref=15f3b2b797d36aad456458cdeda7894ec03354eb",
+   "patch": "@@ -9,7 +9,7 @@\n \t\t\"ghcr.io/devcontainers/features/sshd:1\": {}\n \t},\n \t\"containerEnv\": {\n-\t\t\"DISPLAY\": \"\" // Allow the Dev Containers extension to set DISPLAY, post-create.sh will add it back in ~/.bashrc and ~/.zshrc if not set.\n+\t\t\"DISPLAY\": \"\"\n \t},\n \t\"overrideCommand\": false,\n \t\"privileged\": true,\n@@ -49,6 +49,6 @@\n \t\t}\n \t},\n \t\"hostRequirements\": {\n-\t\t\"memory\": \"9gb\"\n+\t\t\"memory\": \"4gb\"\n \t}\n }"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5083196900,
+   "node_id": "PRR_kwDOAn8RLM8AAAABLvtt5A",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟢 Approval recommended\n\nThe targeted configuration change correctly implements the linked issue without affecting container behavior.\n\n<details>\n<summary>Pull request overview</summary>\n\nLowers the dev-container host memory requirement to improve compatibility with mid-range hardware.\n\n**Changes:**\n- Reduces required host memory from 9 GB to 4 GB.\n- Removes the inline `DISPLAY` explanation.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `.devcontainer/devcontainer.json` | Updates dev-container memory requirements. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 0\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/333868#pullrequestreview-5083196900",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/333868",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/333868#pullrequestreview-5083196900"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/333868"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-01T21:17:49Z",
+   "commit_id": "15f3b2b797d36aad456458cdeda7894ec03354eb"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "15f3b2b797d36aad456458cdeda7894ec03354eb",
+   "node_id": "C_kwDOTk4kkdoAKDE1ZjNiMmI3OTdkMzZhYWQ0NTY0NThjZGVkYTc4OTRlYzAzMzU0ZWI",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-01T21:12:47Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-01T21:12:47Z"
+    },
+    "message": "Optimize hostRequirements memory threshold to 4gb (#333865)\n\nLower the minimum memory requirement in devcontainer.json from 9gb to 4gb to improve cross-machine compatibility and onboard developers with mid-range hardware more smoothly. Fixes #333865.",
+    "tree": {
+     "sha": "f3b65bb2abb6dad805db563cc7b3db2657907db6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f3b65bb2abb6dad805db563cc7b3db2657907db6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/15f3b2b797d36aad456458cdeda7894ec03354eb",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqlz/PCRC1aQ7uu5UhlAAAM0sQAB7WL+FoFe6WExT987Hh01/p\nDspxaeca5XhxxzlJkUqJ2Q7uZvKEaWNIvK4rKNoGKZdBGdGCAaz+tPysVU+dmQEr\n5xRhAMs26ruVgtbQ4RnOaJ/Tx/kfjS2BGud4bQHdcwBzKP1TcrIp3++SZdqFb71e\n2SANqITvUeWDUh9ARUQnP0iyy2wHwJcq6LDgK2eGP2i9yLkNKOW6Z+Cizit+OvOu\nyyjjTxwbRBrXVoXU5fs7cEHM1XsDwTp0tmvvhm2+A9MqDqEeLwukPPKImvFSQ8l3\nI606hyqSSom9qM5B0kAyrPZ78NsxANQDJMp9P8/O4uoLIchNiRMVeSzsCHMFyqGz\np7DNYHCwxyL+dX/hC/J4lQPdbpc/Dd5szOQ2Lrjxfv7gFQxKiGOe9bUDsV1Uz7HU\nu3YR8DXf9IT4a/yyOw0MKUbjuKbEXJGcTFCyTcdrkiNSGvWH6pCBqWSFnFCcVgoR\nwNv2OcJFezXNePsRtn2lb2ByvamnTM3MJACVXOA/5TCkQe2APzdGvwFl9Rcqv+ec\nzZoVosDdj6BGy3WyeNDy1JzOXbj9WBV8UZ8sEG81WJD1QSAdxhDR1uHM857+4Jio\ng4mN90Gd/Mb/rbLmktOdz6bkqYORY45FiVgG0IPy75h5WGEC8C9QNFE4bzxVemHF\nGGkE48pCnaYZabzstAaa\n=R81M\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f3b65bb2abb6dad805db563cc7b3db2657907db6\nparent ebbbc9e814f7a13ecc5401ed221a3e98edc4ea4e\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1788297167 +0300\ncommitter GitHub <noreply@github.com> 1788297167 +0300\n\nOptimize hostRequirements memory threshold to 4gb (#333865)\n\nLower the minimum memory requirement in devcontainer.json from 9gb to 4gb to improve cross-machine compatibility and onboard developers with mid-range hardware more smoothly. Fixes #333865.",
+     "verified_at": "2026-09-01T21:12:48Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/15f3b2b797d36aad456458cdeda7894ec03354eb",
+   "html_url": "https://github.com/microsoft/vscode/commit/15f3b2b797d36aad456458cdeda7894ec03354eb",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/15f3b2b797d36aad456458cdeda7894ec03354eb/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ebbbc9e814f7a13ecc5401ed221a3e98edc4ea4e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ebbbc9e814f7a13ecc5401ed221a3e98edc4ea4e",
+     "html_url": "https://github.com/microsoft/vscode/commit/ebbbc9e814f7a13ecc5401ed221a3e98edc4ea4e"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,419 @@
+{
+ "fetchedAt": "2026-11-01T00:52:21.102Z",
+ "pr": {
+  "number": 245404,
+  "title": "Bug fix: Accessibility: High contrast theme on activity bar inconsistent",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-04-03T02:21:09Z",
+  "updated_at": "2026-01-20T10:13:48Z",
+  "user": "nickbrit",
+  "author_association": "NONE",
+  "additions": 12,
+  "deletions": 7,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "bug-fix-accessibility",
+   "sha": "52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "repo": "nickbrit/vscode",
+   "label": "nickbrit:bug-fix-accessibility"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "**Issue Associated:** https://github.com/microsoft/vscode/issues/245121\r\n\r\nFixed the accessibility hover and active states for activity bar icons in the high contrast theme.\r\n\r\n### Changes:\r\n\r\n- Replaced `::before` with a new `<div>` inside the `.action-item` container to handle the hover and active outline.\r\n- `::before` doesn’t work with CSS masks. It is used for outlines, while CSS masks are applied to extension icons, but they don’t work together.\r\n- Using an extra `<div>` ensures the outline is visible and works consistently across all icons.\r\n\r\n![ezgif-83798f5967789c](https://github.com/user-attachments/assets/d3dae506-8129-4b18-9d2b-d9130500bcfb)\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "93e201d93162a0196538d14157b2fcb1423ff969",
+   "filename": "src/vs/workbench/browser/parts/activitybar/activitybarPart.ts",
+   "status": "modified",
+   "additions": 9,
+   "deletions": 7,
+   "changes": 16,
+   "blob_url": "https://github.com/microsoft/vscode/blob/52fa23e8f11fa6bf4759afd87b2721c4de2fc651/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/52fa23e8f11fa6bf4759afd87b2721c4de2fc651/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2Factivitybar%2FactivitybarPart.ts?ref=52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "patch": "@@ -584,18 +584,20 @@ registerThemingParticipant((theme, collector) => {\n \tconst outline = theme.getColor(activeContrastBorder);\n \tif (outline) {\n \t\tcollector.addRule(`\n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item .action-label::before{\n-\t\t\t\tpadding: 6px;\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item .action-label-outline{\n+\t\t\t\tposition: absolute;\n+\t\t\t\tinset: 6px;\n+\t\t\t\tz-index: 2\n \t\t\t}\n \n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.active .action-label::before,\n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.active:hover .action-label::before,\n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.checked .action-label::before,\n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.checked:hover .action-label::before {\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.active .action-label-outline,\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.active:hover .action-label-outline,\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.checked .action-label-outline,\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item.checked:hover .action-label-outline {\n \t\t\t\toutline: 1px solid ${outline};\n \t\t\t}\n \n-\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item:hover .action-label::before {\n+\t\t\t.monaco-workbench .activitybar > .content :not(.monaco-menu) > .monaco-action-bar .action-item:hover .action-label-outline {\n \t\t\t\toutline: 1px dashed ${outline};\n \t\t\t}\n "
+  },
+  {
+   "sha": "cdfc4f74e7e3f1aef4edd9d77c8ec63f63c7f646",
+   "filename": "src/vs/workbench/browser/parts/compositeBarActions.ts",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 0,
+   "changes": 3,
+   "blob_url": "https://github.com/microsoft/vscode/blob/52fa23e8f11fa6bf4759afd87b2721c4de2fc651/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBarActions.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/52fa23e8f11fa6bf4759afd87b2721c4de2fc651/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBarActions.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fbrowser%2Fparts%2FcompositeBarActions.ts?ref=52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "patch": "@@ -282,6 +282,9 @@ export class CompositeBarActionViewItem extends BaseActionViewItem {\n \t\t// pane composite bar active border + background\n \t\tappend(container, $('.active-item-indicator'));\n \n+\t\t// outline\n+\t\tappend(container, $('.action-label-outline'));\n+\n \t\thide(this.badge);\n \n \t\tthis.update();"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2744950647,
+   "node_id": "PRR_kwDOAn8RLM6jnJ93",
+   "user": {
+    "login": "baochit6789",
+    "id": 206015125,
+    "node_id": "U_kgDODEeKlQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/206015125?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/baochit6789",
+    "html_url": "https://github.com/baochit6789",
+    "followers_url": "https://api.github.com/users/baochit6789/followers",
+    "following_url": "https://api.github.com/users/baochit6789/following{/other_user}",
+    "gists_url": "https://api.github.com/users/baochit6789/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/baochit6789/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/baochit6789/subscriptions",
+    "organizations_url": "https://api.github.com/users/baochit6789/orgs",
+    "repos_url": "https://api.github.com/users/baochit6789/repos",
+    "events_url": "https://api.github.com/users/baochit6789/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/baochit6789/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/245404#pullrequestreview-2744950647",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/245404",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/245404#pullrequestreview-2744950647"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/245404"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-04-05T17:19:30Z",
+   "commit_id": "52fa23e8f11fa6bf4759afd87b2721c4de2fc651"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2774195001",
+   "html_url": "https://github.com/microsoft/vscode/pull/245404#issuecomment-2774195001",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/245404",
+   "id": 2774195001,
+   "node_id": "IC_kwDOAn8RLM6lWts5",
+   "user": {
+    "login": "nickbrit",
+    "id": 5815952,
+    "node_id": "MDQ6VXNlcjU4MTU5NTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5815952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nickbrit",
+    "html_url": "https://github.com/nickbrit",
+    "followers_url": "https://api.github.com/users/nickbrit/followers",
+    "following_url": "https://api.github.com/users/nickbrit/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nickbrit/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nickbrit/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nickbrit/subscriptions",
+    "organizations_url": "https://api.github.com/users/nickbrit/orgs",
+    "repos_url": "https://api.github.com/users/nickbrit/repos",
+    "events_url": "https://api.github.com/users/nickbrit/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nickbrit/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-03T02:22:39Z",
+   "updated_at": "2025-04-03T02:22:39Z",
+   "body": "@microsoft-github-policy-service agree\r\n@microsoft-github-policy-service agree\r\n@microsoft-github-policy-service agree company=\"Microsoft\"",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2774195001/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2774223462",
+   "html_url": "https://github.com/microsoft/vscode/pull/245404#issuecomment-2774223462",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/245404",
+   "id": 2774223462,
+   "node_id": "IC_kwDOAn8RLM6lW0pm",
+   "user": {
+    "login": "baochit6789",
+    "id": 206015125,
+    "node_id": "U_kgDODEeKlQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/206015125?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/baochit6789",
+    "html_url": "https://github.com/baochit6789",
+    "followers_url": "https://api.github.com/users/baochit6789/followers",
+    "following_url": "https://api.github.com/users/baochit6789/following{/other_user}",
+    "gists_url": "https://api.github.com/users/baochit6789/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/baochit6789/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/baochit6789/subscriptions",
+    "organizations_url": "https://api.github.com/users/baochit6789/orgs",
+    "repos_url": "https://api.github.com/users/baochit6789/repos",
+    "events_url": "https://api.github.com/users/baochit6789/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/baochit6789/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-03T02:35:59Z",
+   "updated_at": "2025-04-03T02:35:59Z",
+   "body": "nickbrit:bug-fix-accessibility",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2774223462/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2780661677",
+   "html_url": "https://github.com/microsoft/vscode/pull/245404#issuecomment-2780661677",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/245404",
+   "id": 2780661677,
+   "node_id": "IC_kwDOAn8RLM6lvYet",
+   "user": {
+    "login": "RedyAu",
+    "id": 12989935,
+    "node_id": "MDQ6VXNlcjEyOTg5OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12989935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RedyAu",
+    "html_url": "https://github.com/RedyAu",
+    "followers_url": "https://api.github.com/users/RedyAu/followers",
+    "following_url": "https://api.github.com/users/RedyAu/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RedyAu/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RedyAu/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RedyAu/subscriptions",
+    "organizations_url": "https://api.github.com/users/RedyAu/orgs",
+    "repos_url": "https://api.github.com/users/RedyAu/repos",
+    "events_url": "https://api.github.com/users/RedyAu/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RedyAu/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-04-05T11:01:29Z",
+   "updated_at": "2025-04-05T11:01:29Z",
+   "body": "Thank you for the fix! This was a small issue, but inconsistencies add up quick.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2780661677/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "dcf95b415a4294dec9c2f70b821556d718f15c13",
+   "node_id": "C_kwDOOR4QINoAKGRjZjk1YjQxNWE0Mjk0ZGVjOWMyZjcwYjgyMTU1NmQ3MThmMTVjMTM",
+   "commit": {
+    "author": {
+     "name": "nickbrit",
+     "email": "gulevnick@gmail.com",
+     "date": "2025-04-03T01:57:51Z"
+    },
+    "committer": {
+     "name": "nickbrit",
+     "email": "gulevnick@gmail.com",
+     "date": "2025-04-03T01:57:51Z"
+    },
+    "message": "Bug fix: Accessibility: High contrast theme on activity bar inconsistent",
+    "tree": {
+     "sha": "a997b568a45d98834f7740a1f1fa88306f656608",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a997b568a45d98834f7740a1f1fa88306f656608"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/dcf95b415a4294dec9c2f70b821556d718f15c13",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/dcf95b415a4294dec9c2f70b821556d718f15c13",
+   "html_url": "https://github.com/microsoft/vscode/commit/dcf95b415a4294dec9c2f70b821556d718f15c13",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/dcf95b415a4294dec9c2f70b821556d718f15c13/comments",
+   "author": {
+    "login": "nickbrit",
+    "id": 5815952,
+    "node_id": "MDQ6VXNlcjU4MTU5NTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5815952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nickbrit",
+    "html_url": "https://github.com/nickbrit",
+    "followers_url": "https://api.github.com/users/nickbrit/followers",
+    "following_url": "https://api.github.com/users/nickbrit/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nickbrit/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nickbrit/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nickbrit/subscriptions",
+    "organizations_url": "https://api.github.com/users/nickbrit/orgs",
+    "repos_url": "https://api.github.com/users/nickbrit/repos",
+    "events_url": "https://api.github.com/users/nickbrit/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nickbrit/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "nickbrit",
+    "id": 5815952,
+    "node_id": "MDQ6VXNlcjU4MTU5NTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5815952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nickbrit",
+    "html_url": "https://github.com/nickbrit",
+    "followers_url": "https://api.github.com/users/nickbrit/followers",
+    "following_url": "https://api.github.com/users/nickbrit/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nickbrit/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nickbrit/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nickbrit/subscriptions",
+    "organizations_url": "https://api.github.com/users/nickbrit/orgs",
+    "repos_url": "https://api.github.com/users/nickbrit/repos",
+    "events_url": "https://api.github.com/users/nickbrit/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nickbrit/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "966a672107ce33bcc65a413f984254bab492a70e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/966a672107ce33bcc65a413f984254bab492a70e",
+     "html_url": "https://github.com/microsoft/vscode/commit/966a672107ce33bcc65a413f984254bab492a70e"
+    }
+   ]
+  },
+  {
+   "sha": "52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "node_id": "C_kwDOOR4QINoAKDUyZmEyM2U4ZjExZmE2YmY0NzU5YWZkODdiMjcyMWM0ZGUyZmM2NTE",
+   "commit": {
+    "author": {
+     "name": "nickbrit",
+     "email": "nickbrit@users.noreply.github.com",
+     "date": "2025-04-03T02:40:48Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-04-03T02:40:48Z"
+    },
+    "message": "Merge branch 'main' into bug-fix-accessibility",
+    "tree": {
+     "sha": "f5682371f817888eff2b90b6b67cd94f3750505a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f5682371f817888eff2b90b6b67cd94f3750505a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJn7fUwCRC1aQ7uu5UhlAAAjwkQAKgm565Wr7+OIX1jd6+cBbP3\n85qEpK42S+Wihjnd7AiRyslhXxIBD6gbq71xs0BTZwYSJ8qYiSgaDyV96wWAoICw\n5P2knRJGdKoWdwXW3PDWSPLVi+3J+WEKWyknzpYGAJ+K22l2Hp86h0P58QX08n0M\n3/zcaAKktau6BIcycKwwPD8VMeNQXkN/nAiOdNyibuEA1d+syg6g5NYnEo9yVqBG\nTAR9c887iIOpYRM5ZMjQJm8hPL6z1g7MgDlAobGro9kGu/nOAOPFpzZ0X47FiDdC\nlbA43MZDc9DvFtL9BcydYkn9z3t/E62/bfBziccZpp5884B5ZGAgD2AntGutSpI9\nMpnZm6Sz9A4SftzRTcdSgd6bF086bWEMMSxm+GBnz5ycBaidI7BPFSr8RDgRI9d/\n+CHu1o0wVA9cpUaKKH02H3mol1SbjeNkwQ0ey8tPYdUkwrE2XbShfhhvlM2+pPec\nriI6YShxmSl2Sg3kWsnqCxLs2mTCIKzM3yO1NIJ3BRQgtr5ci6lF+IP4P3pYg7Wa\nTRnq+ooCAJOBqupBnJPJWirmVOqFZgL7mBLr/iBIXgaYcTP7d9PGF8fM/3aDeMJ0\nvk9SHy8XWWHdaP0QL2NO/XAujNA6YHNL4mGE9Mi7iJe+Sq4wE6daVpIPirYK8gDy\n5Gxzxm5P7N23jB47t8b3\n=DlOb\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f5682371f817888eff2b90b6b67cd94f3750505a\nparent dcf95b415a4294dec9c2f70b821556d718f15c13\nparent d70ed26a6e8c2afefd9eed7b87ec067e682a8117\nauthor nickbrit <nickbrit@users.noreply.github.com> 1743648048 -1000\ncommitter GitHub <noreply@github.com> 1743648048 -1000\n\nMerge branch 'main' into bug-fix-accessibility",
+     "verified_at": "2025-04-03T02:40:51Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "html_url": "https://github.com/microsoft/vscode/commit/52fa23e8f11fa6bf4759afd87b2721c4de2fc651",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/52fa23e8f11fa6bf4759afd87b2721c4de2fc651/comments",
+   "author": {
+    "login": "nickbrit",
+    "id": 5815952,
+    "node_id": "MDQ6VXNlcjU4MTU5NTI=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5815952?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nickbrit",
+    "html_url": "https://github.com/nickbrit",
+    "followers_url": "https://api.github.com/users/nickbrit/followers",
+    "following_url": "https://api.github.com/users/nickbrit/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nickbrit/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nickbrit/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nickbrit/subscriptions",
+    "organizations_url": "https://api.github.com/users/nickbrit/orgs",
+    "repos_url": "https://api.github.com/users/nickbrit/repos",
+    "events_url": "https://api.github.com/users/nickbrit/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nickbrit/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "dcf95b415a4294dec9c2f70b821556d718f15c13",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/dcf95b415a4294dec9c2f70b821556d718f15c13",
+     "html_url": "https://github.com/microsoft/vscode/commit/dcf95b415a4294dec9c2f70b821556d718f15c13"
+    },
+    {
+     "sha": "d70ed26a6e8c2afefd9eed7b87ec067e682a8117",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d70ed26a6e8c2afefd9eed7b87ec067e682a8117",
+     "html_url": "https://github.com/microsoft/vscode/commit/d70ed26a6e8c2afefd9eed7b87ec067e682a8117"
+    }
+   ]
+  }
+ ]
+}

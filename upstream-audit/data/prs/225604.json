@@ -1,0 +1,486 @@
+{
+ "fetchedAt": "2026-11-01T00:51:46.994Z",
+ "pr": {
+  "number": 225604,
+  "title": "Add a snippet #225603",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-08-14T14:33:23Z",
+  "updated_at": "2026-08-24T01:06:05Z",
+  "user": "SrCaioz",
+  "author_association": "NONE",
+  "additions": 9,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "main",
+   "sha": "a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+   "repo": "SrCaioz/vscode",
+   "label": "SrCaioz:main"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "i think help write a little more faster, if... help me pls",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "b7b7cd9cc0704e6acf43623381fac4c48c51baa8",
+   "filename": "extensions/javascript/snippets/javascript.code-snippets",
+   "status": "modified",
+   "additions": 9,
+   "deletions": 0,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a0ea1cc185b3dcb61826996dddb7736163f9c4b4/extensions%2Fjavascript%2Fsnippets%2Fjavascript.code-snippets",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a0ea1cc185b3dcb61826996dddb7736163f9c4b4/extensions%2Fjavascript%2Fsnippets%2Fjavascript.code-snippets",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fjavascript%2Fsnippets%2Fjavascript.code-snippets?ref=a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+   "patch": "@@ -24,6 +24,15 @@\n \t\t],\n \t\t\"description\": \"Class Definition\"\n \t},\n+\t\"Extend Definition\": {\n+\t\t\"prefix\": \"extends\",\n+\t\t\"isFileTemplate\": true,\n+\t\t\"body\": [\n+\t\t\t\"class ${1:className} extends ${2:classExtendedName} {\",\n+\t\t\t\"}\"\n+\t\t],\n+\t\t\"description\": \"Extends a class more faster\"\n+\t},\n \t\"Method Definition\": {\n \t\t\"prefix\": \"method\",\n \t\t\"body\": ["
+  }
+ ],
+ "reviews": [],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+   "node_id": "C_kwDOMjfE69oAKGJlOGNkZGZkMjNmOGNjNDA3ZDk0OTFmMDZmMmQyNzhlNGExY2Y5Mzg",
+   "commit": {
+    "author": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-14T14:11:10Z"
+    },
+    "committer": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-14T14:11:10Z"
+    },
+    "message": "add snippet\n\ni think help write a little more faster, if... help me pls",
+    "tree": {
+     "sha": "0997c926a5b3456c0d322063a83be367847014c2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0997c926a5b3456c0d322063a83be367847014c2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+   "html_url": "https://github.com/microsoft/vscode/commit/be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/be8cddfd23f8cc407d9491f06f2d278e4a1cf938/comments",
+   "author": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "01d7b7a3157782d098a27d061ded0c6a93f199bf",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/01d7b7a3157782d098a27d061ded0c6a93f199bf",
+     "html_url": "https://github.com/microsoft/vscode/commit/01d7b7a3157782d098a27d061ded0c6a93f199bf"
+    }
+   ]
+  },
+  {
+   "sha": "83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+   "node_id": "C_kwDOMjfE69oAKDgzYzI5ZWE2ZDc1NmIxMzhkYmU5ZjQ0ZWQ0YjI2MWYzMWNkY2FlYTc",
+   "commit": {
+    "author": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-14T14:35:16Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-08-14T14:35:16Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "1eaf2107e1ee1b513b3abbdd5cbe3da54f8362de",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1eaf2107e1ee1b513b3abbdd5cbe3da54f8362de"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmvMCkCRC1aQ7uu5UhlAAA5TgQAAarasgw8pop8v/XcBCSvXaZ\n+1h2zIhdO8E+rURm0XMQf7bq1cDbYccWbLfm32s9tsnD3F0RVVC8p2QfiJ2qcqRR\njUH2ZLOlBOhuNHHAKqJfnJR4VGZlMg4FtY3Gx0i/SOP621RIQq8gvaDff6Jpffss\nH50X+iGKTBAdXAGkGkDphIvW/mm3Xka/To5Y4Y2hdwT46gABp3FGl6APLJElqON3\n8gEC+pxdVuya3AExWg7itHHzaSRq0GH5yV8XKsKMxCc6JgAY6iqcoNPgnxLNTwg8\nR43407PqMWmmQEta77CUF3YIAixKUjI50xL5RGj+ru/vHNpsJumRF6marcPeOiwr\nimb9A/0SInmOR4JxaEHhaVBGRrfudgMYRRTVRxdykw5aUtfZvClqLPSL/s1mC7Q8\nW6yknxCcXPMqzQbIHSaD8SB0olO953pBg6cVtJTe6JRlrqL5Rc3OTsyqFuDu8ol6\nrJ+xJAYzfEMi/gTHx2da1162Z5uQowtsA4l/qeAxtPq2b5RTi/ZZgr6qd5Tx0RUO\n5bTSq8HZewGJXDzFdoft8L+dn5/Ji5S+eybgh2fLngNYiq60W1PWZHghgabNckoZ\n5lhRu1tbusP+kyfT2X6ePylfXoejo8Bbm3IlMUoOWkLXyyZbRIBRPp5IWaPYKkNr\n9FoMXlmLtQaUDEb4DJST\n=1WI7\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1eaf2107e1ee1b513b3abbdd5cbe3da54f8362de\nparent be8cddfd23f8cc407d9491f06f2d278e4a1cf938\nparent f430a63a283b4535ace0cb33ce87f5f661903be2\nauthor Caio Cezar <114605074+Skarzyll@users.noreply.github.com> 1723646116 -0300\ncommitter GitHub <noreply@github.com> 1723646116 -0300\n\nMerge branch 'main' into main",
+     "verified_at": "2024-11-17T11:07:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+   "html_url": "https://github.com/microsoft/vscode/commit/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7/comments",
+   "author": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/be8cddfd23f8cc407d9491f06f2d278e4a1cf938",
+     "html_url": "https://github.com/microsoft/vscode/commit/be8cddfd23f8cc407d9491f06f2d278e4a1cf938"
+    },
+    {
+     "sha": "f430a63a283b4535ace0cb33ce87f5f661903be2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f430a63a283b4535ace0cb33ce87f5f661903be2",
+     "html_url": "https://github.com/microsoft/vscode/commit/f430a63a283b4535ace0cb33ce87f5f661903be2"
+    }
+   ]
+  },
+  {
+   "sha": "230ed3918807e686e484262ea382b36f2a477b72",
+   "node_id": "C_kwDOMjfE69oAKDIzMGVkMzkxODgwN2U2ODZlNDg0MjYyZWEzODJiMzZmMmE0NzdiNzI",
+   "commit": {
+    "author": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-16T12:06:11Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-08-16T12:06:11Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "6e63dd51e6050882dbce4b96ac349ab9d9d050e6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6e63dd51e6050882dbce4b96ac349ab9d9d050e6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/230ed3918807e686e484262ea382b36f2a477b72",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmv0CzCRC1aQ7uu5UhlAAAXt8QAJ3pDVFLxoo4QJ3yAQo9g3Cx\n2dQesXRASXg2EZqMbewN3fYpsIJgzsQxbch7aaVc45r6xhTTf1DGZFwOe4oMvyMy\nGB8n/kbJr7qLNHY7eO40miCTuxQdgNQfyWojMgCqbpmDXWNcXNJHgv5iqKXlE3uE\nmHXCvvf2bQLiX31yfyb0VUXx5fai09CPwyFQsl5Hg+TvBfFW7MJrpOYaGt5cXlOp\n+vF/EcTbnEMbDvio/tg3Gm9HOdS6jzPswi/EN4SbkaiOtXRnj0VceQPvTvsUVgqS\nMBubEBjjLM9tGlIs76fFvItEfLd4a0CcamgBjz03XEtkykKhmjHku3j+cTetdokj\na7Qjh8FXlnkBW2OoLBB63kbzS0C8LWwz/IubfPQ1m8Q2w/bCbmWLVWJRhWYRuyjI\n40BWk/64ySY0NiMf0aIlVVErxCv16diU/Lxzr6CveNL4dCRRxK0nSc5CYYKSgPjX\ngOigO8TKxWd3Tc10+Ct1rqwdnQRfvjaY2AfMwRrdZg51tx1Vk1Q/P3xbH0A7z8+f\nFRTijdMkJeRdwcFieKawf18KiBVFfHA3ofiC+DbcW61to9ycBv/yUVfzX1iTIG3E\nVx8G4gQWj983N37bmQcWWJUAFn+YiIh/DDui7niIOmrRl5kGG6rW4xe6k8RzCTBh\n1wVIfg64sNdd6EXop6KD\n=H5Nr\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 6e63dd51e6050882dbce4b96ac349ab9d9d050e6\nparent 83c29ea6d756b138dbe9f44ed4b261f31cdcaea7\nparent c629a06feb7d7bd5f9a3b6ed4c73b1aa9bc8d04d\nauthor Caio Cezar <114605074+Skarzyll@users.noreply.github.com> 1723809971 -0300\ncommitter GitHub <noreply@github.com> 1723809971 -0300\n\nMerge branch 'main' into main",
+     "verified_at": "2024-11-17T11:07:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/230ed3918807e686e484262ea382b36f2a477b72",
+   "html_url": "https://github.com/microsoft/vscode/commit/230ed3918807e686e484262ea382b36f2a477b72",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/230ed3918807e686e484262ea382b36f2a477b72/comments",
+   "author": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7",
+     "html_url": "https://github.com/microsoft/vscode/commit/83c29ea6d756b138dbe9f44ed4b261f31cdcaea7"
+    },
+    {
+     "sha": "c629a06feb7d7bd5f9a3b6ed4c73b1aa9bc8d04d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c629a06feb7d7bd5f9a3b6ed4c73b1aa9bc8d04d",
+     "html_url": "https://github.com/microsoft/vscode/commit/c629a06feb7d7bd5f9a3b6ed4c73b1aa9bc8d04d"
+    }
+   ]
+  },
+  {
+   "sha": "8221db108f42acc437887a0a61fff6de2bfb3305",
+   "node_id": "C_kwDOMjfE69oAKDgyMjFkYjEwOGY0MmFjYzQzNzg4N2EwYTYxZmZmNmRlMmJmYjMzMDU",
+   "commit": {
+    "author": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-18T23:41:34Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-08-18T23:41:34Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "1bffeb9fa7f2d41db0feace303978115eca67e9e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1bffeb9fa7f2d41db0feace303978115eca67e9e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8221db108f42acc437887a0a61fff6de2bfb3305",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmwoauCRC1aQ7uu5UhlAAAKRYQACpeirnHIahGyXiB1LAarHPm\nUmF/CwTnDLbNGYM4KLJ4LaCpvWU9mnk/MtWO4SDqouIEg5x2Rmi/YO5BLDVH2NIG\nQZfhEQs2gVbrkZlUebxnPtOBg+FnSaMDNKSJeT5IrjIVpfz8pGUawHkF3gGTnMrs\n+H4uzFD6XOvCV6p/7jxQaIp/6l4k+xYuvL7t/a/4G7BOuEENiHxRa0XdW5cJNWlB\n2Pz9PmQylXls62HdOP8wopzKfwBiWtaufKSvCXYFewbpZgK4A5Zp2uERS3DKGgD/\nwk2U4ADqynMllthMvAADgMAwtqmHEyScCLfKb9GQGKBqYRJ9ZCG+kJCh5hQayp+c\nyQz1R5WAUvdYW5HYjgbSTkc6qhtzbxX+2X6yeiBRe15CJqV+3w9ZXfFhrDCYAv4e\nDcloSPZO/ueIX8ianYC/tpSL6PyQZ1+2MP5tp+Adhi6gx5PtV+AMw4QGfZtrefBY\nhttQi51hrL+4AEUIT2IzgW+PGHJfOyC54K8k2dE0fS1EwTTwcbiHXDgTKJxohl2o\nKv4AYaFkT896LSQnxGLZH8iATsvEer4Rzhz41KPatHpU4pv9sQ7iABsoYEV0NjBh\nv/a+gN6v9uZwoS3LizwIaVO5BrsnBIJJHY7biFH2VjJJvbSDLjh0pVbudhtoAeb4\nW/VzWsJ2z+93nqxi9q2i\n=xYIX\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1bffeb9fa7f2d41db0feace303978115eca67e9e\nparent 230ed3918807e686e484262ea382b36f2a477b72\nparent 5a0335dcf3ffe79466b90d7c24923f3158fac81a\nauthor Caio Cezar <114605074+Skarzyll@users.noreply.github.com> 1724024494 -0300\ncommitter GitHub <noreply@github.com> 1724024494 -0300\n\nMerge branch 'main' into main",
+     "verified_at": "2024-11-17T11:07:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8221db108f42acc437887a0a61fff6de2bfb3305",
+   "html_url": "https://github.com/microsoft/vscode/commit/8221db108f42acc437887a0a61fff6de2bfb3305",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8221db108f42acc437887a0a61fff6de2bfb3305/comments",
+   "author": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "230ed3918807e686e484262ea382b36f2a477b72",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/230ed3918807e686e484262ea382b36f2a477b72",
+     "html_url": "https://github.com/microsoft/vscode/commit/230ed3918807e686e484262ea382b36f2a477b72"
+    },
+    {
+     "sha": "5a0335dcf3ffe79466b90d7c24923f3158fac81a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5a0335dcf3ffe79466b90d7c24923f3158fac81a",
+     "html_url": "https://github.com/microsoft/vscode/commit/5a0335dcf3ffe79466b90d7c24923f3158fac81a"
+    }
+   ]
+  },
+  {
+   "sha": "a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+   "node_id": "C_kwDOMjfE69oAKGEwZWExY2MxODViM2RjYjYxODI2OTk2ZGRkYjc3MzYxNjNmOWM0YjQ",
+   "commit": {
+    "author": {
+     "name": "Caio Cezar",
+     "email": "114605074+Skarzyll@users.noreply.github.com",
+     "date": "2024-08-18T23:42:50Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-08-18T23:42:50Z"
+    },
+    "message": "Merge branch 'main' into main",
+    "tree": {
+     "sha": "1bffeb9fa7f2d41db0feace303978115eca67e9e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1bffeb9fa7f2d41db0feace303978115eca67e9e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmwob6CRC1aQ7uu5UhlAAACA0QABdDEBt56TvdMIRYlTNFxSN2\n/sg/820A0ibpGsLsZ0pQ1Tz4gX6KyZ70ulbQdlSlrfutl+RvE/5RxXukc7mqTtKU\nZ/Ndy2dFkCOxJ+yQo48kt6Hzl0B0glUojtTeLeICbC2EuSkTwyXp+h/Go6GvVE/H\nDuf/lg0Nqv2PCWFq4H0HI0dEIUi86Wj1pLW1/81bsYU8GGkjibAa7oDIeJXzQUuV\n2a4QBr3qqO/qVmL/LuwcgnYRuVdtvvEbB4qWyqQdglC85zmdw/T7Zk+6UegpYqfM\nrGG4nsH+az9FrPWFnHkCWAKY5ZMvPrXZmPILDpHgmuS4B14dwOs9T46g3BAY1B0O\nIdDaG06vqkfTjYQxvzjnRDKGoYYtRivxasI3CQi+2XfewvAMEVVzqills1k2tzyj\n+E50EA0kP2FyhpfCkN0oS+Cq58at7tkPfSXtuUERlt7hvUe5DDJtf0sC5ehvSXih\nnZVgjYSumPvWRfiInoJa8Q/QORpVsf77Z1deRuFuC+FFAauIc80lKwGQ1SRlkApi\nJ1DEJ+wraNARXjQfPv8L/nnvNhTxHyrKZhdTx2usIkp1muBNYcCy4lp93ZLFqq3X\nc2M+bE/MrEn3MH0JIZfB0j2OCWZ4Qgu+Bw//fdQGoickdPtID0lp55h9YKsznpGw\nOWKPqX3aIS7Q/vBQ71dS\n=LdM9\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1bffeb9fa7f2d41db0feace303978115eca67e9e\nparent 8221db108f42acc437887a0a61fff6de2bfb3305\nparent 5a0335dcf3ffe79466b90d7c24923f3158fac81a\nauthor Caio Cezar <114605074+Skarzyll@users.noreply.github.com> 1724024570 -0300\ncommitter GitHub <noreply@github.com> 1724024570 -0300\n\nMerge branch 'main' into main",
+     "verified_at": "2024-11-17T11:07:47Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+   "html_url": "https://github.com/microsoft/vscode/commit/a0ea1cc185b3dcb61826996dddb7736163f9c4b4",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a0ea1cc185b3dcb61826996dddb7736163f9c4b4/comments",
+   "author": {
+    "login": "SrCaioz",
+    "id": 114605074,
+    "node_id": "U_kgDOBtS8Eg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/114605074?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SrCaioz",
+    "html_url": "https://github.com/SrCaioz",
+    "followers_url": "https://api.github.com/users/SrCaioz/followers",
+    "following_url": "https://api.github.com/users/SrCaioz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SrCaioz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SrCaioz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SrCaioz/subscriptions",
+    "organizations_url": "https://api.github.com/users/SrCaioz/orgs",
+    "repos_url": "https://api.github.com/users/SrCaioz/repos",
+    "events_url": "https://api.github.com/users/SrCaioz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SrCaioz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8221db108f42acc437887a0a61fff6de2bfb3305",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8221db108f42acc437887a0a61fff6de2bfb3305",
+     "html_url": "https://github.com/microsoft/vscode/commit/8221db108f42acc437887a0a61fff6de2bfb3305"
+    },
+    {
+     "sha": "5a0335dcf3ffe79466b90d7c24923f3158fac81a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5a0335dcf3ffe79466b90d7c24923f3158fac81a",
+     "html_url": "https://github.com/microsoft/vscode/commit/5a0335dcf3ffe79466b90d7c24923f3158fac81a"
+    }
+   ]
+  }
+ ]
+}

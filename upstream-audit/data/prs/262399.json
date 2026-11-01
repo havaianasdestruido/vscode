@@ -1,0 +1,185 @@
+{
+ "fetchedAt": "2026-11-01T00:52:30.082Z",
+ "pr": {
+  "number": 262399,
+  "title": "a11y fix: updates activity bar inactive foreground icon opacity to improve visibility ",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-08-19T21:52:09Z",
+  "updated_at": "2026-01-20T10:13:44Z",
+  "user": "essjay05",
+  "author_association": "CONTRIBUTOR",
+  "additions": 2,
+  "deletions": 2,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "decrease-action-bar-icon-opacity",
+   "sha": "d98ec086769978230c18a0a95a49c588d868aef7",
+   "repo": "essjay05/vscode",
+   "label": "essjay05:decrease-action-bar-icon-opacity"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Changes ACTIVITY_BAR_FOREGROUND opacity to 0.5 to improve/increase the activity bar inactive icon color contrast against the activity bar background. This improves the contrast for both VSCode Light default theme and VSCode Dark default theme.\r\n\r\n\r\n* **BEFORE Change** VSCode Light Theme: [FG + opacity] rgba(255, 255, 255, 0.4) on top of [BG] rgb(44, 44, 44) interpreted as #808080 : [BG] rgb(44, 44, 44) | [#2c2c2c](https://critique.corp.google.com/#search/&q=tag:2c2c2c) = 3.53\r\n* **AFTER Change** VSCode Light Theme: [FG + opacity] rgba(255, 255, 255, 0.5) on top of [BG] rgba(44, 44, 44) interpreted as #969696 : [BG] rgba(44, 44, 44) | [#2c2c2c](https://critique.corp.google.com/#search/&q=tag:2c2c2c) = 4.72\r\n\r\n* **BEFORE Change** VSCode Dark Theme: [FG + opacity] rgba(255, 255, 255, 0.4) on top of [BG] rgb(51, 51, 51) interpreted as #858585 : [BG] rgb(51, 51, 51) | #333333 = 3.42\r\n* **AFTER Change** VSCode Dark Theme: [FG + opacity] rgba(255, 255, 255, 0.5) on top of [BG] rgb(51, 51, 51) interpreted as #999999 : [BG] rgb(51, 51, 51) | #333333 = 4.43\r\n\r\n<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "a331872bfcb9ddf8993178141db64432041a2b40",
+   "filename": "src/vs/workbench/common/theme.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 2,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/d98ec086769978230c18a0a95a49c588d868aef7/src%2Fvs%2Fworkbench%2Fcommon%2Ftheme.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/d98ec086769978230c18a0a95a49c588d868aef7/src%2Fvs%2Fworkbench%2Fcommon%2Ftheme.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcommon%2Ftheme.ts?ref=d98ec086769978230c18a0a95a49c588d868aef7",
+   "patch": "@@ -402,8 +402,8 @@ export const ACTIVITY_BAR_FOREGROUND = registerColor('activityBar.foreground', {\n }, localize('activityBarForeground', \"Activity bar item foreground color when it is active. The activity bar is showing on the far left or right and allows to switch between views of the side bar.\"));\n \n export const ACTIVITY_BAR_INACTIVE_FOREGROUND = registerColor('activityBar.inactiveForeground', {\n-\tdark: transparent(ACTIVITY_BAR_FOREGROUND, 0.4),\n-\tlight: transparent(ACTIVITY_BAR_FOREGROUND, 0.4),\n+\tdark: transparent(ACTIVITY_BAR_FOREGROUND, 0.5),\n+\tlight: transparent(ACTIVITY_BAR_FOREGROUND, 0.5),\n \thcDark: Color.white,\n \thcLight: editorForeground\n }, localize('activityBarInActiveForeground', \"Activity bar item foreground color when it is inactive. The activity bar is showing on the far left or right and allows to switch between views of the side bar.\"));"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3211366129",
+   "html_url": "https://github.com/microsoft/vscode/pull/262399#issuecomment-3211366129",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/262399",
+   "id": 3211366129,
+   "node_id": "IC_kwDOAn8RLM6_aY7x",
+   "user": {
+    "login": "meganrogge",
+    "id": 29464607,
+    "node_id": "MDQ6VXNlcjI5NDY0NjA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/29464607?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/meganrogge",
+    "html_url": "https://github.com/meganrogge",
+    "followers_url": "https://api.github.com/users/meganrogge/followers",
+    "following_url": "https://api.github.com/users/meganrogge/following{/other_user}",
+    "gists_url": "https://api.github.com/users/meganrogge/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/meganrogge/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/meganrogge/subscriptions",
+    "organizations_url": "https://api.github.com/users/meganrogge/orgs",
+    "repos_url": "https://api.github.com/users/meganrogge/repos",
+    "events_url": "https://api.github.com/users/meganrogge/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/meganrogge/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2025-08-21T16:44:56Z",
+   "updated_at": "2025-08-21T16:44:56Z",
+   "body": "Hey, thanks for the PR. I imagine these opacities were chosen for a reason and are meeting our a11y guidelines, so don't think we want to accept this. Will leave this with @hawkticehurst though.",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3211366129/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "d98ec086769978230c18a0a95a49c588d868aef7",
+   "node_id": "C_kwDOPeqWPtoAKGQ5OGVjMDg2NzY5OTc4MjMwYzE4YTBhOTVhNDljNTg4ZDg2OGFlZjc",
+   "commit": {
+    "author": {
+     "name": "Joy Serquina",
+     "email": "serquina@google.com",
+     "date": "2025-08-19T21:46:32Z"
+    },
+    "committer": {
+     "name": "Joy Serquiña",
+     "email": "44146839+essjay05@users.noreply.github.com",
+     "date": "2025-08-20T18:00:20Z"
+    },
+    "message": "fix: updates activity bar inactive foreground opacity\n\nChanges ACTIVITY_BAR_FOREGROUND opacity to 0.5 to improve/increase the activity bar inactive\nicon color contrast against the activity bar background. This improves the contrast for both\nVSCode Light default theme and VSCode Dark default theme.\n\n* Before color contrast (VSCode Light theme): 3.53\n* After color contast (VSCode Light theme): 4.72\n* Before color contrast (VSCode Dark Theme): 3.42\n* After color contrast (VSCode Dark Theme): 4.43",
+    "tree": {
+     "sha": "25f1764455a0fef878eb6325f79960e01578687e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/25f1764455a0fef878eb6325f79960e01578687e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d98ec086769978230c18a0a95a49c588d868aef7",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d98ec086769978230c18a0a95a49c588d868aef7",
+   "html_url": "https://github.com/microsoft/vscode/commit/d98ec086769978230c18a0a95a49c588d868aef7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d98ec086769978230c18a0a95a49c588d868aef7/comments",
+   "author": {
+    "login": "essjay05",
+    "id": 44146839,
+    "node_id": "MDQ6VXNlcjQ0MTQ2ODM5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44146839?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/essjay05",
+    "html_url": "https://github.com/essjay05",
+    "followers_url": "https://api.github.com/users/essjay05/followers",
+    "following_url": "https://api.github.com/users/essjay05/following{/other_user}",
+    "gists_url": "https://api.github.com/users/essjay05/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/essjay05/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/essjay05/subscriptions",
+    "organizations_url": "https://api.github.com/users/essjay05/orgs",
+    "repos_url": "https://api.github.com/users/essjay05/repos",
+    "events_url": "https://api.github.com/users/essjay05/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/essjay05/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "essjay05",
+    "id": 44146839,
+    "node_id": "MDQ6VXNlcjQ0MTQ2ODM5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44146839?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/essjay05",
+    "html_url": "https://github.com/essjay05",
+    "followers_url": "https://api.github.com/users/essjay05/followers",
+    "following_url": "https://api.github.com/users/essjay05/following{/other_user}",
+    "gists_url": "https://api.github.com/users/essjay05/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/essjay05/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/essjay05/subscriptions",
+    "organizations_url": "https://api.github.com/users/essjay05/orgs",
+    "repos_url": "https://api.github.com/users/essjay05/repos",
+    "events_url": "https://api.github.com/users/essjay05/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/essjay05/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "83bf81c4eab8683203f52f5670cc3fc4332a816c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/83bf81c4eab8683203f52f5670cc3fc4332a816c",
+     "html_url": "https://github.com/microsoft/vscode/commit/83bf81c4eab8683203f52f5670cc3fc4332a816c"
+    }
+   ]
+  }
+ ]
+}

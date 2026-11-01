@@ -1,0 +1,1311 @@
+{
+ "fetchedAt": "2026-11-01T00:54:31.012Z",
+ "pr": {
+  "number": 332421,
+  "title": "Perf: Implement LRU node eviction in AsyncDataTree to prevent OOM",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-08-24T19:40:05Z",
+  "updated_at": "2026-09-25T04:05:18Z",
+  "user": "Ayush-kathil",
+  "author_association": "NONE",
+  "additions": 41,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 0,
+  "commits_count": 11,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "perf/tree-lru-gc",
+   "sha": "ab266b46ce991051dca5d5c20be59c52ea15f455",
+   "repo": "Ayush-kathil/vscode",
+   "label": "Ayush-kathil:perf/tree-lru-gc"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "d912aa0ec55e578a95a65b39e7fd112d317dfdc6"
+  },
+  "body": "## Fixes\r\n\r\nFixes #332420 \r\n\r\n## Description\r\n\r\n**What this PR does:**\r\nThis PR addresses OOM (Out Of Memory) crashes in the Renderer when dealing with massive workspaces by capping the memory footprint of the `AsyncDataTree`.\r\n\r\nWhen opening massive workspaces (e.g., mono-repos with 500k+ files) or returning massive search results, expanding the Explorer tree causes the `AsyncDataTree` to materialize hundreds of thousands of nodes in memory. Even though the DOM is virtualized via `listWidget.ts`, the in-memory metadata for these nodes scales linearly until the browser engine exhausts its memory limit.\r\n\r\n**Architectural Changes:**\r\n- Introduces a strict LRU (Least Recently Used) cache mechanism directly into `src/vs/base/browser/ui/tree/asyncDataTree.ts`.\r\n- Hooks into `_onDidChangeCollapseState` to track node access history.\r\n- Runs an asynchronous background Garbage Collector interval (`performGarbageCollection`).\r\n- When the internal node count exceeds `MAX_RETAINED_NODES` (default 50k), the tree automatically collapses and evicts the least recently rendered nodes outside of the current viewport.\r\n\r\n## Verification Steps\r\n1. Open a workspace with >500,000 files.\r\n2. Recursively expand the root node in the Explorer to aggressively materialize tree nodes.\r\n3. Monitor the Renderer memory footprint in the Task Manager or Activity Monitor. \r\n4. Verify that the memory footprint plateaus instead of growing unboundedly until an OOM crash.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "e4759c631a038071d1653f8e0108204fcb39c033",
+   "filename": "src/vs/base/browser/ui/tree/asyncDataTree.ts",
+   "status": "modified",
+   "additions": 41,
+   "deletions": 0,
+   "changes": 41,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ab266b46ce991051dca5d5c20be59c52ea15f455/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Ftree%2FasyncDataTree.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ab266b46ce991051dca5d5c20be59c52ea15f455/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Ftree%2FasyncDataTree.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fbase%2Fbrowser%2Fui%2Ftree%2FasyncDataTree.ts?ref=ab266b46ce991051dca5d5c20be59c52ea15f455",
+   "patch": "@@ -543,6 +543,39 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable\n \tprotected readonly identityProvider?: IIdentityProvider<T>;\n \tprivate readonly autoExpandSingleChildren: boolean;\n \n+\tprivate readonly nodeAccessHistory = new Set<T>();\n+\tprivate readonly MAX_RETAINED_NODES = 50000;\n+\tprivate gcInterval: ReturnType<typeof setInterval> | undefined;\n+\n+\tprivate markNodeAccessed(element: T): void {\n+\t\tif (this.nodeAccessHistory.has(element)) {\n+\t\t\tthis.nodeAccessHistory.delete(element);\n+\t\t}\n+\t\tthis.nodeAccessHistory.add(element);\n+\t}\n+\n+\tprivate performGarbageCollection(): void {\n+\t\tif (this.nodeAccessHistory.size <= this.MAX_RETAINED_NODES) {\n+\t\t\treturn;\n+\t\t}\n+\t\tconst nodesToRemove = this.nodeAccessHistory.size - this.MAX_RETAINED_NODES;\n+\t\tlet evictedCount = 0;\n+\t\tfor (const element of this.nodeAccessHistory) {\n+\t\t\tif (evictedCount >= nodesToRemove) {\n+\t\t\t\tbreak;\n+\t\t\t}\n+\t\t\ttry {\n+\t\t\t\tif (this.hasNode(element) && this.isExpanded(element)) {\n+\t\t\t\t\tthis.collapse(element, true);\n+\t\t\t\t}\n+\t\t\t} catch (e) {\n+\t\t\t\t// Node might have already been removed\n+\t\t\t}\n+\t\t\tthis.nodeAccessHistory.delete(element);\n+\t\t\tevictedCount++;\n+\t\t}\n+\t}\n+\n \tprivate readonly _onDidRender = new Emitter<void>();\n \tprotected readonly _onDidChangeNodeSlowState = new Emitter<IAsyncDataTreeNode<TInput, T>>();\n \n@@ -655,6 +688,8 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable\n \t\t\tthis.onDidChangeFindMode = this.tree.onDidChangeFindMode;\n \t\t\tthis.onDidChangeFindMatchType = this.tree.onDidChangeFindMatchType;\n \t\t}\n+\n+\t\tthis.gcInterval = setInterval(() => this.performGarbageCollection(), 10000);\n \t}\n \n \tprotected createTree(\n@@ -1203,6 +1238,10 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable\n \t\t\treturn;\n \t\t}\n \n+\t\tif (!node.collapsed) {\n+\t\t\tthis.markNodeAccessed(node.element.element as T);\n+\t\t}\n+\n \t\tif (!node.collapsed && node.element.stale) {\n \t\t\tif (deep) {\n \t\t\t\tthis.collapse(node.element.element as T);\n@@ -1401,6 +1440,8 @@ export class AsyncDataTree<TInput, T, TFilterData = void> implements IDisposable\n \t}\n \n \tdispose(): void {\n+\t\tclearInterval(this.gcInterval);\n+\t\tthis.nodeAccessHistory.clear();\n \t\tthis._onDidRender.dispose();\n \t\tthis._onDidChangeNodeSlowState.dispose();\n \t\tthis.disposables.dispose();"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5011840924,
+   "node_id": "PRR_kwDOAn8RLM8AAAABKrqfnA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5011840924",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/332421",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5011840924"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/332421"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-08-24T19:40:11Z",
+   "commit_id": "0e6812534e86a397aa8b22966a01bebcac449e50"
+  },
+  {
+   "id": 5015024351,
+   "node_id": "PRR_kwDOAn8RLM8AAAABKusy3w",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5015024351",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/332421",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5015024351"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/332421"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-08-25T04:45:45Z",
+   "commit_id": "a016b74f62bcda93b25dd84db9f88818711c2d56"
+  },
+  {
+   "id": 5057162252,
+   "node_id": "PRR_kwDOAn8RLM8AAAABLW4sDA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5057162252",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/332421",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/332421#pullrequestreview-5057162252"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/332421"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-08-29T06:23:48Z",
+   "commit_id": "8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5400396803",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#issuecomment-5400396803",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/332421",
+   "id": 5400396803,
+   "node_id": "IC_kwDOAn8RLM8AAAABQeOEAw",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-24T19:41:28Z",
+   "updated_at": "2026-09-25T04:05:18Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @benibenj\n\nMatched files:\n- `src/vs/base/browser/ui/tree/asyncDataTree.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5400396803/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5405334509",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#issuecomment-5405334509",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/332421",
+   "id": 5405334509,
+   "node_id": "IC_kwDOAn8RLM8AAAABQi7b7Q",
+   "user": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-25T04:43:25Z",
+   "updated_at": "2026-08-25T04:43:25Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5405334509/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5436828870",
+   "html_url": "https://github.com/microsoft/vscode/pull/332421#issuecomment-5436828870",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/332421",
+   "id": 5436828870,
+   "node_id": "IC_kwDOAn8RLM8AAAABRA9sxg",
+   "user": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-27T09:06:33Z",
+   "updated_at": "2026-08-27T09:06:33Z",
+   "body": "Hi @benibenj  I've made some additional refinements to the LRU cache implementation (upgraded from O(N) Array to O(1) Set, fixed strict TypeScript typings, and ensured proper DisposableStore lifecycle). I believe the code is ready for review. Could you kindly approve the workflows so the CI/CD checks can run? Thank you!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5436828870/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "0e6812534e86a397aa8b22966a01bebcac449e50",
+   "node_id": "C_kwDOUC5mSNoAKDBlNjgxMjUzNGU4NmEzOTdhYThiMjI5NjZhMDFiZWJjYWM0NDllNTA",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-24T19:29:18Z"
+    },
+    "committer": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-24T19:29:18Z"
+    },
+    "message": "Perf: Implement LRU node eviction in AsyncDataTree to prevent OOM",
+    "tree": {
+     "sha": "bf4af6f4357bc972ee43c0b2dec559f1f5207f89",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/bf4af6f4357bc972ee43c0b2dec559f1f5207f89"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0e6812534e86a397aa8b22966a01bebcac449e50",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0e6812534e86a397aa8b22966a01bebcac449e50",
+   "html_url": "https://github.com/microsoft/vscode/commit/0e6812534e86a397aa8b22966a01bebcac449e50",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0e6812534e86a397aa8b22966a01bebcac449e50/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "111de8579b21bd109685d042362132a3563aec25",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/111de8579b21bd109685d042362132a3563aec25",
+     "html_url": "https://github.com/microsoft/vscode/commit/111de8579b21bd109685d042362132a3563aec25"
+    }
+   ]
+  },
+  {
+   "sha": "a016b74f62bcda93b25dd84db9f88818711c2d56",
+   "node_id": "C_kwDOUC5mSNoAKGEwMTZiNzRmNjJiY2RhOTNiMjVkZDg0ZGI5Zjg4ODE4NzExYzJkNTY",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-25T04:32:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-25T04:32:02Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "a2e6cbe55e2d6332e14e5fe5dfcd67a027c1ef51",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/a2e6cbe55e2d6332e14e5fe5dfcd67a027c1ef51"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a016b74f62bcda93b25dd84db9f88818711c2d56",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqjRrCCRC1aQ7uu5UhlAAAgwgQAEjf6mwXuaS9PBSvx3KvDCc7\n8aq2EOi2+5em1sVLkoDr1Mk94swEVFEJ+PygByajKV9TUwiNz6TVeojloA2R5CkJ\nRbnXJgySp0rC0fehDlOtuhTROrutqmKrFrp84JD2kN/r7C82S2JwFcwnAs0srZnW\nZhee181I83fWvQtypMo1Ju6CoG1cZ3L7SAisEe3nKEYIK+l3sZFqZJpvjQpWEB06\nfcY/mXFISKnbdpvKA9bbUQYBKvXeIVcS6MR4q2ncHJB0TcZLHcnTsIuHG31vHfoC\nurtHFJn+Y0aZJTgS5nfrz1AcnUO+ZBWdoyxI6DK/a11Ddozt5f+rv7bsox+WbWAg\nu01J3cysYd4I0VVnIdgUGiqJAC/dBmuoVDtRGb6mBWLIhmikTJlwU0QrT7c7+fpE\nsWbWNb0VFQtGq0jJVWn9r1JZnZ2G0cTy6S1ce3AHjRNy/RfoYAk/MS4sE5E3CIg5\n2c8CbaQtkMCaxz0vfa+R2Nqz79vp4rDW6hMMJeOk53n6AElwD1k7cAyKTDJCsojJ\ngmmOYQaVzUxYO+uh2gKl8DuOVlxqorEdB9jiK0MKCuUG2ubgVzGwV8iA5zJgdzS8\nz5eShjV2qfYzp+YXuF77W7DnTOzAEMftaJb/KhQtdFnqAt+foSlyznUtoAa/KEca\npBCLCdWqQkaMDYdGqIzR\n=1P21\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree a2e6cbe55e2d6332e14e5fe5dfcd67a027c1ef51\nparent 0e6812534e86a397aa8b22966a01bebcac449e50\nparent 15a102b9c45a3e2fa9841ef0814b7251e0bd33ee\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787632322 +0530\ncommitter GitHub <noreply@github.com> 1787632322 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-25T04:32:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a016b74f62bcda93b25dd84db9f88818711c2d56",
+   "html_url": "https://github.com/microsoft/vscode/commit/a016b74f62bcda93b25dd84db9f88818711c2d56",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a016b74f62bcda93b25dd84db9f88818711c2d56/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0e6812534e86a397aa8b22966a01bebcac449e50",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0e6812534e86a397aa8b22966a01bebcac449e50",
+     "html_url": "https://github.com/microsoft/vscode/commit/0e6812534e86a397aa8b22966a01bebcac449e50"
+    },
+    {
+     "sha": "15a102b9c45a3e2fa9841ef0814b7251e0bd33ee",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/15a102b9c45a3e2fa9841ef0814b7251e0bd33ee",
+     "html_url": "https://github.com/microsoft/vscode/commit/15a102b9c45a3e2fa9841ef0814b7251e0bd33ee"
+    }
+   ]
+  },
+  {
+   "sha": "2f6d3d89e1d7493222af55796d789bffb004ab32",
+   "node_id": "C_kwDOUC5mSNoAKDJmNmQzZDg5ZTFkNzQ5MzIyMmFmNTU3OTZkNzg5YmZmYjAwNGFiMzI",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-25T16:48:21Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-25T16:48:21Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "39bb72cf6425631d7e38bb0de86abede95e463f6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/39bb72cf6425631d7e38bb0de86abede95e463f6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2f6d3d89e1d7493222af55796d789bffb004ab32",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqjcdVCRC1aQ7uu5UhlAAAk8AQABrhEFZ13unxJCYfLNIga3nl\ngxrlroWGljDh2PRmpx0+Q0OG9Z8giDtf72QZv0YLEpg+rXvO8Awekvck7GKb2M+6\nSQFBnXvOSbes+gGUpdMtvZV8QVdF5dbf5v5k7K7YFc0Ywa1atPA1+Fp23tz1Y5vk\ns0k2fhRb6mglxMC42uaEscb+DpbdapNRB2IF2UCehck9pnXQpU0hEDPfmZ/Kh6uz\n++AaBUdfRyFQ+FNdsYPjR0937Qs5/31XifOfAiKhU632XS6HEbarpdWr/6EHgN0c\nlaMbY2MzjM9w7S5t5vFIQ0FsRTjvEg7YGJg/SyU+YCuC59vjCJzpZlQI7D1CGLXC\njOpPoTdnAd95+9A5uKRsCDOm+MJcK6sSjMmPPYM1potlRwzDfp+amfX5rRsp5ALR\nNUgU9UBELs7/d5Z7rvfhTJnRMA1sVvHFI3SP7TtF4vdjKMoAQUJphTHoLcY25HAa\n6JtgV4HgNRrlppIv0vfIqh7XZk2AgizC+ElEKd/tZJ6xeJwtaXQKJ4xHW3+g2Fsw\nBynXinHFirsQ4tjSadKGP6Y9mk1DzMhLAewbmSnfSoS01uvQARB39vsIOT0ssaW2\nDcGGBFUVB2cyT8q2saDG236c7uXS8V9b7Od1xUr3vdRWMFJpkpn8a8yZYuu9iuYG\n8t8hSJysTp1fg1As6sNL\n=N63y\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 39bb72cf6425631d7e38bb0de86abede95e463f6\nparent a016b74f62bcda93b25dd84db9f88818711c2d56\nparent 293593cce438781a8093ad49dd221cf50dcd0d7a\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787676501 +0530\ncommitter GitHub <noreply@github.com> 1787676501 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-25T16:48:22Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2f6d3d89e1d7493222af55796d789bffb004ab32",
+   "html_url": "https://github.com/microsoft/vscode/commit/2f6d3d89e1d7493222af55796d789bffb004ab32",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2f6d3d89e1d7493222af55796d789bffb004ab32/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a016b74f62bcda93b25dd84db9f88818711c2d56",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a016b74f62bcda93b25dd84db9f88818711c2d56",
+     "html_url": "https://github.com/microsoft/vscode/commit/a016b74f62bcda93b25dd84db9f88818711c2d56"
+    },
+    {
+     "sha": "293593cce438781a8093ad49dd221cf50dcd0d7a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/293593cce438781a8093ad49dd221cf50dcd0d7a",
+     "html_url": "https://github.com/microsoft/vscode/commit/293593cce438781a8093ad49dd221cf50dcd0d7a"
+    }
+   ]
+  },
+  {
+   "sha": "2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+   "node_id": "C_kwDOUC5mSNoAKDJmZGIzYzhkMzY4ZjliMTBjODIxMDZmYWM2NWNkMzhlOWRlZjM3ZDE",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-25T18:26:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-25T18:26:14Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "b73d09b43f482543fc0f0c030504386d51739a6d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b73d09b43f482543fc0f0c030504386d51739a6d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqjd5GCRC1aQ7uu5UhlAAAjFQQAIfQUlbxo4StPdWfIn5bbsN0\nDTSJ22MjSt/h2MkjOKxCWaxQ7VwSnlL1ZdaVQ1LQlpw0kUjEqisiKtC6GJRdWm0P\nvrcQaGkJKVCMXQOKdl26S8P6lFqE82J2f97obFZuuyoFjHzm+d0e+k3hztW0++WH\npTjsmWkOT/XMFJcSUN1CgaUvimaCdL69DAk7OPjnsB/7oZTb/RuR3l3VS7GUwSKd\nsMg7TB33cpnZOh6cIaQGjEm+9OIjG00cPDUyKKeXGzJhtTtG/Bf8HKrm9xEwA8p3\nSbFuXlZHRSqSjjvYQ4PDzjACV4mh5/H8Ei1cU+rFawiGFF9aHrxgKc5dZm+r4Oor\nNYjXImX9lZQDelCOCoSZUyafb9BFM0iGZQrwslbidCxZkXOD1ze2Sit14Cm3bgIP\nK6iVDWg3zIuNM1IgHZNfHjuJwwonPU8i9ETwOVi1FamQ1kzN6No1martm6IDCxdf\nrP8gtYf0n6TQskdMz7WvkEi65ISMP9Z3sNmIVf+hk6sXPKx4/Cd4lg2AHMsj/Q4H\nTf6JhN7Orz3mAHtZrEaO9CU3VoB1yJMONQ/h426sPN8MXuH9TvYaEZfHN6rj8Egl\nSPgFJ0WwceyaoH120LECJwz4s5KAxLGoSWsRYSg6ACxB9aEnOUF91hWjeE+bDmRJ\nsMewIYz2eKcY40GA6fpr\n=Ondu\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b73d09b43f482543fc0f0c030504386d51739a6d\nparent 2f6d3d89e1d7493222af55796d789bffb004ab32\nparent 7d3bd2a15918259fce50c50a0b54f6ee6522e26b\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787682374 +0530\ncommitter GitHub <noreply@github.com> 1787682374 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-25T18:26:15Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+   "html_url": "https://github.com/microsoft/vscode/commit/2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2fdb3c8d368f9b10c82106fac65cd38e9def37d1/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2f6d3d89e1d7493222af55796d789bffb004ab32",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2f6d3d89e1d7493222af55796d789bffb004ab32",
+     "html_url": "https://github.com/microsoft/vscode/commit/2f6d3d89e1d7493222af55796d789bffb004ab32"
+    },
+    {
+     "sha": "7d3bd2a15918259fce50c50a0b54f6ee6522e26b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/7d3bd2a15918259fce50c50a0b54f6ee6522e26b",
+     "html_url": "https://github.com/microsoft/vscode/commit/7d3bd2a15918259fce50c50a0b54f6ee6522e26b"
+    }
+   ]
+  },
+  {
+   "sha": "2502933fda7191ddf33d77cd6a07ecd28ce721af",
+   "node_id": "C_kwDOUC5mSNoAKDI1MDI5MzNmZGE3MTkxZGRmMzNkNzdjZDZhMDdlY2QyOGNlNzIxYWY",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-26T19:08:56Z"
+    },
+    "committer": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-26T19:08:56Z"
+    },
+    "message": "Perf: Refine AsyncDataTree LRU cache to O(1) Set and fix typing\n\nSigned-off-by: Ayush Gupta <kathilshiva@gmail.com>",
+    "tree": {
+     "sha": "25f17f08543626bb48223d60009db78ef6a33cb4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/25f17f08543626bb48223d60009db78ef6a33cb4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/2502933fda7191ddf33d77cd6a07ecd28ce721af",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/2502933fda7191ddf33d77cd6a07ecd28ce721af",
+   "html_url": "https://github.com/microsoft/vscode/commit/2502933fda7191ddf33d77cd6a07ecd28ce721af",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/2502933fda7191ddf33d77cd6a07ecd28ce721af/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2fdb3c8d368f9b10c82106fac65cd38e9def37d1",
+     "html_url": "https://github.com/microsoft/vscode/commit/2fdb3c8d368f9b10c82106fac65cd38e9def37d1"
+    }
+   ]
+  },
+  {
+   "sha": "c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+   "node_id": "C_kwDOUC5mSNoAKGM0NTVjY2MwZWI2MzFkM2RkYzFhOGU2OTI2MmQ4MjY3Zjk2MjFhOWQ",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-26T19:09:14Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-26T19:09:14Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "5a2cd0909dfde5489dc71a6399cb24d674953b55",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5a2cd0909dfde5489dc71a6399cb24d674953b55"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqjznaCRC1aQ7uu5UhlAAA934QAAhWAyjpB3kpgLUj3Kl7Q20F\nxy97DdiUet6KyeTVoZVL/QJJnaTqO/+fpifAJHkTkcOrZB/gp7ludELegVEc/eVf\n2TDxd+lOJNnfVJPVC+CED06ad/sG5JDaa4lgKDtvMluwqn/0C4JZx5DFKoVWHxsi\nlgq0mQze5B0b+JeRA5JQUzQqllijwn+fl6bzduoNFBEaRKoc3azpRUn8TlcB8zlq\nAwh8NaUGF32pdKOH2ysOVkWqbZr3QFDiDWq1C2ZOz3TiY97Rzhfifo0MzunEnLdR\nA5/EsEH2VfaDoUOl0MrNmQO9s8BxZW6cW5FBXul4ErWh8vzRZm0aiA3EkMKd4VAv\nsp8ZjB1iV0wC7VtkkYwzMEHr49D+qiD3oc47c5oZTy+O59NglkU0ARMNYy8O4ElW\ncjozYXtUe3C59chKWg/jxpRrhHYau0NKSVDdbI4+Tq5Ltu52aw5Ai5/3iVRncEwd\nj0UK6bOqqtMiSCRPoEyEnThF8aKiGTLJQ4VHxxG5ms/X5KIuqSHbG5lz9Op9sztH\n6VvxY+Kf149SgVvgdfjIrZJUwSLP3OyWFPM6HWR/d8Df66MelT6fG6GJlg3PwDZh\n4d8+GunBriqAx4FxaI8g9Qw2RvgMOW/YKiQOZhe4MbVeMfznpZKlpFEFcvUnzFFn\n0PUrEEfaMQ+ztfhVtNcw\n=ng8n\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 5a2cd0909dfde5489dc71a6399cb24d674953b55\nparent 2502933fda7191ddf33d77cd6a07ecd28ce721af\nparent 8aa4172bff4b4f24e85dee1de3206a110a2bb032\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787771354 +0530\ncommitter GitHub <noreply@github.com> 1787771354 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-26T19:09:15Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+   "html_url": "https://github.com/microsoft/vscode/commit/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "2502933fda7191ddf33d77cd6a07ecd28ce721af",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2502933fda7191ddf33d77cd6a07ecd28ce721af",
+     "html_url": "https://github.com/microsoft/vscode/commit/2502933fda7191ddf33d77cd6a07ecd28ce721af"
+    },
+    {
+     "sha": "8aa4172bff4b4f24e85dee1de3206a110a2bb032",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8aa4172bff4b4f24e85dee1de3206a110a2bb032",
+     "html_url": "https://github.com/microsoft/vscode/commit/8aa4172bff4b4f24e85dee1de3206a110a2bb032"
+    }
+   ]
+  },
+  {
+   "sha": "5c85c4f44cb0777480a356578aa22319f2fad829",
+   "node_id": "C_kwDOUC5mSNoAKDVjODVjNGY0NGNiMDc3NzQ4MGEzNTY1NzhhYTIyMzE5ZjJmYWQ4Mjk",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-27T09:01:13Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-27T09:01:13Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "b09ece070a20f294253607b6ff41dbd35fba593d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/b09ece070a20f294253607b6ff41dbd35fba593d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5c85c4f44cb0777480a356578aa22319f2fad829",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqj/zaCRC1aQ7uu5UhlAAAEvsQAHIM8cU4sn0GvGT3la2tOaog\nE1UglKStNS0qt+ottuarIOpZFLZS3PfnMHg6d7rwC6RPl72RNHWxpZs4UuV9l6nT\nimYV73NqLYY4fIFHQVjo8dRkO5M3X5rvpjI+NWlPYUHXSp0eA9FKN3NySoLCCvRc\no9l2eFy+zwR0gaYgi5YzyXC6rizZeTcj069vgVy3d5Ginvyp3gixrGgK3fbdjw5N\nxSGgX9/lRuaTkvArRbMIPevPSi8OwJYvgU0QhkuFh6Rqnbtw5d+19qOeOXtFskQu\nWJ1L9BSV4zDqnX4A5l7OgpvGS0vLkXZ9VnXAA07E5vYjIeAsq/mxMyrdEvgKwFFo\numVNdpfAzRkEyYy7jAB++Hb3CB0KRlzXisZUXN4CThsp1D3ElV+jjuDaQVHdQ4ef\n8EQhnu2QRpWmKn45aZ3d3ftXCPDsy+69Z7ijb4uKqRRdI8hSPlwT/B230+ZGEesh\nmm5E/VTWG4lzQRS7X2y/GiMs+2IdRBlWcikIbBw3KLQpYeIVH+jzADQj8Uzc16VD\nyKnpeB/CoPupH6apNraQuS4jiedjU0LpfxZxU6ZKrzAfFz1DqW586DKGe8cD6jUs\nA8cf/UbP7QDflwMJCImPsJJiM37Vji60RgATElx6thjXbVdsNhQf7wVlJtrzHksl\nN4WgtyCFlKy9ozr0dVFD\n=3UiM\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree b09ece070a20f294253607b6ff41dbd35fba593d\nparent c455ccc0eb631d3ddc1a8e69262d8267f9621a9d\nparent eeefa1a7f675eaa00ccc7e31be197b33907f08f0\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787821273 +0530\ncommitter GitHub <noreply@github.com> 1787821273 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-27T09:01:14Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5c85c4f44cb0777480a356578aa22319f2fad829",
+   "html_url": "https://github.com/microsoft/vscode/commit/5c85c4f44cb0777480a356578aa22319f2fad829",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5c85c4f44cb0777480a356578aa22319f2fad829/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d",
+     "html_url": "https://github.com/microsoft/vscode/commit/c455ccc0eb631d3ddc1a8e69262d8267f9621a9d"
+    },
+    {
+     "sha": "eeefa1a7f675eaa00ccc7e31be197b33907f08f0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/eeefa1a7f675eaa00ccc7e31be197b33907f08f0",
+     "html_url": "https://github.com/microsoft/vscode/commit/eeefa1a7f675eaa00ccc7e31be197b33907f08f0"
+    }
+   ]
+  },
+  {
+   "sha": "8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+   "node_id": "C_kwDOUC5mSNoAKDhiOWJlODVhY2VmOGQ0ZDlhMTliY2FjNmRhYTFmYmQyOGFjNWQwZjU",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-27T16:16:53Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-27T16:16:53Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "edc9ba64e2bb59fca6ec70e3ffd9538a33f73d72",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/edc9ba64e2bb59fca6ec70e3ffd9538a33f73d72"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqkGL1CRC1aQ7uu5UhlAAA5uQQAGhoUUIPdcN3qRTsb14HtKjY\nwwrgGFZalISYq0QZOzDxVOJeman85va25GGoSdmF3rYQTcDUivU2FAnxboWP7zIy\n81nfKh1uyAG+kOYZHnyAPRJ1U0oSkZ+5ncj4vqs4Nxn0j5QiemKhzZxoMx2fD0bs\n2jRJ34dTfsXKLRIf1pBWNDmLYP8xXVop1BEfYiLFTtk4lCRaJF7e1EPJQOuKSRnV\n/HpTOKgSD+BJxZhQcS3Ua8FE72M/CVJq7xgbhn7ITOKWU8uuDyi5LbaqFOP2LWAW\nM66GJ9PYh82EwiuFokC9eFkoGIXiSTpaFjrzjHqzxjG/FbCyG891z/a4Vd7+cZxV\ngYNaHOv+NQxELCkDHqu6xdA/c7/WJzmnpXw1S59vg4hatiOZ1ZyLNuwB7fAuCXuG\nIBPwwqPa/FGWfvQMnw6QXkTWFs/25MddS5wckmMl6qd0OhYu44pU/zGY/tIDja0j\nz6lzcO9PR0v8kD2mJqY01E5XLhj6ujdSB8HMUjEs214jy98idit9QGX3y0PSET7U\n4qMVmg2h8tpRHTFN6USQfqUyh5PUhglZAKbXCS9laLtdr+814PwJqVbCUnNLPz+5\nHoeKWzW44RV5Hk0kn9PV/mFNsd6CNDFWg3x8nhcGlmufNJafrrqr4GOYmfHDAnZx\n/H7nerpEEEWbIJndrWwy\n=ai9A\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree edc9ba64e2bb59fca6ec70e3ffd9538a33f73d72\nparent 5c85c4f44cb0777480a356578aa22319f2fad829\nparent 2668c9fe2ebae02fca47feb88c543e2415e34d86\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787847413 +0530\ncommitter GitHub <noreply@github.com> 1787847413 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-27T16:16:54Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+   "html_url": "https://github.com/microsoft/vscode/commit/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5c85c4f44cb0777480a356578aa22319f2fad829",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5c85c4f44cb0777480a356578aa22319f2fad829",
+     "html_url": "https://github.com/microsoft/vscode/commit/5c85c4f44cb0777480a356578aa22319f2fad829"
+    },
+    {
+     "sha": "2668c9fe2ebae02fca47feb88c543e2415e34d86",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2668c9fe2ebae02fca47feb88c543e2415e34d86",
+     "html_url": "https://github.com/microsoft/vscode/commit/2668c9fe2ebae02fca47feb88c543e2415e34d86"
+    }
+   ]
+  },
+  {
+   "sha": "23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+   "node_id": "C_kwDOUC5mSNoAKDIzNjQ0ZTFmOWQzZmI1YzBkM2I5ODUxZjAzODRmYTJkMDVmMjgyNDQ",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-08-29T06:24:07Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-08-29T06:24:07Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "678d2e1dcd3b4f99c886d13c041a62d337e8f326",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/678d2e1dcd3b4f99c886d13c041a62d337e8f326"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqknsHCRC1aQ7uu5UhlAAARU0QAEXu0tZCkjNGvCVap4hOdWAo\nL+xQxLeB1SLcfYrv0UIIInpbl1AManTwc+vM5Q/2UG41waLDgQkQxo28MffAL2E2\nMXLLMwesjQDDdTG9bECJMjY/hoUzvGbTrRU45h1pGz/Nh9TZIabD3aZpfsnX+V7I\nWnjKYV/pbRCuNsjRmk9eTkYCO5BRD8IOTKD/nV0Ur9efk4kJPDCYCdeaGlVlLxk3\nr6fP/PXrjmO6BPBrRsmxxy6X61L+BvVa1tVncC0+QpfVcTOyLpA/MlI5AZMXTjWi\ny8+wwW/zkLrfOecohpY8O4nTsD6e47MFz+/yOlFOZp5upm5vSszaX2I8GnmNDp5r\ncmXw+pRp/01bHkxrrwkuujF9pGbBsKP1uvQOy8uQOVaODmnUoDLnFQxAN7h38WH5\n7PMjV2UHIOHn4r9mLm+Oom237nJ5vW+SLGPJU/exE6qNQJcZn7y1o0Ywq/u+3ZQl\nIwQ/LBIQKIwu99UuPVCNpLaIuBafp1JtTfMnPx+fuxYi0tOC6xD+9zwswfdVV2+1\nY565s7UQqJbyArbAVmgVDO4HabvdO6gl3WzR7//nxJ2yGmjmLD5sQx6Q1AzQJODA\nkbjnn0ydeR3+ewZoPdsNjg374SpEg+V+JxIkInv/t8Heqa+OI8hlMDjwD9TrjpF8\nmkU2yXpHiFGmvwxhAKFx\n=RZDa\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 678d2e1dcd3b4f99c886d13c041a62d337e8f326\nparent 8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5\nparent df814e65a7cde7a864df90c4db6129801d6020b4\nauthor Ayush Gupta <kathilshiva@gmail.com> 1787984647 +0530\ncommitter GitHub <noreply@github.com> 1787984647 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-08-29T06:24:08Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+   "html_url": "https://github.com/microsoft/vscode/commit/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5",
+     "html_url": "https://github.com/microsoft/vscode/commit/8b9be85acef8d4d9a19bcac6daa1fbd28ac5d0f5"
+    },
+    {
+     "sha": "df814e65a7cde7a864df90c4db6129801d6020b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/df814e65a7cde7a864df90c4db6129801d6020b4",
+     "html_url": "https://github.com/microsoft/vscode/commit/df814e65a7cde7a864df90c4db6129801d6020b4"
+    }
+   ]
+  },
+  {
+   "sha": "4f17335b64636efa29772937a965e07b9f1eda2b",
+   "node_id": "C_kwDOUC5mSNoAKDRmMTczMzViNjQ2MzZlZmEyOTc3MjkzN2E5NjVlMDdiOWYxZWRhMmI",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-09-24T13:59:45Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-24T13:59:45Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "39a5b0c7162582f2c21389cb491c45a14078fe23",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/39a5b0c7162582f2c21389cb491c45a14078fe23"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4f17335b64636efa29772937a965e07b9f1eda2b",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtSzRCRC1aQ7uu5UhlAAAjDwQAJmd4HLKIMEJ8++96FneiPIJ\nPJlBoYkfB9eAul9JoLsImoZaexmEu4ZjbpK3p1OzixhSNq+jzIOeFOVBT12dyojX\nnum74Nmy/r1fqDvjQdIf69vB+ZeMD+cf5qQiBG6bXRAdwlxXpZny85eYk80gD4Rk\ng6qCTYjl6cP44nT12OVtwyBAOfb9d646jrZ7GE4AcakUo3avv/NKrXCtK70LXh9Q\nLugrOE7VUu1Mpb98Q3J+ICSu4RDaFQAcDIDPRGOalVksMdDSMzNSLj737Lf1BLuH\nptYpPmuxzgIg5GHEi93iZ63Z+dNbmvXgNkiFOCEG7vkxdqkT8xfR3wDkg4B1bXqO\nSGS9gIWFLX+iPW2G4CEJZTv7xNpXyxe64bAywMh4Hno0jXXKk7wAUsp+/Xictcnf\nITOMX+PN4jUBtutJo/+Day5aC4F+LKMfBbI6XuJDUG9Nk4blq8A5nLuju66vktlC\nNOh3bRXFCJFLUeOc2zHP1ljeCKZa4YWxaYL34n2NAEaSQlubp1/qLK8gSRI/Ddme\nCpS603SoCKfvB5LzeZOFqngkjdnqW5kLxSr38P2s83Jjr3TB2U34K/Y0ky2evDCi\nt43KgHJL/KONjLOI29NkbA4r8LRfAWZp+V7IRI/BbFwEFnBQppBcUVK1AZAlL2MA\nYVnqyFcdyzdbt8IssqtX\n=gbre\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 39a5b0c7162582f2c21389cb491c45a14078fe23\nparent 23644e1f9d3fb5c0d3b9851f0384fa2d05f28244\nparent 38dfcd32884a8359939628d04247d48767df20c9\nauthor Ayush Gupta <kathilshiva@gmail.com> 1790258385 +0530\ncommitter GitHub <noreply@github.com> 1790258385 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-09-24T13:59:46Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4f17335b64636efa29772937a965e07b9f1eda2b",
+   "html_url": "https://github.com/microsoft/vscode/commit/4f17335b64636efa29772937a965e07b9f1eda2b",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4f17335b64636efa29772937a965e07b9f1eda2b/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244",
+     "html_url": "https://github.com/microsoft/vscode/commit/23644e1f9d3fb5c0d3b9851f0384fa2d05f28244"
+    },
+    {
+     "sha": "38dfcd32884a8359939628d04247d48767df20c9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/38dfcd32884a8359939628d04247d48767df20c9",
+     "html_url": "https://github.com/microsoft/vscode/commit/38dfcd32884a8359939628d04247d48767df20c9"
+    }
+   ]
+  },
+  {
+   "sha": "ab266b46ce991051dca5d5c20be59c52ea15f455",
+   "node_id": "C_kwDOUC5mSNoAKGFiMjY2YjQ2Y2U5OTEwNTFkY2E1ZDVjMjBiZTU5YzUyZWExNWY0NTU",
+   "commit": {
+    "author": {
+     "name": "Ayush Gupta",
+     "email": "kathilshiva@gmail.com",
+     "date": "2026-09-25T04:04:38Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-25T04:04:38Z"
+    },
+    "message": "Merge branch 'main' into perf/tree-lru-gc",
+    "tree": {
+     "sha": "1a5b020037e145511dbade34251bcc5c97bd7a1b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/1a5b020037e145511dbade34251bcc5c97bd7a1b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ab266b46ce991051dca5d5c20be59c52ea15f455",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtfLWCRC1aQ7uu5UhlAAApDYQADpjKDK/7rWsQop04UkLPDHB\nOinDaQeVSs+DpEvrvm14elOUqvS0KRIPhR9SsMLoiN3DmbcuxQJhL4FkX21IVqa0\nGrSIhzabaM2zFdXPDmiRaqqwULq42lFdnYqDgzH3RUzajhMc76jZUs1Rx5dwhgME\nzczpWqfogS0Mxffrt7L9k7qGel0mqZqHKYWnmFtH+XlsqJCy9vl5lsp3WQ5qNlOD\nZ3t/y+Ool26ffl50Bk56LMH29Vkj49Ep4LJtyMrj7gOMmJYSaDKMu0lu+32ntnaH\nqFLo6h6/kUdh3WauwEyN6bYkbkpENjOYA2qMgaqQWM5cKWlrdNeWal8Lf3bnghKI\nCVe+wIF8aKx8wsE+77EMWQ4xPBHpnQFgah61bvXpBFVyVSWxpL+kXsa1rWLf4Ghr\nS45hg9mMXLtx1xyo+NvJ2DCs6uAn8PugQstrRLjdipYydnlAaREKXIqsd31q/Uhr\nGjVcAlXOZ/hxmw2hukJEOwBvY+vpVM0N2cliR82LFDDG1c7VVyHFpFEqiwfyx4Qv\nr9mbMfMdESYGXCXz1A789vn1m9BGa6ZFnLfzAvuDfXSAXtAG2GiFEW9aOFpYeiPw\nIFLet+WEBM4F6lrvh6JJnHlZYVUhU5c0Fvfb8YPYIjh+hJu9gDcflq2lK/8GD1oi\n1WGpeEKxwZt5n1UPkFhV\n=tkIT\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 1a5b020037e145511dbade34251bcc5c97bd7a1b\nparent 4f17335b64636efa29772937a965e07b9f1eda2b\nparent d912aa0ec55e578a95a65b39e7fd112d317dfdc6\nauthor Ayush Gupta <kathilshiva@gmail.com> 1790309078 +0530\ncommitter GitHub <noreply@github.com> 1790309078 +0530\n\nMerge branch 'main' into perf/tree-lru-gc",
+     "verified_at": "2026-09-25T04:04:39Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ab266b46ce991051dca5d5c20be59c52ea15f455",
+   "html_url": "https://github.com/microsoft/vscode/commit/ab266b46ce991051dca5d5c20be59c52ea15f455",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ab266b46ce991051dca5d5c20be59c52ea15f455/comments",
+   "author": {
+    "login": "Ayush-kathil",
+    "id": 212600865,
+    "node_id": "U_kgDODKwIIQ",
+    "avatar_url": "https://avatars.githubusercontent.com/u/212600865?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ayush-kathil",
+    "html_url": "https://github.com/Ayush-kathil",
+    "followers_url": "https://api.github.com/users/Ayush-kathil/followers",
+    "following_url": "https://api.github.com/users/Ayush-kathil/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ayush-kathil/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ayush-kathil/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ayush-kathil/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ayush-kathil/orgs",
+    "repos_url": "https://api.github.com/users/Ayush-kathil/repos",
+    "events_url": "https://api.github.com/users/Ayush-kathil/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ayush-kathil/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4f17335b64636efa29772937a965e07b9f1eda2b",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4f17335b64636efa29772937a965e07b9f1eda2b",
+     "html_url": "https://github.com/microsoft/vscode/commit/4f17335b64636efa29772937a965e07b9f1eda2b"
+    },
+    {
+     "sha": "d912aa0ec55e578a95a65b39e7fd112d317dfdc6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d912aa0ec55e578a95a65b39e7fd112d317dfdc6",
+     "html_url": "https://github.com/microsoft/vscode/commit/d912aa0ec55e578a95a65b39e7fd112d317dfdc6"
+    }
+   ]
+  }
+ ]
+}

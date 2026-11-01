@@ -1,0 +1,1145 @@
+{
+ "fetchedAt": "2026-11-01T00:53:00.685Z",
+ "pr": {
+  "number": 299382,
+  "title": "git: handle SSH keyboard-interactive auth in source control GUI (#276…",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-03-05T05:24:15Z",
+  "updated_at": "2026-10-19T03:44:34Z",
+  "user": "yangzi33",
+  "author_association": "NONE",
+  "additions": 33,
+  "deletions": 11,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 3,
+  "commits_count": 10,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "yangzi33/git-ssh-auth-keyboard-interact",
+   "sha": "a740eadde33844d558ad5bd590f085bc1908aa03",
+   "repo": "yangzi33/vscode",
+   "label": "yangzi33:yangzi33/git-ssh-auth-keyboard-interact"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "9dcad803e562f8fdfaad889ef0dfa765d955e5ea"
+  },
+  "body": "Previously, push/pull operations requiring keyboard-interactive SSH auth (e.g. YubiKey OTP, TOTP, PIV PIN) always failed with \"Permission denied (keyboard-interactive)\", but using the integrated terminal prompts for user interaction.\r\n\r\nMain causes:\r\n- Git subprocesses are spawned with stdin set to 'ignore', so SSH has no TTY to issue interactive prompts on.\r\n- `SSH_ASKPASS_REQUIRE=force` redirects all SSH prompts through VS Code's askpass IPC helper, but `handleSSHAskpass()` only handled two cases: **passphrase** and **host authenticity**, and fell through unconditionally into the authenticity block for any other prompt, causing crashes or empty responses for keyboard-interactive challenges.\r\n\r\nFixed handleSSHAskpass() to cover three cases:\r\n1. Passphrase — unchanged.\r\n2. Host authenticity — added protection to prevent argv out-of-bounds access on unrecognised prompts.\r\n3. Added Keyboard-interactive — reconstructs the full prompt text from argv and forwards it to the user via an InputBox. Touch/presence prompts (FIDO2 security key confirmation) are detected by pattern and handled by showing an informational notification and returning an empty response, since SSH drives the key interaction itself and expects no typed input.\r\n\r\nThis PR would close #276691 ",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "d41ee257f0cb2110dad6c2428f830234c3937a16",
+   "filename": "extensions/git/src/askpass.ts",
+   "status": "modified",
+   "additions": 33,
+   "deletions": 11,
+   "changes": 44,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a740eadde33844d558ad5bd590f085bc1908aa03/extensions%2Fgit%2Fsrc%2Faskpass.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a740eadde33844d558ad5bd590f085bc1908aa03/extensions%2Fgit%2Fsrc%2Faskpass.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fgit%2Fsrc%2Faskpass.ts?ref=a740eadde33844d558ad5bd590f085bc1908aa03",
+   "patch": "@@ -115,7 +115,7 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {\n \t}\n \n \tasync handleSSHAskpass(argv: string[]): Promise<string> {\n-\t\t// SSH (passphrase | authenticity)\n+\t\t// SSH (passphrase | authenticity | keyboard-interactive)\n \t\tconst request = argv[3];\n \n \t\t// passphrase\n@@ -143,19 +143,41 @@ export class Askpass implements IIPCHandler, ITerminalEnvironmentProvider {\n \t\t}\n \n \t\t// authenticity\n-\t\tconst host = argv[6].replace(/^[\"']+|[\"':]+$/g, '');\n-\t\tconst fingerprint = argv[15];\n+\t\tif (/authenticity/i.test(request)) {\n+\t\t\tconst host = argv[6].replace(/^[\"']+|[\"':]+$/g, '');\n+\t\t\tconst fingerprint = argv[15];\n \n-\t\tthis.logger.trace(`[Askpass][handleSSHAskpass] request: ${request}, host: ${host}, fingerprint: ${fingerprint}`);\n+\t\t\tthis.logger.trace(`[Askpass][handleSSHAskpass] request: ${request}, host: ${host}, fingerprint: ${fingerprint}`);\n \n-\t\tconst options: QuickPickOptions = {\n-\t\t\tcanPickMany: false,\n-\t\t\tignoreFocusOut: true,\n-\t\t\tplaceHolder: l10n.t('Are you sure you want to continue connecting?'),\n-\t\t\ttitle: l10n.t('\"{0}\" has fingerprint \"{1}\"', host ?? '', fingerprint ?? '')\n+\t\t\tconst options: QuickPickOptions = {\n+\t\t\t\tcanPickMany: false,\n+\t\t\t\tignoreFocusOut: true,\n+\t\t\t\tplaceHolder: l10n.t('Are you sure you want to continue connecting?'),\n+\t\t\t\ttitle: l10n.t('\"{0}\" has fingerprint \"{1}\"', host ?? '', fingerprint ?? '')\n+\t\t\t};\n+\t\t\tconst items = [l10n.t('yes'), l10n.t('no')];\n+\t\t\treturn await window.showQuickPick(items, options) ?? '';\n+\t\t}\n+\n+\t\t// keyboard-interactive: forward the SSH prompt to the user\n+\t\tconst prompt = argv.slice(2).join(' ').trim();\n+\t\tthis.logger.trace(`[Askpass][handleSSHAskpass] keyboard-interactive prompt: ${prompt}`);\n+\n+\t\t// Touch/presence prompts require physical key interaction but no text input.\n+\t\t// Show an informational message and return an empty response so SSH can proceed.\n+\t\tif (/touch|confirm.*presence|security.?key.*presence/i.test(prompt)) {\n+\t\t\tvoid window.showInformationMessage(l10n.t('Touch your security key to continue.'));\n+\t\t\treturn '';\n+\t\t}\n+\n+\t\tconst inputOptions: InputBoxOptions = {\n+\t\t\tpassword: true,\n+\t\t\tplaceHolder: prompt.replace(/:\\s*$/, ''),\n+\t\t\tprompt: l10n.t('SSH: Keyboard Interactive'),\n+\t\t\tignoreFocusOut: true\n \t\t};\n-\t\tconst items = [l10n.t('yes'), l10n.t('no')];\n-\t\treturn await window.showQuickPick(items, options) ?? '';\n+\n+\t\treturn await window.showInputBox(inputOptions) || '';\n \t}\n \n \tgetEnv(): { [key: string]: string } {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4406848832,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBqstQA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\n> [!NOTE]\n> Copilot was unable to run its full agentic suite in this review.\n\nAdds support for additional SSH askpass flows by handling SSH keyboard-interactive prompts and scoping the authenticity prompt handling more explicitly.\n\n**Changes:**\n- Extend SSH askpass support to include keyboard-interactive prompts in addition to passphrase and authenticity.\n- Gate authenticity parsing/QuickPick behind an explicit `/authenticity/i` check.\n- Add special-case handling for “touch/presence” security key prompts.\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/299382#pullrequestreview-4406848832",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/299382",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/299382#pullrequestreview-4406848832"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/299382"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-06-02T05:39:08Z",
+   "commit_id": "1a33527fafec2bc039c068ff95fb3565fc220a87"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002306574",
+   "html_url": "https://github.com/microsoft/vscode/pull/299382#issuecomment-4002306574",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/299382",
+   "id": 4002306574,
+   "node_id": "IC_kwDOAn8RLM7ujloO",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-05T05:25:14Z",
+   "updated_at": "2026-10-19T03:44:34Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `extensions/git/src/askpass.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002306574/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002308848",
+   "html_url": "https://github.com/microsoft/vscode/pull/299382#issuecomment-4002308848",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/299382",
+   "id": 4002308848,
+   "node_id": "IC_kwDOAn8RLM7ujmLw",
+   "user": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-05T05:25:47Z",
+   "updated_at": "2026-03-05T05:25:47Z",
+   "body": "> @yangzi33 please read the following Contributor License Agreement(CLA). If you agree with the CLA, please reply with the following information.\r\n> \r\n> ```\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n> ```\r\n> \r\n> > Options:\r\n> > \r\n> > * (default - no company specified) I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree\r\n> > ```\r\n> > \r\n> > \r\n> >     \r\n> >       \r\n> >     \r\n> > \r\n> >       \r\n> >     \r\n> > \r\n> >     \r\n> >   \r\n> > \r\n> > * (when company given) I am making Submissions in the course of work for my employer (or my employer has intellectual property rights in my Submissions by contract or applicable law). I have permission from my employer to make Submissions and enter into this Agreement on behalf of my employer. By signing below, the defined term “You” includes me and my employer.\r\n> > \r\n> > ```\r\n> > @microsoft-github-policy-service agree company=\"Microsoft\"\r\n> > ```\r\n> \r\n> Contributor License Agreement\r\n\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002308848/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002315950",
+   "html_url": "https://github.com/microsoft/vscode/pull/299382#issuecomment-4002315950",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/299382",
+   "id": 4002315950,
+   "node_id": "IC_kwDOAn8RLM7ujn6u",
+   "user": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-03-05T05:27:44Z",
+   "updated_at": "2026-03-05T05:27:44Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4002315950/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "bf48314cef11127c1eaf9a7af2d28025e2911772",
+   "node_id": "C_kwDORenNE9oAKGJmNDgzMTRjZWYxMTEyN2MxZWFmOWE3YWYyZDI4MDI1ZTI5MTE3NzI",
+   "commit": {
+    "author": {
+     "name": "Ivan Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-05T05:16:25Z"
+    },
+    "committer": {
+     "name": "Ivan Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-05T05:16:25Z"
+    },
+    "message": "git: handle SSH keyboard-interactive auth in source control GUI (#276691)",
+    "tree": {
+     "sha": "0597261eff1668ea638b7571475f098077762b27",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0597261eff1668ea638b7571475f098077762b27"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/bf48314cef11127c1eaf9a7af2d28025e2911772",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/bf48314cef11127c1eaf9a7af2d28025e2911772",
+   "html_url": "https://github.com/microsoft/vscode/commit/bf48314cef11127c1eaf9a7af2d28025e2911772",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/bf48314cef11127c1eaf9a7af2d28025e2911772/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d405135f7148777b16c838f2e81fc9c16f722b25",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d405135f7148777b16c838f2e81fc9c16f722b25",
+     "html_url": "https://github.com/microsoft/vscode/commit/d405135f7148777b16c838f2e81fc9c16f722b25"
+    }
+   ]
+  },
+  {
+   "sha": "9d244564e381f26346120ef4eadeabbe3baa8c7f",
+   "node_id": "C_kwDORenNE9oAKDlkMjQ0NTY0ZTM4MWYyNjM0NjEyMGVmNGVhZGVhYmJlM2JhYThjN2Y",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-05T05:25:19Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-05T05:25:19Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "f14b09899c506d41f2d378862a6aec7530f794b7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f14b09899c506d41f2d378862a6aec7530f794b7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/9d244564e381f26346120ef4eadeabbe3baa8c7f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpqRO/CRC1aQ7uu5UhlAAA2uoQAE2Duw5pOfg1pFlnqWe6GSxl\nEtScaydOO3Jy+l8rLA5gYbQP2zcWNT+I7cVqvJ+4kGI3tWpCwRc5B8hIrMY60Aa6\n30Pk5Sy6CEvhRVeziMN5SBY4PtrlSy39DDYYYtA3LD8kKa7rQJEMd0gKgY6nSaHS\ngZPVRUAnfAkPhD0y+fSozfNA1/ZVHGbWXtibof7CNxLhsaLWAae8X3/Wkvw8CUo1\nvXLbvDeGCwwtVkFp8PfS2dDQIAuVf1XEFJG4+UmJ4J6iGkoxcdzxBvB/3gUA21gv\nBcbW1SpmYkAmWZO8L1siQB5PwfF4md1jYNKQumvbWWwfVrCFgSTIFM189S0jJE3p\nmewHk1eOyfonSlqrUf5dkW8APjmr6h+Auua80aOavCrPNkaEUFC+gP4Unb2xU+1I\nRuYi4VzjWRKTNn8GA79ZUnqh8aZXiamfL8RTWoMyPhnGnq+npjJEmg00AT8b3Tx+\nENv7/wGro6DQWZUBzD3zN1F5pijr0WZcF3Y4niWTebK79KY6YHO6awZbxdzQe9S8\nyL6c3eNfBG1Z20dE+6yGqOm0jj1v1vOivrFCDtT3qsIqqjzTM/9lXg5qcG7gBKLV\nelZc4nVMkaZF3kia1vo4KngwVeN5PH4FTFPRlNwnSPIaKXiSc11gfBGYlWDRnN0M\nn4WVWGQ9hhDjz5DzKnID\n=l9Aw\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree f14b09899c506d41f2d378862a6aec7530f794b7\nparent bf48314cef11127c1eaf9a7af2d28025e2911772\nparent b929e4a80a4efef27d78998dad24e015ed7313cd\nauthor Ziyue Yang <zyyang215@gmail.com> 1772688319 -0500\ncommitter GitHub <noreply@github.com> 1772688319 -0500\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-05T05:25:20Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/9d244564e381f26346120ef4eadeabbe3baa8c7f",
+   "html_url": "https://github.com/microsoft/vscode/commit/9d244564e381f26346120ef4eadeabbe3baa8c7f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/9d244564e381f26346120ef4eadeabbe3baa8c7f/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bf48314cef11127c1eaf9a7af2d28025e2911772",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bf48314cef11127c1eaf9a7af2d28025e2911772",
+     "html_url": "https://github.com/microsoft/vscode/commit/bf48314cef11127c1eaf9a7af2d28025e2911772"
+    },
+    {
+     "sha": "b929e4a80a4efef27d78998dad24e015ed7313cd",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b929e4a80a4efef27d78998dad24e015ed7313cd",
+     "html_url": "https://github.com/microsoft/vscode/commit/b929e4a80a4efef27d78998dad24e015ed7313cd"
+    }
+   ]
+  },
+  {
+   "sha": "fd66fb8abe1b28b717ccd49e80a769b752442a40",
+   "node_id": "C_kwDORenNE9oAKGZkNjZmYjhhYmUxYjI4YjcxN2NjZDQ5ZTgwYTc2OWI3NTI0NDJhNDA",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-05T19:05:48Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-05T19:05:48Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "07bea0026e6f1582c329bfe3ee284d4a5b8c02bf",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/07bea0026e6f1582c329bfe3ee284d4a5b8c02bf"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/fd66fb8abe1b28b717ccd49e80a769b752442a40",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpqdQMCRC1aQ7uu5UhlAAAvqYQAEg+MJt+A8xsTiIpktiVB2yw\n/wRzuHtpFI6HvfgiSl9F4ShxwVAOH3EWFUkvHfEThoxXit9gZodCWU5CNEa2iKfI\n6yrnUp4rlcLxyqso5LmB3Upozws1KYFIofTPB+EsLbF7MQ0L/C2bUUBCPW7d3y6z\nm27+k7vjQsRgNzd/T9rV/Y7mX5cTWfQA+krXsq/p+m2A1fCQ8J3vglgOEDYObtlA\n3psgo6qHmsR285nZvFmFmkDFyKz5CI3MpybUNVu9W+B/Wo342j8uXL6Bzb4ZnukU\nUgmSD+QemduDY5lsjhzZdQpQ4zp5mOxJUcEdUIJ2FsbMB/vGiwg6y4Bjh/9IulzX\ng0kyHYOvasTt6lVlzh1oAU1qONlc5KTuZsqO2kM0LcR6DmkEFV2gEikNdoDOvhPt\n9qJ/wbVyyTiF+F9KD5ViTJV3+KuzctuKeci12UsGIg3HIn2zc47AZ1MqSyzVq9RQ\nfrSZgtPvDb5JXiIGvukoq4jAtQvHcLmSShaAqWQxBz4tcSr52TPVwaPbqEfclV6B\nFaHwf1RxSwMerws6rIr//S4itFrCAvdvzNqmy1GqY382WGjyV9kOI6kj6oOfSCXW\nRKiBac8fMWEzYga0c58x1uVyy0NnM+1ibVUx8smD2xN5SK0Z899M3LJpwdJbiP1r\nL/2Q1TrBRs82Sp5aSKMB\n=RbTY\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 07bea0026e6f1582c329bfe3ee284d4a5b8c02bf\nparent 9d244564e381f26346120ef4eadeabbe3baa8c7f\nparent 412a817d88227041ef16c3a377b36bfd5c83c4b2\nauthor Ziyue Yang <zyyang215@gmail.com> 1772737548 -0500\ncommitter GitHub <noreply@github.com> 1772737548 -0500\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-05T19:05:49Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/fd66fb8abe1b28b717ccd49e80a769b752442a40",
+   "html_url": "https://github.com/microsoft/vscode/commit/fd66fb8abe1b28b717ccd49e80a769b752442a40",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/fd66fb8abe1b28b717ccd49e80a769b752442a40/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9d244564e381f26346120ef4eadeabbe3baa8c7f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9d244564e381f26346120ef4eadeabbe3baa8c7f",
+     "html_url": "https://github.com/microsoft/vscode/commit/9d244564e381f26346120ef4eadeabbe3baa8c7f"
+    },
+    {
+     "sha": "412a817d88227041ef16c3a377b36bfd5c83c4b2",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/412a817d88227041ef16c3a377b36bfd5c83c4b2",
+     "html_url": "https://github.com/microsoft/vscode/commit/412a817d88227041ef16c3a377b36bfd5c83c4b2"
+    }
+   ]
+  },
+  {
+   "sha": "630cec25ee522042196693d40ecaf07c65b9c145",
+   "node_id": "C_kwDORenNE9oAKDYzMGNlYzI1ZWU1MjIwNDIxOTY2OTNkNDBlY2FmMDdjNjViOWMxNDU",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-05T23:24:10Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-05T23:24:10Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "9995749d3357668b07fd41a7ac7e137be86b3473",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/9995749d3357668b07fd41a7ac7e137be86b3473"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/630cec25ee522042196693d40ecaf07c65b9c145",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpqhCaCRC1aQ7uu5UhlAAAWx4QAAZhy0rN9fP7Cb1ASAVKrMnr\ndkVgM5hAx1+7S4RvmgJPIjZ64M/A5IzMNAWaJxsjmV9yXUUqEWcCzmKenr95Tk6m\nlSX9psWy8EUo2G919elt8j/0lhG3vyoftqVZ9RqQ/IMBs1yCBqLymUfQYQ4g5tQp\nd1mviUV9Nxebe0PbLPap8N39HSj5Eo14mEW4BfS4iX9tC7Ca7RAccoe2GliNlOuU\nwkIiofSUaTrRiDhTZ9DFRLrpBph1PkrYlzK/dIDzw79aj+ZSt1I0OCqWIW2a8F5P\nVjEu4Sq23M0ACHpGZOmnxTQEWJPZfSMl8+I5W+LyBel0YWs0Dw66zraoJysC9G4m\nATBOeAXukc8AjpODm98lLRv8e18zRFqNAGC4BxsFCGwftDdI5cof6JYraGAkcLJn\nJ6kL8wZ9BwTH5hLPDe+H8HYOa1ZI9+JM+ift075XUOACL6/J2EAPPpEDystNRIKu\nYvqbsSJDWA+FjMQX6W5IsDNw7OEbeQq7ZhmZS8EJv6ZUjDK2hi6Xxaf+9vRYp8Qw\nJX3f9Z1MxbIugywUDXu1ixktyoa3xQLDnpRey8OiacBHCmMEHmqnuaQJWt+qQCj9\nL1+jc2Kqr6cghqJnq34v2ICWYOD1bosaYaFstwqUeJDyF9ZVLKYdD95qpcLdQ3Zi\ngt8d9BOe5tADAf8uFz/2\n=bYES\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 9995749d3357668b07fd41a7ac7e137be86b3473\nparent fd66fb8abe1b28b717ccd49e80a769b752442a40\nparent b24b147db46d9327251bf7454d1dfb321dd5301a\nauthor Ziyue Yang <zyyang215@gmail.com> 1772753050 -0500\ncommitter GitHub <noreply@github.com> 1772753050 -0500\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-05T23:24:11Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/630cec25ee522042196693d40ecaf07c65b9c145",
+   "html_url": "https://github.com/microsoft/vscode/commit/630cec25ee522042196693d40ecaf07c65b9c145",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/630cec25ee522042196693d40ecaf07c65b9c145/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "fd66fb8abe1b28b717ccd49e80a769b752442a40",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/fd66fb8abe1b28b717ccd49e80a769b752442a40",
+     "html_url": "https://github.com/microsoft/vscode/commit/fd66fb8abe1b28b717ccd49e80a769b752442a40"
+    },
+    {
+     "sha": "b24b147db46d9327251bf7454d1dfb321dd5301a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b24b147db46d9327251bf7454d1dfb321dd5301a",
+     "html_url": "https://github.com/microsoft/vscode/commit/b24b147db46d9327251bf7454d1dfb321dd5301a"
+    }
+   ]
+  },
+  {
+   "sha": "886a6384f4352b8c8456fe4b146c1e24548896e1",
+   "node_id": "C_kwDORenNE9oAKDg4NmE2Mzg0ZjQzNTJiOGM4NDU2ZmU0YjE0NmMxZTI0NTQ4ODk2ZTE",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-06T01:44:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-06T01:44:44Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "4198180eb17d10236a992ec35f32bb5157608ff7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4198180eb17d10236a992ec35f32bb5157608ff7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/886a6384f4352b8c8456fe4b146c1e24548896e1",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpqjGMCRC1aQ7uu5UhlAAA1qYQABifG2Ws1cfJe3KwxfZ1oz98\noq+up1CNLC58K10UqPzGux1+MTwOF4fKAX7rPqOKlTsVGNlRbxGb7BVf67Aq2YNv\nriyDvWTglXZTmvb0m/VudqO7nBpq4F/dqiDTsACWHx8e63028wLvVwQ6Fxyd5OZO\nGTHpOJcG51S/SDI9vD9TATBXx2lNGlB1RU/BDQperfBoBhwSSZ5j28K88pHpoBRv\n7hZZqlkPrsjV1KnHdYZzLxV8cJoBSWxvxJP7+bUtD3LPn23Ez0dVKTVqHSD7x2H0\nz6Lwr/+oSGYQSwbOZi9pwWjYLXhvz7tOAeJHPM66e0TiaVYaAoX0i4L9IhgBnoBD\nNEJRjVxlJJVey6xA+LVDCubo/QG0wIeZU8nLDbnzcKgjYD4Eo2awELi/SLQSnbqK\nV0H0ntXrEd/uduJ+zV+sBBc5ms5SCrRoCeGvemQk37gi9XNVB6LhIBpAZ+nnHOCX\n2wKukGqd8jTi96lSERCTNzDLlXNj8NdXQAmUYgoBn2+8Xcxe7VC75JLoe3M7xoqg\nCf85YQjUeNDws0Wfgb4+yUXshRuW74M0xgB+TxqDHXlZJNfu9tfnTEMUDUmEUM69\nt7P5SfaQfVzSTbRKPLN7bXKvjlmTYKiXAqseyfOK9Rn0tV3ZIgJdL9/NhpZist9S\nQgSaSJFezUC9p0A24ulV\n=jZo9\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 4198180eb17d10236a992ec35f32bb5157608ff7\nparent 630cec25ee522042196693d40ecaf07c65b9c145\nparent de052c15eaefaceaa5b673081e2834f1cdf193db\nauthor Ziyue Yang <zyyang215@gmail.com> 1772761484 -0500\ncommitter GitHub <noreply@github.com> 1772761484 -0500\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-06T01:44:45Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/886a6384f4352b8c8456fe4b146c1e24548896e1",
+   "html_url": "https://github.com/microsoft/vscode/commit/886a6384f4352b8c8456fe4b146c1e24548896e1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/886a6384f4352b8c8456fe4b146c1e24548896e1/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "630cec25ee522042196693d40ecaf07c65b9c145",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/630cec25ee522042196693d40ecaf07c65b9c145",
+     "html_url": "https://github.com/microsoft/vscode/commit/630cec25ee522042196693d40ecaf07c65b9c145"
+    },
+    {
+     "sha": "de052c15eaefaceaa5b673081e2834f1cdf193db",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/de052c15eaefaceaa5b673081e2834f1cdf193db",
+     "html_url": "https://github.com/microsoft/vscode/commit/de052c15eaefaceaa5b673081e2834f1cdf193db"
+    }
+   ]
+  },
+  {
+   "sha": "91e06df7a59d904e37aef23d578344efc927b762",
+   "node_id": "C_kwDORenNE9oAKDkxZTA2ZGY3YTU5ZDkwNGUzN2FlZjIzZDU3ODM0NGVmYzkyN2I3NjI",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-08T06:02:57Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-08T06:02:57Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "8195ee38a280e7239c872fc5099f3efb563dd423",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/8195ee38a280e7239c872fc5099f3efb563dd423"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/91e06df7a59d904e37aef23d578344efc927b762",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJprRERCRC1aQ7uu5UhlAAAJWEQABBFne/uLPlGq/SVBUb1stsh\nUF6DqIO5qu+3xaN1K8X+Tu9xqEzCu4q4oS8xxKdqTrBEajCjDGgoxkWLgndOFDQU\n1PxcsFS3URprm5t3SsdaF/qd53pOb/lOiBpOCH5BLTWiPhbU0A7te+RRb5vRYK74\nNWI8R+2HeMbfZaWXpEksIOw+bqfiegzfRgQfZa0Iu1NmR5VG7J0HHYe3xyu25jmY\nJCLwxGXa5XJ+o1EtDaULSd08WPFAZFS/4wyqVroZ/7i0TUf8EG1OsKAIhDfO0Hmn\nho6lTz0O4pZjoZ8XcI8MQdREU5u/NK9QTOOZRmbZ+dznuvnPWZCHl6aoMcpmk0S1\nWgtWzM/w91uljiPsS5DCBc4KroeG83luYxjZBoPmcFNNN8CAmMeOjtRDzIyyuCDP\nvaldfR/UKOO4e645Vi2+XIVwV4LRjOuVTrt/aFHn997aekyQTuDPXlpXFGdSHd11\n+NAtyOC+rxBGf1LxMYEVYHFjNtsjgweC8EzsZh0YLPFS9vHdGnc5z0HRt8UFqfXH\n95jy1KgVH5r4JkN4RewbX/I/RTeOIr3TPv0YYZFTO8lCHrLSpjPhCPUPPSu+q8Wj\n8m9BZPDQn7TdYKodrgi6Olb4D2UWWvmhE06Jcx9ZVGFf6DP/XDgYKT69Gdlu8pj1\nuJz25banv+EClFENv4jR\n=31GM\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 8195ee38a280e7239c872fc5099f3efb563dd423\nparent 886a6384f4352b8c8456fe4b146c1e24548896e1\nparent 1eb2581989c23047ff009b68e910e48f51d4d3d7\nauthor Ziyue Yang <zyyang215@gmail.com> 1772949777 -0500\ncommitter GitHub <noreply@github.com> 1772949777 -0500\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-08T06:02:57Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/91e06df7a59d904e37aef23d578344efc927b762",
+   "html_url": "https://github.com/microsoft/vscode/commit/91e06df7a59d904e37aef23d578344efc927b762",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/91e06df7a59d904e37aef23d578344efc927b762/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "886a6384f4352b8c8456fe4b146c1e24548896e1",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/886a6384f4352b8c8456fe4b146c1e24548896e1",
+     "html_url": "https://github.com/microsoft/vscode/commit/886a6384f4352b8c8456fe4b146c1e24548896e1"
+    },
+    {
+     "sha": "1eb2581989c23047ff009b68e910e48f51d4d3d7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1eb2581989c23047ff009b68e910e48f51d4d3d7",
+     "html_url": "https://github.com/microsoft/vscode/commit/1eb2581989c23047ff009b68e910e48f51d4d3d7"
+    }
+   ]
+  },
+  {
+   "sha": "ee13a89cc098855de76602f76c8234689ffb4df7",
+   "node_id": "C_kwDORenNE9oAKGVlMTNhODljYzA5ODg1NWRlNzY2MDJmNzZjODIzNDY4OWZmYjRkZjc",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-03-09T04:21:02Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-03-09T04:21:02Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "5a2cc6114ab453114de1ff8bf4fe194c3cf36c5d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5a2cc6114ab453114de1ff8bf4fe194c3cf36c5d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ee13a89cc098855de76602f76c8234689ffb4df7",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJprkquCRC1aQ7uu5UhlAAAGRQQAF2IYsR0LjeDOqPBSa/UkTMO\nHU/EPMwM/wUkt7vx2+Ot1jiQ7AEy7nVJVp/FRVmI9caI4YltC6laM02PlXlypKQL\nIA0HWAtbWYlQ0ynJH6JiXh49F3xWeMjz0MwvyV2JthD9YxHanWnjOXNyk5ndbWdv\nfjNXQ/6kfuddeG2bib/yBXrV3fRu7uBXrvlvt6DAp1U1A69NXLny7x210YQW1ZNi\nIgxBT5RJ24snQzfR4q/z7OYJLX6BOExEfVsubLkf7lbfK02vvuMbcjQH1qG2rO1y\nwBpLw9x/kQ9FKHd1MjO8skm5JQtju7CBEOV1xaQvs3svLn6tJh4oaQwzlD7ruuw7\npLDmoKx6NBzPABdRKL/wPLbWfesAr43jMRvWlooDkbWrUcnUVogj4RFfA1Z9rk2f\nRBmbaeA6B6epRxyzrNvC6140ZjYYQeheQDLsPUXzeVoKThoffH+u9txbG6gPE/20\nZqD0isQJYcGccdbMxki4X5uMUnIozGh/4FeaY5tfm6TphCIE2XpPBIxfXAAb34jM\ntySKpgT/uew0R3TGZRyqS3w8+myujDxYw7OcGB+cfWM/tQsyzReSBsZPeNOlA6XE\n8Dj5GloSt4ZCnYdE0O/kAluwMrfG7SAXpZIZd9O74+DMuoZxoEpZqEw44byQdr+e\nkxYZnIUok5iISEpDXKUa\n=pRMp\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 5a2cc6114ab453114de1ff8bf4fe194c3cf36c5d\nparent 91e06df7a59d904e37aef23d578344efc927b762\nparent ef79c15d8c320b205b1be4f2d0402b114504bd2d\nauthor Ziyue Yang <zyyang215@gmail.com> 1773030062 -0400\ncommitter GitHub <noreply@github.com> 1773030062 -0400\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-03-09T04:21:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ee13a89cc098855de76602f76c8234689ffb4df7",
+   "html_url": "https://github.com/microsoft/vscode/commit/ee13a89cc098855de76602f76c8234689ffb4df7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ee13a89cc098855de76602f76c8234689ffb4df7/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "91e06df7a59d904e37aef23d578344efc927b762",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/91e06df7a59d904e37aef23d578344efc927b762",
+     "html_url": "https://github.com/microsoft/vscode/commit/91e06df7a59d904e37aef23d578344efc927b762"
+    },
+    {
+     "sha": "ef79c15d8c320b205b1be4f2d0402b114504bd2d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ef79c15d8c320b205b1be4f2d0402b114504bd2d",
+     "html_url": "https://github.com/microsoft/vscode/commit/ef79c15d8c320b205b1be4f2d0402b114504bd2d"
+    }
+   ]
+  },
+  {
+   "sha": "1a33527fafec2bc039c068ff95fb3565fc220a87",
+   "node_id": "C_kwDORenNE9oAKDFhMzM1MjdmYWZlYzJiYzAzOWMwNjhmZjk1ZmIzNTY1ZmMyMjBhODc",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-06-02T05:38:29Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-02T05:38:29Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "043d6326a8007947627e55e32e91bdfb2a023b50",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/043d6326a8007947627e55e32e91bdfb2a023b50"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1a33527fafec2bc039c068ff95fb3565fc220a87",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqHmxVCRC1aQ7uu5UhlAAAJzQQACECgKhAZrA0x/likLlq+EQ/\nlpkpuaCaInviqAJp6nyi51L4fcfoIil+GxAnsnjt98V5+jSQlI1pkUr4W4g9gyJu\nNkU3gJ0YQrmfC74uTMvv0c/QajqAR4K4+d1p6yWcqJxQL+I4zleK834oOzMtwemG\nOZgWe4E+QB+9oTLzTtYZaexUdtd9ngl6FcxvA2oAftpvTYoiJ5sVo98j88ZGS790\nT+KLeXghw5iFhhBqIBw/+RyXrfY6tdom2fWDMFQNLI3tZVW2l/V8Hhl3SSElBxVf\ntYAKiR/uGCVBtugEFVsqHM8NMFgVxJc/vnWt9zGOzCT9Veb8hBJ/SFejQw1i6JUX\n6f21Nod6Ut3WgcE/GomB8Coxa1oadFyrFPaPItf/KGiatUTBCutwnMsUUd0jhoXP\nhJ+fqoZj3ZofFCzzQkBUGCdAnRKpaZK4ouhm9NXIgQKDCM4lPFzbKP8QaAH1bKlQ\nBPxKSP/2YN+9M+wfOzIAYqDWjwNJzmS/qZZh2y1a5I1l+ElA5W3MmqZt96Lyos4/\nnwZZhiKDzZI9/Z1fE+mgtxKOypccONuXjwx4NP7IVlQY7+1xdxzg66CX7sBz5Tlg\nskrI2ZbuXkQgCje9mGoJB906aFa3BsIKxcPibFGB58V48Ea2/cwR/gb9EovbwP9R\ngzuJx9HpYhP2NZAd61eP\n=bPoH\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 043d6326a8007947627e55e32e91bdfb2a023b50\nparent ee13a89cc098855de76602f76c8234689ffb4df7\nparent 994891784e3db89cc0613525642fc79f25b29386\nauthor Ziyue Yang <zyyang215@gmail.com> 1780378709 -0400\ncommitter GitHub <noreply@github.com> 1780378709 -0400\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-06-02T05:38:29Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1a33527fafec2bc039c068ff95fb3565fc220a87",
+   "html_url": "https://github.com/microsoft/vscode/commit/1a33527fafec2bc039c068ff95fb3565fc220a87",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1a33527fafec2bc039c068ff95fb3565fc220a87/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ee13a89cc098855de76602f76c8234689ffb4df7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ee13a89cc098855de76602f76c8234689ffb4df7",
+     "html_url": "https://github.com/microsoft/vscode/commit/ee13a89cc098855de76602f76c8234689ffb4df7"
+    },
+    {
+     "sha": "994891784e3db89cc0613525642fc79f25b29386",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/994891784e3db89cc0613525642fc79f25b29386",
+     "html_url": "https://github.com/microsoft/vscode/commit/994891784e3db89cc0613525642fc79f25b29386"
+    }
+   ]
+  },
+  {
+   "sha": "63978a0f3f56df59519f1ca793849d593d819bd5",
+   "node_id": "C_kwDORenNE9oAKDYzOTc4YTBmM2Y1NmRmNTk1MTlmMWNhNzkzODQ5ZDU5M2Q4MTliZDU",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-06-16T23:20:59Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-06-16T23:20:59Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "323303ab3080012f534abf02f4940191c8864d43",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/323303ab3080012f534abf02f4940191c8864d43"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/63978a0f3f56df59519f1ca793849d593d819bd5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqMdpcCRC1aQ7uu5UhlAAAoN0QAEoOMiWQY4MRT9pHXVkWYewr\nfjJ6ujl+VsA1Qgi1n9AQ66Hs9szrVmbi5+n8D9VgH+CTV66GjMdZzbHTusuM9pfM\nG2KeOw42RHzXSWp3Bwyc45premYa1pHbpTVaTlRwEXxRuWQXO6OiOPsh1r6B3yIJ\nG7MvXRqK0uOJBB80ddY6mOT9ie8e6fcuO/YAIbk526d8rtUqxZPXu79ng7h0yqm3\nUc0QuF5Zn4SP0k4k80LSz1TZzNLC79LNPJ99LHh7wpCVPXngv5wsNOzvYCtqcVQx\n14lA3pF2fiE99BQ2UCN0jIDeHIZjm9w5PLzIun5+ECh+i1ZOeXz5Sh9pz7sfPk+N\nKboCCg7PqVrFIBtAeCypHWF539s8Uc62eyyDwSJYdvPpRpB5ZJqbTQjkFxaqSfjI\nfi62sH3/fe8EH6caofSmeu+RxWkEf0cokuEM5i1yEh5w7r637IpBGQZ1sd7GSgBh\nIdRRC3nzDPQ2WnGDXfyhLc38jt+GXxgv6lNbx38Uqs1ygjtYTmEdR//YfMw/cEiL\ngrgDd44xBX6JHFaripeUE/ZBouQRGc1lxvRTM82s/mZoKrv86UXzAfW0HF1yDlfG\nqSkkLtVcK3NHZxi69TE7YzrO/px/uf3Qj9EtYYQ7o5mHHRRHNsfCMt4m04+290X1\nIzkt2ic4GCo0I2JEDMT/\n=MBCJ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 323303ab3080012f534abf02f4940191c8864d43\nparent 1a33527fafec2bc039c068ff95fb3565fc220a87\nparent 93c7f885fc6c3618b47994b9d0613fbaf3e12b16\nauthor Ziyue Yang <zyyang215@gmail.com> 1781652059 -0400\ncommitter GitHub <noreply@github.com> 1781652059 -0400\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-06-16T23:21:01Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/63978a0f3f56df59519f1ca793849d593d819bd5",
+   "html_url": "https://github.com/microsoft/vscode/commit/63978a0f3f56df59519f1ca793849d593d819bd5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/63978a0f3f56df59519f1ca793849d593d819bd5/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1a33527fafec2bc039c068ff95fb3565fc220a87",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1a33527fafec2bc039c068ff95fb3565fc220a87",
+     "html_url": "https://github.com/microsoft/vscode/commit/1a33527fafec2bc039c068ff95fb3565fc220a87"
+    },
+    {
+     "sha": "93c7f885fc6c3618b47994b9d0613fbaf3e12b16",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/93c7f885fc6c3618b47994b9d0613fbaf3e12b16",
+     "html_url": "https://github.com/microsoft/vscode/commit/93c7f885fc6c3618b47994b9d0613fbaf3e12b16"
+    }
+   ]
+  },
+  {
+   "sha": "a740eadde33844d558ad5bd590f085bc1908aa03",
+   "node_id": "C_kwDORenNE9oAKGE3NDBlYWRkZTMzODQ0ZDU1OGFkNWJkNTkwZjA4NWJjMTkwOGFhMDM",
+   "commit": {
+    "author": {
+     "name": "Ziyue Yang",
+     "email": "zyyang215@gmail.com",
+     "date": "2026-10-19T03:43:53Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-19T03:43:53Z"
+    },
+    "message": "Merge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+    "tree": {
+     "sha": "34a0230deb7d4256b65eeb23ccfbf0a59df89baf",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/34a0230deb7d4256b65eeb23ccfbf0a59df89baf"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a740eadde33844d558ad5bd590f085bc1908aa03",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq1ZH6CRC1aQ7uu5UhlAAAzy4QAJZzhX1uM8YpqYV4CuP7oJCI\n64UNQLGYFygNcR9xDbPABBaS8ey1j3Luv0EIDAGcBAmN10746nrRn4YHqwLwTmKN\nm5mX6Lh3IPVquHQgFpIelV/9LjY4S99+JBulKnHQjzALtxW23L4ADgbAyHxWko7U\nTbAmPUf+b+9/cCy9vhoHR2VIZ0vYnJW4CpnJ5OQ1Mu1CSTcFjZVUkpMftQtr20Mm\nQbHFDWgvBP2pP+bEbnPt2W4yWH4ty7A713THEU9v5p0cGG465BbeIRNiMMk6SF37\nTo81pSM+DNR6XQ058RB6VX9BlGTsd+yiPlI+vIx8KgS3XUuBTFeujSsNnH8Q9DrC\nZP7ExeRC9tfp+2dCV7BnAUwohwXCFrHXG4enXqzQUDcWq886eyLcodVYReUALBlT\nad3cgxS5ju5wBVzJCPVgoG3v1p3ZjO2KWrKz4FpdYUStFHIxpvmA/bTzDIFrqxoj\n3vHWDq0c/cwy0y927b8hYSrjYD0tu87sfdfiKrK53wiVlo+hdRBtMmHIdwjY2WCI\nYjqaPJ0TvfI4yiIlD6/v/3dOtIwR4TH44wkVAPH0sp0DwrjJODQ8JYGzXT/oJlCH\nGhQSxOoQN6iV0S61k7s5VYnXCcm/Gi1fgBgb96nQmtVo7ie4550YLa0CLYIWIeMN\n04Gla71qlkV9HeEcYOaw\n=RNgn\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 34a0230deb7d4256b65eeb23ccfbf0a59df89baf\nparent 63978a0f3f56df59519f1ca793849d593d819bd5\nparent 9dcad803e562f8fdfaad889ef0dfa765d955e5ea\nauthor Ziyue Yang <zyyang215@gmail.com> 1792381433 -0400\ncommitter GitHub <noreply@github.com> 1792381433 -0400\n\nMerge branch 'main' into yangzi33/git-ssh-auth-keyboard-interact",
+     "verified_at": "2026-10-19T03:43:54Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a740eadde33844d558ad5bd590f085bc1908aa03",
+   "html_url": "https://github.com/microsoft/vscode/commit/a740eadde33844d558ad5bd590f085bc1908aa03",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a740eadde33844d558ad5bd590f085bc1908aa03/comments",
+   "author": {
+    "login": "yangzi33",
+    "id": 43503108,
+    "node_id": "MDQ6VXNlcjQzNTAzMTA4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/43503108?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yangzi33",
+    "html_url": "https://github.com/yangzi33",
+    "followers_url": "https://api.github.com/users/yangzi33/followers",
+    "following_url": "https://api.github.com/users/yangzi33/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yangzi33/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yangzi33/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yangzi33/subscriptions",
+    "organizations_url": "https://api.github.com/users/yangzi33/orgs",
+    "repos_url": "https://api.github.com/users/yangzi33/repos",
+    "events_url": "https://api.github.com/users/yangzi33/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yangzi33/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "63978a0f3f56df59519f1ca793849d593d819bd5",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/63978a0f3f56df59519f1ca793849d593d819bd5",
+     "html_url": "https://github.com/microsoft/vscode/commit/63978a0f3f56df59519f1ca793849d593d819bd5"
+    },
+    {
+     "sha": "9dcad803e562f8fdfaad889ef0dfa765d955e5ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9dcad803e562f8fdfaad889ef0dfa765d955e5ea",
+     "html_url": "https://github.com/microsoft/vscode/commit/9dcad803e562f8fdfaad889ef0dfa765d955e5ea"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,150 @@
+{
+ "fetchedAt": "2026-11-01T00:51:59.018Z",
+ "pr": {
+  "number": 238485,
+  "title": "Support extension specific default language",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-01-22T18:15:53Z",
+  "updated_at": "2026-01-20T10:13:48Z",
+  "user": "wdhongtw",
+  "author_association": "CONTRIBUTOR",
+  "additions": 37,
+  "deletions": 10,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "feat-ext-l10n-default",
+   "sha": "c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "repo": "wdhongtw/vscode",
+   "label": "wdhongtw:feat-ext-l10n-default"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Provide a mechanism for extension to specify it's own default language.\r\nAllow extension owner to choose the language of untranslated string when using the builtin l10n API.\r\n\r\nFor motivation of this PR, please refer to #168127.\r\n\r\n## Proposed Solution\r\n\r\nWe check the default language specified by extension maintainer from `package.json`.\r\nAnd assume being `en` if not specified, for backward compatibility reason.\r\n\r\n### Library Logic\r\n\r\nWhen default-lang of extension match current VSCode language, we will not load any additional\r\nstring bundle. If default-lang is not matched, we will try loading `bundle.l10n.<locale>.json`\r\nbundle file for current VSCode language.\r\n\r\nThe rest logic remain untouched, e.g. how we bypass translation if there is no corresponding bundle.\r\n\r\n### Manifest Format in package.json\r\n\r\nAs proposed by TylerLeonhardt. In addition to original usage\r\n\r\n```json\r\n{\r\n    \"l10n\": \"./l10n\"\r\n}\r\n```\r\n\r\nNow we support the format like\r\n\r\n```json\r\n{\r\n    \"l10n\": {\r\n        \"location\": \"./l10n\",\r\n        \"defaultLocale\": \"en\"\r\n    }\r\n}\r\n```\r\n\r\nas a way to specify default-lang for extensions by their maintainers.\r\n\r\n## How to Verify\r\n\r\nIs's not so easy to verify the if logic is correct, since that all related logic are coupled with\r\na. vscode current language b. file system state of particular extension.\r\n\r\n### Prepare Extension\r\n\r\nWrite a extension that\r\n\r\n1. `vscode.l10n.t` to translate a string.\r\n2. specify l10n.defaultLocale other than `en`\r\n3. provide a translated string bundle in English: `bundle.l10n.en.json`\r\n\r\nPackage the extension for following steps.\r\n\r\n(I prepare a sample extension at https://github.com/wdhongtw/try-plugin, where the default-lang is `ja` Japanese.)\r\n\r\n### Verify VSCode Logic\r\n\r\nNow we need to launch a VSCode instance for three setup.\r\n\r\nA. VSCode language match extension default-lang.\r\nTry load the extension and verify the original string in `vscode.l10n.t` function call is used.\r\n\r\nB. VSCode language does not match extension default-lang and be in any language that the extension\r\ndo provide translated string bundle.\r\nTry load the extension and verify the translated string in `bundle.l10n.<locale>.json` is used.\r\n\r\nC. VSCode language does not match extension default-lang and be in any language that extension\r\ndoes not provide translated string bundle.\r\nTry load the extension and verify the original string in `vscode.l10n.t` function call is used.\r\n\r\n(To change the language of VSCode quickly, we can patch `defaultNLSConfiguration` in `src\\vs\\base\\node\\nls.ts`)",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "59f733d9001c58339a696cd396a7eacb90434e9c",
+   "filename": "src/vs/platform/extensions/common/extensions.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 1,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c7314f11cc311e206b8aaac255c22ac5c24a16f5/src%2Fvs%2Fplatform%2Fextensions%2Fcommon%2Fextensions.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c7314f11cc311e206b8aaac255c22ac5c24a16f5/src%2Fvs%2Fplatform%2Fextensions%2Fcommon%2Fextensions.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2Fextensions%2Fcommon%2Fextensions.ts?ref=c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "patch": "@@ -266,6 +266,15 @@ export const EXTENSION_CATEGORIES = [\n \t'Other',\n ];\n \n+export interface ManifestL10nConfiguration {\n+\n+\t/** The relative path to folder for l10n bundle files */\n+\tlocation: string;\n+\n+\t/** Optional tag for default language of un-translated strings. */\n+\tdefaultLocale?: string;\n+}\n+\n export interface IRelaxedExtensionManifest {\n \tname: string;\n \tdisplayName?: string;\n@@ -278,7 +287,7 @@ export interface IRelaxedExtensionManifest {\n \tpreview?: boolean;\n \t// For now this only supports pointing to l10n bundle files\n \t// but it will be used for package.l10n.json files in the future\n-\tl10n?: string;\n+\tl10n?: string | ManifestL10nConfiguration;\n \ticon?: string;\n \tcategories?: string[];\n \tkeywords?: string[];"
+  },
+  {
+   "sha": "cb4ea7e03ef1d15fea4cf4b7d50cf1d9c3f1e8ac",
+   "filename": "src/vs/workbench/api/common/extHostLocalizationService.ts",
+   "status": "modified",
+   "additions": 27,
+   "deletions": 9,
+   "changes": 36,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c7314f11cc311e206b8aaac255c22ac5c24a16f5/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostLocalizationService.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c7314f11cc311e206b8aaac255c22ac5c24a16f5/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostLocalizationService.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostLocalizationService.ts?ref=c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "patch": "@@ -18,23 +18,24 @@ export class ExtHostLocalizationService implements ExtHostLocalizationShape {\n \n \tprivate readonly _proxy: MainThreadLocalizationShape;\n \tprivate readonly currentLanguage: string;\n-\tprivate readonly isDefaultLanguage: boolean;\n \n \tprivate readonly bundleCache: Map<string, { contents: { [key: string]: string }; uri: URI }> = new Map();\n \n+\t/** Is current language matched with default language for initialized extensions. */\n+\tprivate readonly isLangMatched: Map<string, boolean> = new Map();\n+\n \tconstructor(\n \t\t@IExtHostInitDataService initData: IExtHostInitDataService,\n \t\t@IExtHostRpcService rpc: IExtHostRpcService,\n \t\t@ILogService private readonly logService: ILogService\n \t) {\n \t\tthis._proxy = rpc.getProxy(MainContext.MainThreadLocalization);\n \t\tthis.currentLanguage = initData.environment.appLanguage;\n-\t\tthis.isDefaultLanguage = this.currentLanguage === LANGUAGE_DEFAULT;\n \t}\n \n \tgetMessage(extensionId: string, details: IStringDetails): string {\n \t\tconst { message, args, comment } = details;\n-\t\tif (this.isDefaultLanguage) {\n+\t\tif (this.isLangMatched.get(extensionId)) {\n \t\t\treturn format2(message, (args ?? {}));\n \t\t}\n \n@@ -58,9 +59,21 @@ export class ExtHostLocalizationService implements ExtHostLocalizationShape {\n \t}\n \n \tasync initializeLocalizedMessages(extension: IExtensionDescription): Promise<void> {\n-\t\tif (this.isDefaultLanguage\n-\t\t\t|| (!extension.l10n && !extension.isBuiltin)\n-\t\t) {\n+\t\t/** Extract extension specific default language, if any. */\n+\t\tconst getExtensionDefaultLang = (): string | undefined => {\n+\t\t\tconst l10n = extension.l10n;\n+\t\t\tif (l10n === undefined || typeof l10n === 'string') {\n+\t\t\t\treturn undefined;\n+\t\t\t}\n+\t\t\treturn l10n.defaultLocale;\n+\t\t};\n+\n+\t\t// Fallback to global setting if the extension has no preference.\n+\t\tconst extDefaultLang = getExtensionDefaultLang() || LANGUAGE_DEFAULT;\n+\t\tconst isMatched = extDefaultLang === this.currentLanguage;\n+\t\tthis.isLangMatched.set(extension.identifier.value, isMatched);\n+\n+\t\tif (isMatched && !extension.isBuiltin) {\n \t\t\treturn;\n \t\t}\n \n@@ -99,9 +112,14 @@ export class ExtHostLocalizationService implements ExtHostLocalizationShape {\n \t\t\treturn URI.revive(uri);\n \t\t}\n \n-\t\treturn extension.l10n\n-\t\t\t? URI.joinPath(extension.extensionLocation, extension.l10n, `bundle.l10n.${this.currentLanguage}.json`)\n-\t\t\t: undefined;\n+\t\tif (extension.l10n === undefined) {\n+\t\t\treturn undefined;\n+\t\t}\n+\t\treturn URI.joinPath(\n+\t\t\textension.extensionLocation,\n+\t\t\ttypeof extension.l10n === 'string' ? extension.l10n : extension.l10n.location,\n+\t\t\t`bundle.l10n.${this.currentLanguage}.json`\n+\t\t);\n \t}\n }\n "
+  }
+ ],
+ "reviews": [],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "node_id": "C_kwDOMPJm-NoAKGM3MzE0ZjExY2MzMTFlMjA2YjhhYWFjMjU1YzIyYWM1YzI0YTE2ZjU",
+   "commit": {
+    "author": {
+     "name": "Weida Hong",
+     "email": "wdhongtw@gmail.com",
+     "date": "2025-01-22T18:07:04Z"
+    },
+    "committer": {
+     "name": "Weida Hong",
+     "email": "wdhongtw@gmail.com",
+     "date": "2025-01-22T18:07:06Z"
+    },
+    "message": "Support extension specific default language (#168127)\n\nProvide a mechanism for extension to specify it's own default language.\n\nAllow extension owner to choose the language of untranslated string\nwhen using the builtin l10n API.",
+    "tree": {
+     "sha": "df7001a544585364c6b0a7f8792575afc4a1c009",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/df7001a544585364c6b0a7f8792575afc4a1c009"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQSz0YvHVafhHsjzqQKMwunPs74nDAUCZ5EzzgAKCRCMwunPs74n\nDK7zAQCGC+VrPLZca92TIH6sJyUNYGNctbamxjhJHMjNE+nHbAD+MEc22PM/RLa9\nNyi9b6eMCdwADK3AtcBYP2a/PjT2pQU=\n=9VEj\n-----END PGP SIGNATURE-----",
+     "payload": "tree df7001a544585364c6b0a7f8792575afc4a1c009\nparent 909c1538c2d6c7e08e0842d65f7c38e7e44fe287\nauthor Weida Hong <wdhongtw@gmail.com> 1737569224 +0800\ncommitter Weida Hong <wdhongtw@gmail.com> 1737569226 +0800\n\nSupport extension specific default language (#168127)\n\nProvide a mechanism for extension to specify it's own default language.\n\nAllow extension owner to choose the language of untranslated string\nwhen using the builtin l10n API.\n",
+     "verified_at": "2025-01-22T18:07:39Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "html_url": "https://github.com/microsoft/vscode/commit/c7314f11cc311e206b8aaac255c22ac5c24a16f5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c7314f11cc311e206b8aaac255c22ac5c24a16f5/comments",
+   "author": {
+    "login": "wdhongtw",
+    "id": 16065489,
+    "node_id": "MDQ6VXNlcjE2MDY1NDg5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/16065489?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wdhongtw",
+    "html_url": "https://github.com/wdhongtw",
+    "followers_url": "https://api.github.com/users/wdhongtw/followers",
+    "following_url": "https://api.github.com/users/wdhongtw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wdhongtw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wdhongtw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wdhongtw/subscriptions",
+    "organizations_url": "https://api.github.com/users/wdhongtw/orgs",
+    "repos_url": "https://api.github.com/users/wdhongtw/repos",
+    "events_url": "https://api.github.com/users/wdhongtw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wdhongtw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "wdhongtw",
+    "id": 16065489,
+    "node_id": "MDQ6VXNlcjE2MDY1NDg5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/16065489?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wdhongtw",
+    "html_url": "https://github.com/wdhongtw",
+    "followers_url": "https://api.github.com/users/wdhongtw/followers",
+    "following_url": "https://api.github.com/users/wdhongtw/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wdhongtw/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wdhongtw/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wdhongtw/subscriptions",
+    "organizations_url": "https://api.github.com/users/wdhongtw/orgs",
+    "repos_url": "https://api.github.com/users/wdhongtw/repos",
+    "events_url": "https://api.github.com/users/wdhongtw/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wdhongtw/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "909c1538c2d6c7e08e0842d65f7c38e7e44fe287",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/909c1538c2d6c7e08e0842d65f7c38e7e44fe287",
+     "html_url": "https://github.com/microsoft/vscode/commit/909c1538c2d6c7e08e0842d65f7c38e7e44fe287"
+    }
+   ]
+  }
+ ]
+}

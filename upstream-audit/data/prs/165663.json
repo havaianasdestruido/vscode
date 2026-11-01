@@ -1,0 +1,231 @@
+{
+ "fetchedAt": "2026-11-01T00:51:12.502Z",
+ "pr": {
+  "number": 165663,
+  "title": "add \"toggled\" to command extension api",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2022-11-06T21:20:25Z",
+  "updated_at": "2026-08-24T00:55:36Z",
+  "user": "mxsdev",
+  "author_association": "NONE",
+  "additions": 7,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "toggled-commands",
+   "sha": "1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+   "repo": "mxsdev/vscode",
+   "label": "mxsdev:toggled-commands"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n\r\nSolves #109306\r\n\r\n[See here for a test extension demonstrating the new feature](https://github.com/mxsdev/vscode-toggle-extension), which adds a command, \"Toggle Test Command,\" to the editor title menu. (Run this test by either installing the vsix or passing its root directory to the `--extensionDevelopmentPath` argument to `scripts/code-cli.sh`)\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "d4cfa78b928b46444b9e6322d30579bac061f7a1",
+   "filename": "src/vs/workbench/services/actions/common/menusExtensionPoint.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 1,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/1b5ca6bdf95956a37084d9fc1160d12c7253bee1/src%2Fvs%2Fworkbench%2Fservices%2Factions%2Fcommon%2FmenusExtensionPoint.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/1b5ca6bdf95956a37084d9fc1160d12c7253bee1/src%2Fvs%2Fworkbench%2Fservices%2Factions%2Fcommon%2FmenusExtensionPoint.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fservices%2Factions%2Fcommon%2FmenusExtensionPoint.ts?ref=1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+   "patch": "@@ -499,6 +499,7 @@ namespace schema {\n \t\ttitle: string | ILocalizedString;\n \t\tshortTitle?: string | ILocalizedString;\n \t\tenablement?: string;\n+\t\ttoggled?: string;\n \t\tcategory?: string | ILocalizedString;\n \t\ticon?: IUserFriendlyIcon;\n \t}\n@@ -585,6 +586,10 @@ namespace schema {\n \t\t\t\tdescription: localize('vscode.extension.contributes.commandType.precondition', '(Optional) Condition which must be true to enable the command in the UI (menu and keybindings). Does not prevent executing the command by other means, like the `executeCommand`-api.'),\n \t\t\t\ttype: 'string'\n \t\t\t},\n+\t\t\ttoggled: {\n+\t\t\t\tdescription: localize('vscode.extension.contributes.commandType.toggled', '(Optional) Condition which must be true to show a check-mark in the UI (menu).'),\n+\t\t\t\ttype: 'string'\n+\t\t\t},\n \t\t\ticon: {\n \t\t\t\tdescription: localize({ key: 'vscode.extension.contributes.commandType.icon', comment: ['do not translate or change `\\\\$(zap)`, \\\\ in front of $ is important.'] }, '(Optional) Icon which is used to represent the command in the UI. Either a file path, an object with file paths for dark and light themes, or a theme icon references, like `\\\\$(zap)`'),\n \t\t\t\tanyOf: [{\n@@ -634,7 +639,7 @@ commandsExtensionPoint.setHandler(extensions => {\n \t\t\treturn;\n \t\t}\n \n-\t\tconst { icon, enablement, category, title, shortTitle, command } = userFriendlyCommand;\n+\t\tconst { icon, enablement, category, title, shortTitle, command, toggled } = userFriendlyCommand;\n \n \t\tlet absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;\n \t\tif (icon) {\n@@ -660,6 +665,7 @@ commandsExtensionPoint.setHandler(extensions => {\n \t\t\ttooltip: title,\n \t\t\tcategory,\n \t\t\tprecondition: ContextKeyExpr.deserialize(enablement),\n+\t\t\ttoggled: ContextKeyExpr.deserialize(toggled),\n \t\t\ticon: absoluteIcon\n \t\t}));\n \t}"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1644715323",
+   "html_url": "https://github.com/microsoft/vscode/pull/165663#issuecomment-1644715323",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/165663",
+   "id": 1644715323,
+   "node_id": "IC_kwDOAn8RLM5iCF07",
+   "user": {
+    "login": "christian-bromann",
+    "id": 731337,
+    "node_id": "MDQ6VXNlcjczMTMzNw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/731337?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/christian-bromann",
+    "html_url": "https://github.com/christian-bromann",
+    "followers_url": "https://api.github.com/users/christian-bromann/followers",
+    "following_url": "https://api.github.com/users/christian-bromann/following{/other_user}",
+    "gists_url": "https://api.github.com/users/christian-bromann/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/christian-bromann/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/christian-bromann/subscriptions",
+    "organizations_url": "https://api.github.com/users/christian-bromann/orgs",
+    "repos_url": "https://api.github.com/users/christian-bromann/repos",
+    "events_url": "https://api.github.com/users/christian-bromann/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/christian-bromann/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-07-20T22:36:51Z",
+   "updated_at": "2023-07-20T22:36:51Z",
+   "body": "@jrieken can we get a review on this, I am looking for the same solution. I am happy to support in whatever way possible.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1644715323/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2116940381",
+   "html_url": "https://github.com/microsoft/vscode/pull/165663#issuecomment-2116940381",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/165663",
+   "id": 2116940381,
+   "node_id": "IC_kwDOAn8RLM5-LfJd",
+   "user": {
+    "login": "gjsjohnmurray",
+    "id": 6726799,
+    "node_id": "MDQ6VXNlcjY3MjY3OTk=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6726799?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/gjsjohnmurray",
+    "html_url": "https://github.com/gjsjohnmurray",
+    "followers_url": "https://api.github.com/users/gjsjohnmurray/followers",
+    "following_url": "https://api.github.com/users/gjsjohnmurray/following{/other_user}",
+    "gists_url": "https://api.github.com/users/gjsjohnmurray/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/gjsjohnmurray/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/gjsjohnmurray/subscriptions",
+    "organizations_url": "https://api.github.com/users/gjsjohnmurray/orgs",
+    "repos_url": "https://api.github.com/users/gjsjohnmurray/repos",
+    "events_url": "https://api.github.com/users/gjsjohnmurray/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/gjsjohnmurray/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-05-17T07:38:57Z",
+   "updated_at": "2024-05-17T07:38:57Z",
+   "body": "@jrieken are you open to accepting this enhancement so we extension developers can leverage checkmarks on menu contributions?",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2116940381/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+   "node_id": "C_kwDOIYiqotoAKDFiNWNhNmJkZjk1OTU2YTM3MDg0ZDlmYzExNjBkMTJjNzI1M2JlZTE",
+   "commit": {
+    "author": {
+     "name": "charburgx",
+     "email": "charburgx@gmail.com",
+     "date": "2022-11-06T21:06:27Z"
+    },
+    "committer": {
+     "name": "charburgx",
+     "email": "charburgx@gmail.com",
+     "date": "2022-11-06T21:06:27Z"
+    },
+    "message": "feat: add \"toggled\" to command extension api",
+    "tree": {
+     "sha": "3695433028135e2591492daeb6886957d18a6d58",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3695433028135e2591492daeb6886957d18a6d58"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+   "html_url": "https://github.com/microsoft/vscode/commit/1b5ca6bdf95956a37084d9fc1160d12c7253bee1",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1b5ca6bdf95956a37084d9fc1160d12c7253bee1/comments",
+   "author": {
+    "login": "mxsdev",
+    "id": 16108792,
+    "node_id": "MDQ6VXNlcjE2MTA4Nzky",
+    "avatar_url": "https://avatars.githubusercontent.com/u/16108792?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mxsdev",
+    "html_url": "https://github.com/mxsdev",
+    "followers_url": "https://api.github.com/users/mxsdev/followers",
+    "following_url": "https://api.github.com/users/mxsdev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mxsdev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mxsdev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mxsdev/subscriptions",
+    "organizations_url": "https://api.github.com/users/mxsdev/orgs",
+    "repos_url": "https://api.github.com/users/mxsdev/repos",
+    "events_url": "https://api.github.com/users/mxsdev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mxsdev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mxsdev",
+    "id": 16108792,
+    "node_id": "MDQ6VXNlcjE2MTA4Nzky",
+    "avatar_url": "https://avatars.githubusercontent.com/u/16108792?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mxsdev",
+    "html_url": "https://github.com/mxsdev",
+    "followers_url": "https://api.github.com/users/mxsdev/followers",
+    "following_url": "https://api.github.com/users/mxsdev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mxsdev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mxsdev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mxsdev/subscriptions",
+    "organizations_url": "https://api.github.com/users/mxsdev/orgs",
+    "repos_url": "https://api.github.com/users/mxsdev/repos",
+    "events_url": "https://api.github.com/users/mxsdev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mxsdev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "08baa8abb444c9befcde2e4a3b275f2da457a140",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/08baa8abb444c9befcde2e4a3b275f2da457a140",
+     "html_url": "https://github.com/microsoft/vscode/commit/08baa8abb444c9befcde2e4a3b275f2da457a140"
+    }
+   ]
+  }
+ ]
+}

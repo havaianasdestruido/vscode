@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:54:51.818Z",
+ "pr": {
+  "number": 334277,
+  "title": "Declare defaults for the accessibility signal delay settings",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-03T15:17:47Z",
+  "updated_at": "2026-09-03T16:20:27Z",
+  "user": "samuelmbabhazi",
+  "author_association": "NONE",
+  "additions": 12,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/accessibility-signal-delay-defaults",
+   "sha": "ae2d9e224562ce43679667475c122aea9b17891c",
+   "repo": "samuelmbabhazi/vscode",
+   "label": "samuelmbabhazi:fix/accessibility-signal-delay-defaults"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "01db5cd3b989e355e99b270712cd15baa9c70d8e"
+  },
+  "body": "Fixes #286430\n\n## Problem\n\nThe three `accessibility.signalOptions.experimental.delays.*` settings (`general`, `warningAtPosition`, `errorAtPosition`) are `object` settings that declare `default` values on their properties only, without a `default` for the setting itself. The configuration registry therefore registers an empty object as the default:\n\n- The settings editor renders an empty table with an \"Add Item\" button instead of the default rows, and \"Preferences: Open Default Settings (JSON)\" shows `{}` for the three settings.\n- `AccessibilitySignalService.getDelayMs` reads `value.sound` and `value.announcement` from that empty object when the settings are not configured, so the documented delays are not applied.\n\nThese are the only object settings in the core that rely on property level defaults alone.\n\n## Fix\n\nDeclare the object defaults explicitly, using the values already documented on the properties (`announcement: 3000`, `sound: 400` for general, `sound: 1000` for the two position signals). The settings editor now shows the default rows, and the runtime default matches the documentation. Users who configured the settings themselves are not affected.\n\n## How to test\n\n1. Open the settings editor and search for `accessibility.signalOptions.experimental.delays`.\n2. Before this change: each of the three settings shows an empty table with an \"Add Item\" button.\n3. After this change: each setting lists its `announcement` and `sound` rows with the default values, and \"Preferences: Open Default Settings (JSON)\" shows the objects instead of `{}`.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "c409df6e520d5ae29a5f7334b4b5face65096ed7",
+   "filename": "src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 0,
+   "changes": 12,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ae2d9e224562ce43679667475c122aea9b17891c/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ae2d9e224562ce43679667475c122aea9b17891c/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts?ref=ae2d9e224562ce43679667475c122aea9b17891c",
+   "patch": "@@ -258,6 +258,10 @@ const configuration: IConfigurationNode = {\n \t\t\t'type': 'object',\n \t\t\t'description': 'Delays for all signals besides error and warning at position',\n \t\t\t'additionalProperties': false,\n+\t\t\t'default': {\n+\t\t\t\t'announcement': 3000,\n+\t\t\t\t'sound': 400\n+\t\t\t},\n \t\t\t'properties': {\n \t\t\t\t'announcement': {\n \t\t\t\t\t'description': localize('accessibility.signalOptions.delays.general.announcement', \"The delay in milliseconds before an announcement is made.\"),\n@@ -277,6 +281,10 @@ const configuration: IConfigurationNode = {\n \t\t'accessibility.signalOptions.experimental.delays.warningAtPosition': {\n \t\t\t'type': 'object',\n \t\t\t'additionalProperties': false,\n+\t\t\t'default': {\n+\t\t\t\t'announcement': 3000,\n+\t\t\t\t'sound': 1000\n+\t\t\t},\n \t\t\t'properties': {\n \t\t\t\t'announcement': {\n \t\t\t\t\t'description': localize('accessibility.signalOptions.delays.warningAtPosition.announcement', \"The delay in milliseconds before an announcement is made when there's a warning at the position.\"),\n@@ -296,6 +304,10 @@ const configuration: IConfigurationNode = {\n \t\t'accessibility.signalOptions.experimental.delays.errorAtPosition': {\n \t\t\t'type': 'object',\n \t\t\t'additionalProperties': false,\n+\t\t\t'default': {\n+\t\t\t\t'announcement': 3000,\n+\t\t\t\t'sound': 1000\n+\t\t\t},\n \t\t\t'properties': {\n \t\t\t\t'announcement': {\n \t\t\t\t\t'description': localize('accessibility.signalOptions.delays.errorAtPosition.announcement', \"The delay in milliseconds before an announcement is made when there's an error at the position.\"),"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5103713129,
+   "node_id": "PRR_kwDOAn8RLM8AAAABMDR7aQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "### 🟢 Approval recommended\n\nThe defaults align with existing property schemas and correct both configuration display and runtime fallback behavior.\n\n<details>\n<summary>Pull request overview</summary>\n\nAdds explicit defaults for accessibility signal delay objects so settings UI and runtime behavior match documented property defaults.\n\n**Changes:**\n- Defines defaults for general, warning-position, and error-position delays.\n</details>\n\n<details>\n<summary>File summaries</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts` | Adds explicit object defaults for signal delays. |\n</details>\n\n<details>\n<summary>Review details</summary>\n\n- **Files reviewed:** 1/1 changed files\n- **Comments generated:** 0\n- **Review effort level:** Balanced\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/334277#pullrequestreview-5103713129",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/334277",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/334277#pullrequestreview-5103713129"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/334277"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-03T15:22:30Z",
+   "commit_id": "ae2d9e224562ce43679667475c122aea9b17891c"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "ae2d9e224562ce43679667475c122aea9b17891c",
+   "node_id": "C_kwDOUNTFI9oAKGFlMmQ5ZTIyNDU2MmNlNDM2Nzk2Njc0NzVjMTIyYWVhOWIxNzg5MWM",
+   "commit": {
+    "author": {
+     "name": "Samuel Mbabhazi",
+     "email": "samuelmbabhazi@gmail.com",
+     "date": "2026-09-03T12:02:24Z"
+    },
+    "committer": {
+     "name": "Samuel Mbabhazi",
+     "email": "samuelmbabhazi@gmail.com",
+     "date": "2026-09-03T15:08:44Z"
+    },
+    "message": "Declare defaults for the accessibility signal delay settings\n\nThe three accessibility.signalOptions.experimental.delays settings only\ndeclared defaults on their object properties, so the registered default of\neach setting was an empty object. The settings editor rendered an empty\ntable with an \"Add Item\" button instead of the default rows, and\ngetDelayMs read the delay values from an empty object when the settings\nwere not configured.\n\nDeclare the object defaults explicitly so both the settings editor and the\nruntime see the documented values.\n\nFixes #286430",
+    "tree": {
+     "sha": "16dd199e49ad4d4c31e2045a29b45eda833f42dc",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/16dd199e49ad4d4c31e2045a29b45eda833f42dc"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ae2d9e224562ce43679667475c122aea9b17891c",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ae2d9e224562ce43679667475c122aea9b17891c",
+   "html_url": "https://github.com/microsoft/vscode/commit/ae2d9e224562ce43679667475c122aea9b17891c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ae2d9e224562ce43679667475c122aea9b17891c/comments",
+   "author": {
+    "login": "samuelmbabhazi",
+    "id": 111171386,
+    "node_id": "U_kgDOBqBXOg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/111171386?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/samuelmbabhazi",
+    "html_url": "https://github.com/samuelmbabhazi",
+    "followers_url": "https://api.github.com/users/samuelmbabhazi/followers",
+    "following_url": "https://api.github.com/users/samuelmbabhazi/following{/other_user}",
+    "gists_url": "https://api.github.com/users/samuelmbabhazi/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/samuelmbabhazi/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/samuelmbabhazi/subscriptions",
+    "organizations_url": "https://api.github.com/users/samuelmbabhazi/orgs",
+    "repos_url": "https://api.github.com/users/samuelmbabhazi/repos",
+    "events_url": "https://api.github.com/users/samuelmbabhazi/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/samuelmbabhazi/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "samuelmbabhazi",
+    "id": 111171386,
+    "node_id": "U_kgDOBqBXOg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/111171386?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/samuelmbabhazi",
+    "html_url": "https://github.com/samuelmbabhazi",
+    "followers_url": "https://api.github.com/users/samuelmbabhazi/followers",
+    "following_url": "https://api.github.com/users/samuelmbabhazi/following{/other_user}",
+    "gists_url": "https://api.github.com/users/samuelmbabhazi/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/samuelmbabhazi/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/samuelmbabhazi/subscriptions",
+    "organizations_url": "https://api.github.com/users/samuelmbabhazi/orgs",
+    "repos_url": "https://api.github.com/users/samuelmbabhazi/repos",
+    "events_url": "https://api.github.com/users/samuelmbabhazi/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/samuelmbabhazi/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3d5d6b9da991eb12a1548a392289d1501ffe3b6a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3d5d6b9da991eb12a1548a392289d1501ffe3b6a",
+     "html_url": "https://github.com/microsoft/vscode/commit/3d5d6b9da991eb12a1548a392289d1501ffe3b6a"
+    }
+   ]
+  }
+ ]
+}

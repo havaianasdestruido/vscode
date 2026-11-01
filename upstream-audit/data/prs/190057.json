@@ -1,0 +1,283 @@
+{
+ "fetchedAt": "2026-11-01T00:51:18.757Z",
+ "pr": {
+  "number": 190057,
+  "title": "fix(typescript-language-features): tsdk trust",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2023-08-09T15:51:05Z",
+  "updated_at": "2026-01-20T10:13:53Z",
+  "user": "dlvhdr",
+  "author_association": "NONE",
+  "additions": 12,
+  "deletions": 12,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-tsdk-trust",
+   "sha": "b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+   "repo": "dlvhdr/vscode",
+   "label": "dlvhdr:fix-tsdk-trust"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Closes #135713\r\n\r\nI work at Wix where we develop an Online IDE using VSCode for Wix users.\r\nWe are using yarn PnP for installing packages and store those packages in a global cache for all users.\r\nTo use yarn PnP you have to use the custom typescript sdk.\r\nIn order to run this binary, vscode prompts the user to allow it.\r\nWe populate the code in the workspace and it should be trusted.\r\nI'm not sure what causes VSCode to trust the workspace, but it is trusted. Still, VSCode doesn't trust the binary that's in the same workspace.\r\n\r\nThis PR addresses this by only prompting the user to \"Allow\" the binary if the workspace itself isn't trusted.\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "339daf9149e70ea81ece8b73024870a4aa68042d",
+   "filename": "extensions/typescript-language-features/src/tsServer/versionManager.ts",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 12,
+   "changes": 24,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Ftypescript-language-features%2Fsrc%2FtsServer%2FversionManager.ts?ref=b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+   "patch": "@@ -28,21 +28,20 @@ export class TypeScriptVersionManager extends Disposable {\n \t) {\n \t\tsuper();\n \n+\n \t\tthis._currentVersion = this.versionProvider.defaultVersion;\n \n-\t\tif (this.useWorkspaceTsdkSetting) {\n-\t\t\tif (vscode.workspace.isTrusted) {\n-\t\t\t\tconst localVersion = this.versionProvider.localVersion;\n-\t\t\t\tif (localVersion) {\n-\t\t\t\t\tthis._currentVersion = localVersion;\n-\t\t\t\t}\n-\t\t\t} else {\n-\t\t\t\tthis._disposables.push(vscode.workspace.onDidGrantWorkspaceTrust(() => {\n-\t\t\t\t\tif (this.versionProvider.localVersion) {\n-\t\t\t\t\t\tthis.updateActiveVersion(this.versionProvider.localVersion);\n-\t\t\t\t\t}\n-\t\t\t\t}));\n+\t\tif (vscode.workspace.isTrusted || this.useWorkspaceTsdkSetting) {\n+\t\t\tconst localVersion = this.versionProvider.localVersion;\n+\t\t\tif (localVersion) {\n+\t\t\t\tthis._currentVersion = localVersion;\n \t\t\t}\n+\t\t} else {\n+\t\t\tthis._disposables.push(vscode.workspace.onDidGrantWorkspaceTrust(() => {\n+\t\t\t\tif (this.versionProvider.localVersion) {\n+\t\t\t\t\tthis.updateActiveVersion(this.versionProvider.localVersion);\n+\t\t\t\t}\n+\t\t\t}));\n \t\t}\n \n \t\tif (this.isInPromptWorkspaceTsdkState(configuration)) {\n@@ -172,6 +171,7 @@ export class TypeScriptVersionManager extends Disposable {\n \n \tprivate isInPromptWorkspaceTsdkState(configuration: TypeScriptServiceConfiguration) {\n \t\treturn (\n+\t\t\t!vscode.workspace.isTrusted &&\n \t\t\tconfiguration.localTsdk !== null\n \t\t\t&& configuration.enablePromptUseWorkspaceTsdk === true\n \t\t\t&& this.suppressPromptWorkspaceTsdkSetting === false"
+  }
+ ],
+ "reviews": [],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1671677809",
+   "html_url": "https://github.com/microsoft/vscode/pull/190057#issuecomment-1671677809",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/190057",
+   "id": 1671677809,
+   "node_id": "IC_kwDOAn8RLM5jo8dx",
+   "user": {
+    "login": "dlvhdr",
+    "id": 6196971,
+    "node_id": "MDQ6VXNlcjYxOTY5NzE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6196971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dlvhdr",
+    "html_url": "https://github.com/dlvhdr",
+    "followers_url": "https://api.github.com/users/dlvhdr/followers",
+    "following_url": "https://api.github.com/users/dlvhdr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dlvhdr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dlvhdr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dlvhdr/subscriptions",
+    "organizations_url": "https://api.github.com/users/dlvhdr/orgs",
+    "repos_url": "https://api.github.com/users/dlvhdr/repos",
+    "events_url": "https://api.github.com/users/dlvhdr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dlvhdr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-08-09T15:53:28Z",
+   "updated_at": "2023-08-09T15:53:28Z",
+   "body": "@microsoft-github-policy-service agree company=\"Wix\"",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1671677809/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1697500980",
+   "html_url": "https://github.com/microsoft/vscode/pull/190057#issuecomment-1697500980",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/190057",
+   "id": 1697500980,
+   "node_id": "IC_kwDOAn8RLM5lLc80",
+   "user": {
+    "login": "dlvhdr",
+    "id": 6196971,
+    "node_id": "MDQ6VXNlcjYxOTY5NzE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6196971?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dlvhdr",
+    "html_url": "https://github.com/dlvhdr",
+    "followers_url": "https://api.github.com/users/dlvhdr/followers",
+    "following_url": "https://api.github.com/users/dlvhdr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dlvhdr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dlvhdr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dlvhdr/subscriptions",
+    "organizations_url": "https://api.github.com/users/dlvhdr/orgs",
+    "repos_url": "https://api.github.com/users/dlvhdr/repos",
+    "events_url": "https://api.github.com/users/dlvhdr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dlvhdr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-08-29T13:59:09Z",
+   "updated_at": "2023-08-29T13:59:09Z",
+   "body": "@mjbvz can you please take a look?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1697500980/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2024689639",
+   "html_url": "https://github.com/microsoft/vscode/pull/190057#issuecomment-2024689639",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/190057",
+   "id": 2024689639,
+   "node_id": "IC_kwDOAn8RLM54rk_n",
+   "user": {
+    "login": "pastelsky",
+    "id": 8946207,
+    "node_id": "MDQ6VXNlcjg5NDYyMDc=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8946207?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/pastelsky",
+    "html_url": "https://github.com/pastelsky",
+    "followers_url": "https://api.github.com/users/pastelsky/followers",
+    "following_url": "https://api.github.com/users/pastelsky/following{/other_user}",
+    "gists_url": "https://api.github.com/users/pastelsky/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/pastelsky/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/pastelsky/subscriptions",
+    "organizations_url": "https://api.github.com/users/pastelsky/orgs",
+    "repos_url": "https://api.github.com/users/pastelsky/repos",
+    "events_url": "https://api.github.com/users/pastelsky/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/pastelsky/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-03-28T08:48:27Z",
+   "updated_at": "2024-03-28T08:48:27Z",
+   "body": "@mjbvz given that VSCode is soon going to allow even workspace extensions to execute on a similar trust model — \r\nhttps://github.com/microsoft/vscode/pull/207465/files\r\n\r\nIs there a specific reason to not do the same for TSServer plugins?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2024689639/reactions",
+    "total_count": 2,
+    "+1": 2,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3238946018",
+   "html_url": "https://github.com/microsoft/vscode/pull/190057#issuecomment-3238946018",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/190057",
+   "id": 3238946018,
+   "node_id": "IC_kwDOAn8RLM7BDmTi",
+   "user": {
+    "login": "scarf005",
+    "id": 54838975,
+    "node_id": "MDQ6VXNlcjU0ODM4OTc1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/54838975?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/scarf005",
+    "html_url": "https://github.com/scarf005",
+    "followers_url": "https://api.github.com/users/scarf005/followers",
+    "following_url": "https://api.github.com/users/scarf005/following{/other_user}",
+    "gists_url": "https://api.github.com/users/scarf005/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/scarf005/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/scarf005/subscriptions",
+    "organizations_url": "https://api.github.com/users/scarf005/orgs",
+    "repos_url": "https://api.github.com/users/scarf005/repos",
+    "events_url": "https://api.github.com/users/scarf005/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/scarf005/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-08-30T04:48:25Z",
+   "updated_at": "2025-08-30T04:48:25Z",
+   "body": "@mjbvz could this be taken a look, please? this would be an lifesaver since i need to work on multiple new typescript projects.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3238946018/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+   "node_id": "C_kwDOKFRQytoAKGIwZmU5ZThkMGE2OWUzY2YwYWUyYzQzMjc1NDU0YjYzZTM4Zjg4YjM",
+   "commit": {
+    "author": {
+     "name": "Dolev Hadar",
+     "email": "dolevh@wix.com",
+     "date": "2023-08-09T15:50:45Z"
+    },
+    "committer": {
+     "name": "Dolev Hadar",
+     "email": "dolevh@wix.com",
+     "date": "2023-08-09T15:50:45Z"
+    },
+    "message": "fix(typescript-language-features): tsdk trust",
+    "tree": {
+     "sha": "37e105cf7f78442e6d5c8672c9164cdf53d40682",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/37e105cf7f78442e6d5c8672c9164cdf53d40682"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+   "html_url": "https://github.com/microsoft/vscode/commit/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b0fe9e8d0a69e3cf0ae2c43275454b63e38f88b3/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "e766158f04cc5aeba903766ff644102326677aea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e766158f04cc5aeba903766ff644102326677aea",
+     "html_url": "https://github.com/microsoft/vscode/commit/e766158f04cc5aeba903766ff644102326677aea"
+    }
+   ]
+  }
+ ]
+}

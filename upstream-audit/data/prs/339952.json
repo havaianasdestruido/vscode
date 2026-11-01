@@ -1,0 +1,626 @@
+{
+ "fetchedAt": "2026-11-01T00:55:40.319Z",
+ "pr": {
+  "number": 339952,
+  "title": "Hide action list item icon and submenu indicator from screen readers",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-06T00:09:56Z",
+  "updated_at": "2026-10-30T23:51:13Z",
+  "user": "DivyaRaval1909",
+  "author_association": "NONE",
+  "additions": 21,
+  "deletions": 0,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 0,
+  "commits_count": 4,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/action-list-icon-aria-hidden",
+   "sha": "7ce6f48496d2f08261f708d465590629eda04387",
+   "repo": "DivyaRaval1909/vscode",
+   "label": "DivyaRaval1909:fix/action-list-icon-aria-hidden"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "a81d6fd7c516f70706f7cfe200c90a98892e8199"
+  },
+  "body": "Fixes #339946\n\n## Summary\n\nWhen screen readers (such as VoiceOver on macOS) navigate through items in an `ActionList` (e.g. the branch picker in the Agents window), the codicon font glyph elements in the DOM were not hidden from assistive technology. This resulted in VoiceOver announcing an unrenderable font character (represented as a question mark gremlin glyph `[?]`) before items.\n\n## Fix\n- Added `ariaHidden = 'true'` to the `icon` element in `ActionItemRenderer.renderTemplate` (consistent with badges).\n- Added `ariaHidden = 'true'` to the `submenuIndicator` element.\n- Added a unit test in `actionList.test.ts` verifying `aria-hidden=\"true\"` on both elements.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "feea3ec8164d97c9279cb245179acf0cb62f82bb",
+   "filename": "src/vs/platform/actionWidget/browser/actionList.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 0,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7ce6f48496d2f08261f708d465590629eda04387/src%2Fvs%2Fplatform%2FactionWidget%2Fbrowser%2FactionList.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7ce6f48496d2f08261f708d465590629eda04387/src%2Fvs%2Fplatform%2FactionWidget%2Fbrowser%2FactionList.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FactionWidget%2Fbrowser%2FactionList.ts?ref=7ce6f48496d2f08261f708d465590629eda04387",
+   "patch": "@@ -408,6 +408,7 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction\n \n \t\tconst icon = document.createElement('div');\n \t\ticon.className = 'icon';\n+\t\ticon.ariaHidden = 'true';\n \t\tcontainer.append(icon);\n \n \t\tconst labelIcon = dom.append(container, dom.$('span.action-list-label-icon', { 'aria-hidden': 'true' }));\n@@ -442,6 +443,7 @@ class ActionItemRenderer<T> implements IListRenderer<IActionListItem<T>, IAction\n \n \t\tconst submenuIndicator = document.createElement('div');\n \t\tsubmenuIndicator.className = 'action-list-submenu-indicator';\n+\t\tsubmenuIndicator.ariaHidden = 'true';\n \t\tcontainer.append(submenuIndicator);\n \n \t\tconst inlineToggleContainer = document.createElement('div');"
+  },
+  {
+   "sha": "d31bbb34977a4a8e123b76e823914bfd5ac650e1",
+   "filename": "src/vs/platform/actionWidget/test/browser/actionList.test.ts",
+   "status": "modified",
+   "additions": 19,
+   "deletions": 0,
+   "changes": 19,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7ce6f48496d2f08261f708d465590629eda04387/src%2Fvs%2Fplatform%2FactionWidget%2Ftest%2Fbrowser%2FactionList.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7ce6f48496d2f08261f708d465590629eda04387/src%2Fvs%2Fplatform%2FactionWidget%2Ftest%2Fbrowser%2FactionList.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fplatform%2FactionWidget%2Ftest%2Fbrowser%2FactionList.test.ts?ref=7ce6f48496d2f08261f708d465590629eda04387",
+   "patch": "@@ -4560,4 +4560,23 @@ suite('ActionListWidget', () => {\n \t\tassert.strictEqual(widget.getFocusedElement()?.item?.id, 'match-first');\n \t});\n \n+\ttest('action item icon and submenu indicator have aria-hidden=\"true\"', () => {\n+\t\tconst widget = createActionListWidget(disposables, {\n+\t\t\titems: [\n+\t\t\t\t{\n+\t\t\t\t\t...action('branch-item'),\n+\t\t\t\t\tgroup: { title: 'Branches', icon: Codicon.gitBranch },\n+\t\t\t\t\tsubmenuActions: [toAction({ id: 'action', label: 'Action', run: () => { } })],\n+\t\t\t\t},\n+\t\t\t],\n+\t\t\tlistOptions: { showFilter: false },\n+\t\t});\n+\n+\t\tconst icon = widget.domNode.querySelector<HTMLElement>('.monaco-list-row > .codicon:not(.action-list-submenu-indicator)');\n+\t\tconst submenuIndicator = widget.domNode.querySelector<HTMLElement>('.monaco-list-row .action-list-submenu-indicator');\n+\n+\t\tassert.strictEqual(icon?.getAttribute('aria-hidden'), 'true');\n+\t\tassert.strictEqual(submenuIndicator?.getAttribute('aria-hidden'), 'true');\n+\t});\n+\n });"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5422256118,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQzEP9g",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe focused accessibility fix is correct and covered by an appropriate unit test.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nHides decorative ActionList icons from screen readers, preventing VoiceOver from announcing invalid glyphs.\n\n**Changes:**\n- Marks item icons and submenu indicators as `aria-hidden`.\n- Adds regression coverage for both elements.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `src/​vs/​platform/​actionWidget/​browser/​actionList.ts` | Hides decorative glyph elements from assistive technology. |\r\n| `src/​vs/​platform/​actionWidget/​test/​browser/​actionList.test.ts` | Verifies both elements have `aria-hidden=\"true\"`. |\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5422256118",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339952",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5422256118"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339952"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-06T00:13:11Z",
+   "commit_id": "c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6"
+  },
+  {
+   "id": 5452891845,
+   "node_id": "PRR_kwDOAn8RLM8AAAABRQSGxQ",
+   "user": {
+    "login": "jruales",
+    "id": 1588988,
+    "node_id": "MDQ6VXNlcjE1ODg5ODg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1588988?u=6614fc06de3b374d7112e41849d4448163a586c8&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jruales",
+    "html_url": "https://github.com/jruales",
+    "followers_url": "https://api.github.com/users/jruales/followers",
+    "following_url": "https://api.github.com/users/jruales/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jruales/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jruales/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jruales/subscriptions",
+    "organizations_url": "https://api.github.com/users/jruales/orgs",
+    "repos_url": "https://api.github.com/users/jruales/repos",
+    "events_url": "https://api.github.com/users/jruales/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jruales/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "DISMISSED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5452891845",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339952",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5452891845"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339952"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-08T07:02:46Z",
+   "commit_id": "c3891ad82ba0c8e89ebde3738321a000a89c4066"
+  },
+  {
+   "id": 5662467419,
+   "node_id": "PRR_kwDOAn8RLM8AAAABUYJlWw",
+   "user": {
+    "login": "jruales",
+    "id": 1588988,
+    "node_id": "MDQ6VXNlcjE1ODg5ODg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1588988?u=6614fc06de3b374d7112e41849d4448163a586c8&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jruales",
+    "html_url": "https://github.com/jruales",
+    "followers_url": "https://api.github.com/users/jruales/followers",
+    "following_url": "https://api.github.com/users/jruales/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jruales/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jruales/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jruales/subscriptions",
+    "organizations_url": "https://api.github.com/users/jruales/orgs",
+    "repos_url": "https://api.github.com/users/jruales/repos",
+    "events_url": "https://api.github.com/users/jruales/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jruales/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5662467419",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339952",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339952#pullrequestreview-5662467419"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339952"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-27T05:07:49Z",
+   "commit_id": "7ce6f48496d2f08261f708d465590629eda04387"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6006288533",
+   "html_url": "https://github.com/microsoft/vscode/pull/339952#issuecomment-6006288533",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/339952",
+   "id": 6006288533,
+   "node_id": "IC_kwDOAn8RLM8AAAABZgCwlQ",
+   "user": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-06T00:18:05Z",
+   "updated_at": "2026-10-06T00:18:05Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6006288533/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6455042136",
+   "html_url": "https://github.com/microsoft/vscode/pull/339952#issuecomment-6455042136",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/339952",
+   "id": 6455042136,
+   "node_id": "IC_kwDOAn8RLM8AAAABgMAgWA",
+   "user": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-27T22:21:07Z",
+   "updated_at": "2026-10-27T22:21:07Z",
+   "body": "Hi @meganrogge, friendly ping to see if you have had a chance to review this PR when you get a moment. Thanks!",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6455042136/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+   "node_id": "C_kwDOU9WRJ9oAKGMyZDNjZjNkYmYyMmUzZGIwOGQ5ZTFkN2Y1ZDg0NjQ3ODdkNjk5ZDY",
+   "commit": {
+    "author": {
+     "name": "Divya Raval",
+     "email": "69576345+DivyaRaval1909@users.noreply.github.com",
+     "date": "2026-10-06T00:09:39Z"
+    },
+    "committer": {
+     "name": "Divya Raval",
+     "email": "69576345+DivyaRaval1909@users.noreply.github.com",
+     "date": "2026-10-06T00:09:39Z"
+    },
+    "message": "Hide action list item icon and submenu indicator from screen readers\n\nFixes #339946",
+    "tree": {
+     "sha": "2fc81de4f85bf83baa0b34f289991c3214df1c71",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2fc81de4f85bf83baa0b34f289991c3214df1c71"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+   "html_url": "https://github.com/microsoft/vscode/commit/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6/comments",
+   "author": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3f2e9858498d0b490387f84b28006d3890c051e6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3f2e9858498d0b490387f84b28006d3890c051e6",
+     "html_url": "https://github.com/microsoft/vscode/commit/3f2e9858498d0b490387f84b28006d3890c051e6"
+    }
+   ]
+  },
+  {
+   "sha": "c3891ad82ba0c8e89ebde3738321a000a89c4066",
+   "node_id": "C_kwDOU9WRJ9oAKGMzODkxYWQ4MmJhMGM4ZTg5ZWJkZTM3MzgzMjFhMDAwYTg5YzQwNjY",
+   "commit": {
+    "author": {
+     "name": "Divya Raval",
+     "email": "69576345+DivyaRaval1909@users.noreply.github.com",
+     "date": "2026-10-06T00:18:39Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-06T00:18:39Z"
+    },
+    "message": "Merge branch 'main' into fix/action-list-icon-aria-hidden",
+    "tree": {
+     "sha": "508e1a285c2e50e443664d995636a887fc5f67ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/508e1a285c2e50e443664d995636a887fc5f67ea"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c3891ad82ba0c8e89ebde3738321a000a89c4066",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqxD5fCRC1aQ7uu5UhlAAAHqEQAGzJnplnSSpAlmrgEEk4fUWK\nRGPjMNJqbIxLmZw9xcUAjLWjkGuOXo8+pm2r5DufVwH3/1Jy+hJQh481t3R+T4pJ\nLUtAoGvxRYOjlXqU+BESlFpnto6Pm8RcB39a1/IC4RTjIRntfrZYCJbwAIIIgdYc\nTW9gh2XKeKd2cSMexHbnGISa+yCvRCdKM160otLrt14vA1i9cu9PwlMlR7PQwUUQ\n1NNkcp73VXgPK2ObaMVJQKOeEGlrY30OHbV9FmWRpKciLfXCqTfJFw6+zsekO1fM\nn9URYK818ro54ILaFG7/0SZZ3cuItVC0IR0HINyla2mOTpARzZo2xWSMxpkJjyTh\nZDMiVSDoBrFiHQAMauCLbYuWataw9CRUaZzKmzp3RXWS8P7K5zqddU+xw4m0EktU\nxEEwc/bSsLCiebuBmCjX6MEQDbcwk/rsIErx4IB8EbgBX9pyTvzk5eVZnvtki3Qt\n1J/ax5Fz6Exyt6aZLEpP7Vt04j482Ybvyw1M9U0KMI9QiM3VawQDr8BrLFCvhGv0\nHt74U09CFskF330U57CxucHOf+RP1mqzx/Ka5oxsoKZkbjQW6pWYS8X1+zv7Ae+I\n0qRGFvfEBoR3ihpe8gikWr5GE8d+69MM5fXnThx3/kMDsrbtNIhs9PJ/h4+su4C+\nohfYl3BN0QJY/NQKPETU\n=Ad2o\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 508e1a285c2e50e443664d995636a887fc5f67ea\nparent c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6\nparent d5692e9ae7deb7e0d37b2d40c01434d2c40d075d\nauthor Divya Raval <69576345+DivyaRaval1909@users.noreply.github.com> 1791245919 +0530\ncommitter GitHub <noreply@github.com> 1791245919 +0530\n\nMerge branch 'main' into fix/action-list-icon-aria-hidden",
+     "verified_at": "2026-10-06T00:18:40Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c3891ad82ba0c8e89ebde3738321a000a89c4066",
+   "html_url": "https://github.com/microsoft/vscode/commit/c3891ad82ba0c8e89ebde3738321a000a89c4066",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c3891ad82ba0c8e89ebde3738321a000a89c4066/comments",
+   "author": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6",
+     "html_url": "https://github.com/microsoft/vscode/commit/c2d3cf3dbf22e3db08d9e1d7f5d8464787d699d6"
+    },
+    {
+     "sha": "d5692e9ae7deb7e0d37b2d40c01434d2c40d075d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d5692e9ae7deb7e0d37b2d40c01434d2c40d075d",
+     "html_url": "https://github.com/microsoft/vscode/commit/d5692e9ae7deb7e0d37b2d40c01434d2c40d075d"
+    }
+   ]
+  },
+  {
+   "sha": "42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+   "node_id": "C_kwDOU9WRJ9oAKDQyYjJmZDRkZmEwMGU1YjMwYzUyZjhlNTJjYzU3YzUxZDQwNmVkNWU",
+   "commit": {
+    "author": {
+     "name": "Divya Raval",
+     "email": "69576345+DivyaRaval1909@users.noreply.github.com",
+     "date": "2026-10-19T11:49:38Z"
+    },
+    "committer": {
+     "name": "Divya Raval",
+     "email": "69576345+DivyaRaval1909@users.noreply.github.com",
+     "date": "2026-10-19T11:49:38Z"
+    },
+    "message": "Fix icon selector in actionList.test.ts",
+    "tree": {
+     "sha": "34ec345bae7ddaca24d91902b787e8b1bcf12e17",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/34ec345bae7ddaca24d91902b787e8b1bcf12e17"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg7Kd5Pl+85WyCALe9KEqsTOH3cI\ntdJCWXEuTWEIGk9KkAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQDclUBlnfP9+Gk9z04+tkfBfK1GUtaSKaAHv6FbJYMPRlqT+IyE6yksqNSzOosEY7j\nSANync/lHzA4oQGXdLTwI=\n-----END SSH SIGNATURE-----",
+     "payload": "tree 34ec345bae7ddaca24d91902b787e8b1bcf12e17\nparent c3891ad82ba0c8e89ebde3738321a000a89c4066\nauthor Divya Raval <69576345+DivyaRaval1909@users.noreply.github.com> 1792410578 +0530\ncommitter Divya Raval <69576345+DivyaRaval1909@users.noreply.github.com> 1792410578 +0530\n\nFix icon selector in actionList.test.ts\n",
+     "verified_at": "2026-10-19T11:50:03Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+   "html_url": "https://github.com/microsoft/vscode/commit/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e/comments",
+   "author": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "DivyaRaval1909",
+    "id": 69576345,
+    "node_id": "MDQ6VXNlcjY5NTc2MzQ1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/69576345?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/DivyaRaval1909",
+    "html_url": "https://github.com/DivyaRaval1909",
+    "followers_url": "https://api.github.com/users/DivyaRaval1909/followers",
+    "following_url": "https://api.github.com/users/DivyaRaval1909/following{/other_user}",
+    "gists_url": "https://api.github.com/users/DivyaRaval1909/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/DivyaRaval1909/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/DivyaRaval1909/subscriptions",
+    "organizations_url": "https://api.github.com/users/DivyaRaval1909/orgs",
+    "repos_url": "https://api.github.com/users/DivyaRaval1909/repos",
+    "events_url": "https://api.github.com/users/DivyaRaval1909/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/DivyaRaval1909/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c3891ad82ba0c8e89ebde3738321a000a89c4066",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c3891ad82ba0c8e89ebde3738321a000a89c4066",
+     "html_url": "https://github.com/microsoft/vscode/commit/c3891ad82ba0c8e89ebde3738321a000a89c4066"
+    }
+   ]
+  },
+  {
+   "sha": "7ce6f48496d2f08261f708d465590629eda04387",
+   "node_id": "C_kwDOU9WRJ9oAKDdjZTZmNDg0OTZkMmYwODI2MWY3MDhkNDY1NTkwNjI5ZWRhMDQzODc",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-10-30T23:51:10Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-30T23:51:10Z"
+    },
+    "message": "Merge branch 'main' into fix/action-list-icon-aria-hidden",
+    "tree": {
+     "sha": "89684a87cc0187f526f163d9294276c5fa449a07",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/89684a87cc0187f526f163d9294276c5fa449a07"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/7ce6f48496d2f08261f708d465590629eda04387",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq5S1vCRC1aQ7uu5UhlAAAyfYQACUIhuS5I5KCyFBysFCPGZVk\nkXR2z/Y5x+G+KWOX/SjIyZ/3UFtEK4HW+0AY2vBHU7kGZxJam8Obc5LevGAigsnZ\n0/EXHBTAnGwV4TlHj2LW6UQG5ahkvbYD6lWhwigRURUNZ2Z/iYkciQro38oK644j\nuvHnlXD1/KdmDVbfQDE9oUoobjQoCMq0C4zursY1Dr2PnGeKmhztwZlapfb1Tzc2\nZ56/r2uL1HTQ4MUyfNUOKEPqEpumN7NuZqk/0kw1XKwyT/Og8mg3IfQHfsj9EdN/\nqto+4ijpciJGytU6Su+mkQ/8xPaEMvxOHHsjyxCEB65y10Mb/X6W1vZyrfPlffDo\nF1vIviJJzpKcJ6TAC1wtczypapqgF0XlzPVzVrIfInfBvtV6NJEkeGt4fc7JE2/O\n0PfYKDe1v694KATvkIzKp8rOJjp124AE9+cP/8gmwfyTm5JNWG224XM76toLmuus\nncmw97ZQFYq220cYWCWL0A0V9+BWDmkV2xT9PRFyg0w88J2IAmvaSy0lMq8n7yL0\nXOHvHJjtcwkGjQf8+6cis76IoV2+2rvCFSzaPNgPQtnoIMqee7MlH939I7GejZA2\nl2I9H1mNnXe6/MLRG9wzHt+FQUxvKeOXbkoql7v4yX+r8FVF/H8mtFABnylavCFQ\noMgSQYuOqPKZ/I888d3/\n=cYh3\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 89684a87cc0187f526f163d9294276c5fa449a07\nparent 42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e\nparent a81d6fd7c516f70706f7cfe200c90a98892e8199\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1793404270 -0700\ncommitter GitHub <noreply@github.com> 1793404270 -0700\n\nMerge branch 'main' into fix/action-list-icon-aria-hidden",
+     "verified_at": "2026-10-30T23:51:11Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/7ce6f48496d2f08261f708d465590629eda04387",
+   "html_url": "https://github.com/microsoft/vscode/commit/7ce6f48496d2f08261f708d465590629eda04387",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/7ce6f48496d2f08261f708d465590629eda04387/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e",
+     "html_url": "https://github.com/microsoft/vscode/commit/42b2fd4dfa00e5b30c52f8e52cc57c51d406ed5e"
+    },
+    {
+     "sha": "a81d6fd7c516f70706f7cfe200c90a98892e8199",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a81d6fd7c516f70706f7cfe200c90a98892e8199",
+     "html_url": "https://github.com/microsoft/vscode/commit/a81d6fd7c516f70706f7cfe200c90a98892e8199"
+    }
+   ]
+  }
+ ]
+}

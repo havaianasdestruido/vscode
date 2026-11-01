@@ -1,0 +1,398 @@
+{
+ "fetchedAt": "2026-11-01T00:53:36.515Z",
+ "pr": {
+  "number": 314348,
+  "title": "SCM - add `scm.diffDecorationsAlgorithm` setting",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-05T09:11:16Z",
+  "updated_at": "2026-05-19T12:08:14Z",
+  "user": "tokyo4j",
+  "author_association": "NONE",
+  "additions": 32,
+  "deletions": 8,
+  "changed_files": 4,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 2,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "add-quickdiff-algo-setting",
+   "sha": "7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "repo": "tokyo4j/vscode",
+   "label": "tokyo4j:add-quickdiff-algo-setting"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "38e7993f220037e2d2c955db7cdb275e0b3a1e13"
+  },
+  "body": "Since #249106 changed the diffing algorithm from `legacy` to `advanced` for the quick diff, the quick diff got quite slow for large files (>400 lines), often marking all the lines as \"modified\" even when `git status` shows nothing (#253704).\r\n\r\nTo workaround this, this PR adds a new setting `scm.diffDecorationsAlgorithm` for the diffing algorithm used for quick diff. The default value is `advanced`.\r\n\r\nCo-authored-by: Codex",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "b00323a83c80e22a5f0b3bcecf41c9465b572c77",
+   "filename": "src/vs/workbench/contrib/scm/browser/quickDiff.contribution.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiff.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiff.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiff.contribution.ts?ref=7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "patch": "@@ -53,6 +53,16 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis\n \t\t\tdefault: 'all',\n \t\t\tdescription: localize('diffDecorations', \"Controls diff decorations in the editor.\")\n \t\t},\n+\t\t'scm.diffDecorationsAlgorithm': {\n+\t\t\ttype: 'string',\n+\t\t\tenum: ['legacy', 'advanced'],\n+\t\t\tenumDescriptions: [\n+\t\t\t\tlocalize('scm.diffDecorationsAlgorithm.legacy', \"Uses the legacy diffing algorithm.\"),\n+\t\t\t\tlocalize('scm.diffDecorationsAlgorithm.advanced', \"Uses the advanced diffing algorithm.\")\n+\t\t\t],\n+\t\t\tdefault: 'advanced',\n+\t\t\tdescription: localize('diffDecorationsAlgorithm', \"Controls the diffing algorithm used for Source Control diff gutter decorations.\")\n+\t\t},\n \t\t'scm.diffDecorationsGutterWidth': {\n \t\t\ttype: 'number',\n \t\t\tenum: [1, 2, 3, 4, 5],"
+  },
+  {
+   "sha": "40cf2d951e4f7a999a067c43d4d772039fce002f",
+   "filename": "src/vs/workbench/contrib/scm/browser/quickDiffModel.ts",
+   "status": "modified",
+   "additions": 8,
+   "deletions": 6,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffModel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffModel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffModel.ts?ref=7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "patch": "@@ -34,12 +34,11 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm\n export const IQuickDiffModelService = createDecorator<IQuickDiffModelService>('IQuickDiffModelService');\n \n export interface QuickDiffModelOptions {\n-\treadonly algorithm: DiffAlgorithmName;\n+\treadonly algorithm?: DiffAlgorithmName;\n \treadonly maxComputationTimeMs?: number;\n }\n \n const decoratorQuickDiffModelOptions: QuickDiffModelOptions = {\n-\talgorithm: 'advanced',\n \tmaxComputationTimeMs: 1000\n };\n \n@@ -142,7 +141,9 @@ export class QuickDiffModel extends Disposable {\n \t\tthis._register(textFileModel.textEditorModel.onDidChangeContent(() => this.triggerDiff()));\n \t\tthis._register(\n \t\t\tEvent.filter(configurationService.onDidChangeConfiguration,\n-\t\t\t\te => e.affectsConfiguration('scm.diffDecorationsIgnoreTrimWhitespace') || e.affectsConfiguration('diffEditor.ignoreTrimWhitespace')\n+\t\t\t\te => e.affectsConfiguration('scm.diffDecorationsAlgorithm') ||\n+\t\t\t\t\te.affectsConfiguration('scm.diffDecorationsIgnoreTrimWhitespace') ||\n+\t\t\t\t\te.affectsConfiguration('diffEditor.ignoreTrimWhitespace')\n \t\t\t)(this.triggerDiff, this)\n \t\t);\n \t\tthis._register(scmService.onDidAddRepository(this.onDidAddRepository, this));\n@@ -266,12 +267,13 @@ export class QuickDiffModel extends Disposable {\n \t\t\tconst ignoreTrimWhitespace = ignoreTrimWhitespaceSetting === 'inherit'\n \t\t\t\t? this.configurationService.getValue<boolean>('diffEditor.ignoreTrimWhitespace')\n \t\t\t\t: ignoreTrimWhitespaceSetting !== 'false';\n+\t\t\tconst algorithm = this.options.algorithm ?? this.configurationService.getValue<DiffAlgorithmName>('scm.diffDecorationsAlgorithm');\n \n \t\t\tconst diffs: QuickDiffChange[] = [];\n \t\t\tconst secondaryDiffs: QuickDiffChange[] = [];\n \n \t\t\tfor (const quickDiff of quickDiffs) {\n-\t\t\t\tconst diff = await this._diff(quickDiff.originalResource, this._model.resource, ignoreTrimWhitespace);\n+\t\t\t\tconst diff = await this._diff(quickDiff.originalResource, this._model.resource, algorithm, ignoreTrimWhitespace);\n \t\t\t\tif (diff.changes && diff.changes2 && diff.changes.length === diff.changes2.length) {\n \t\t\t\t\tfor (let index = 0; index < diff.changes.length; index++) {\n \t\t\t\t\t\tconst change2 = diff.changes2[index];\n@@ -335,12 +337,12 @@ export class QuickDiffModel extends Disposable {\n \t\t});\n \t}\n \n-\tprivate async _diff(original: URI, modified: URI, ignoreTrimWhitespace: boolean): Promise<{ changes: readonly IChange[] | null; changes2: readonly LineRangeMapping[] | null }> {\n+\tprivate async _diff(original: URI, modified: URI, algorithm: DiffAlgorithmName, ignoreTrimWhitespace: boolean): Promise<{ changes: readonly IChange[] | null; changes2: readonly LineRangeMapping[] | null }> {\n \t\tconst maxComputationTimeMs = this.options.maxComputationTimeMs ?? Number.MAX_SAFE_INTEGER;\n \n \t\tconst result = await this.editorWorkerService.computeDiff(original, modified, {\n \t\t\tcomputeMoves: false, ignoreTrimWhitespace, maxComputationTimeMs\n-\t\t}, this.options.algorithm);\n+\t\t}, algorithm);\n \n \t\treturn { changes: result ? toLineChanges(DiffState.fromDiffResult(result)) : null, changes2: result?.changes ?? null };\n \t}"
+  },
+  {
+   "sha": "b8d6476a2452d0acac5fd0bc45f94c46271a40b7",
+   "filename": "src/vs/workbench/contrib/scm/browser/quickDiffWidget.ts",
+   "status": "modified",
+   "additions": 4,
+   "deletions": 2,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffWidget.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffWidget.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FquickDiffWidget.ts?ref=7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "patch": "@@ -51,6 +51,7 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';\n import { getOuterEditor } from '../../../../editor/browser/widget/codeEditor/embeddedCodeEditorWidget.js';\n import { quickDiffDecorationCount } from './quickDiffDecorator.js';\n import { hasNativeContextMenu } from '../../../../platform/window/common/window.js';\n+import { DiffAlgorithmName } from '../../../../editor/common/services/editorWorker.js';\n \n export const isQuickDiffVisible = new RawContextKey<boolean>('dirtyDiffVisible', false);\n \n@@ -163,7 +164,8 @@ class QuickDiffWidget extends PeekViewWidget {\n \t\t@IInstantiationService instantiationService: IInstantiationService,\n \t\t@IMenuService private readonly menuService: IMenuService,\n \t\t@IContextKeyService private contextKeyService: IContextKeyService,\n-\t\t@IQuickDiffService private readonly quickDiffService: IQuickDiffService\n+\t\t@IQuickDiffService private readonly quickDiffService: IQuickDiffService,\n+\t\t@IConfigurationService private readonly configurationService: IConfigurationService\n \t) {\n \t\tsuper(editor, { isResizeable: true, frameWidth: 1, keepEditorSelection: true, className: 'dirty-diff' }, instantiationService);\n \n@@ -384,7 +386,7 @@ class QuickDiffWidget extends PeekViewWidget {\n \n \tprotected _fillBody(container: HTMLElement): void {\n \t\tconst options: IDiffEditorOptions = {\n-\t\t\tdiffAlgorithm: 'advanced',\n+\t\t\tdiffAlgorithm: this.configurationService.getValue<DiffAlgorithmName>('scm.diffDecorationsAlgorithm'),\n \t\t\tfixedOverflowWidgets: true,\n \t\t\tignoreTrimWhitespace: false,\n \t\t\tminimap: { enabled: false },"
+  },
+  {
+   "sha": "bb5e04597ce71b0ee1bdd287325e7799f80f5d97",
+   "filename": "src/vs/workbench/contrib/scm/browser/scm.contribution.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/7d92548cca3a1975d58363b31a29a2f55863c80d/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts?ref=7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "patch": "@@ -182,6 +182,16 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis\n \t\t\tdefault: 'all',\n \t\t\tdescription: localize('diffDecorations', \"Controls diff decorations in the editor.\")\n \t\t},\n+\t\t'scm.diffDecorationsAlgorithm': {\n+\t\t\ttype: 'string',\n+\t\t\tenum: ['legacy', 'advanced'],\n+\t\t\tenumDescriptions: [\n+\t\t\t\tlocalize('scm.diffDecorationsAlgorithm.legacy', \"Uses the legacy diffing algorithm.\"),\n+\t\t\t\tlocalize('scm.diffDecorationsAlgorithm.advanced', \"Uses the advanced diffing algorithm.\")\n+\t\t\t],\n+\t\t\tdefault: 'advanced',\n+\t\t\tdescription: localize('diffDecorationsAlgorithm', \"Controls the diffing algorithm used for Source Control diff decorations.\")\n+\t\t},\n \t\t'scm.diffDecorationsGutterWidth': {\n \t\t\ttype: 'number',\n \t\t\tenum: [1, 2, 3, 4, 5],"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4226711924,
+   "node_id": "PRR_kwDOAn8RLM777oF0",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds a new SCM setting to let users choose the diff algorithm used by Quick Diff (gutter decorations / peek view), addressing performance and correctness regressions reported after switching the default algorithm to `advanced`.\n\n**Changes:**\n- Registers a new setting: `scm.diffDecorationsAlgorithm` (`legacy` | `advanced`, default `advanced`).\n- Updates Quick Diff’s model diff computation to use the configured algorithm (and recompute when it changes).\n- Updates the Quick Diff peek diff editor to use the configured algorithm.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/contrib/scm/browser/scm.contribution.ts | Registers `scm.diffDecorationsAlgorithm` under the SCM configuration node. |\n| src/vs/workbench/contrib/scm/browser/quickDiffWidget.ts | Reads `scm.diffDecorationsAlgorithm` to configure the embedded diff editor in the Quick Diff peek widget. |\n| src/vs/workbench/contrib/scm/browser/quickDiffModel.ts | Uses `scm.diffDecorationsAlgorithm` when computing diffs and triggers recomputation when the setting changes. |\n| src/vs/workbench/contrib/scm/browser/quickDiff.contribution.ts | Also registers `scm.diffDecorationsAlgorithm` under the SCM configuration node. |\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/314348#pullrequestreview-4226711924",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/314348",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/314348#pullrequestreview-4226711924"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/314348"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-05T09:17:25Z",
+   "commit_id": "7d92548cca3a1975d58363b31a29a2f55863c80d"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4377928696",
+   "html_url": "https://github.com/microsoft/vscode/pull/314348#issuecomment-4377928696",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314348",
+   "id": 4377928696,
+   "node_id": "IC_kwDOAn8RLM8AAAABBPHj-A",
+   "user": {
+    "login": "vs-code-engineering[bot]",
+    "id": 122617954,
+    "node_id": "BOT_kgDOB08AYg",
+    "avatar_url": "https://avatars.githubusercontent.com/in/281319?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "followers_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vs-code-engineering%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-05T09:11:49Z",
+   "updated_at": "2026-05-05T09:11:49Z",
+   "body": "## 📬 CODENOTIFY\n\nThe following users are being notified based on files changed in this PR:\n\n### @lszomoru\n\nMatched files:\n- `src/vs/workbench/contrib/scm/browser/quickDiff.contribution.ts`\n- `src/vs/workbench/contrib/scm/browser/quickDiffModel.ts`\n- `src/vs/workbench/contrib/scm/browser/quickDiffWidget.ts`\n- `src/vs/workbench/contrib/scm/browser/scm.contribution.ts`\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4377928696/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": {
+    "id": 281319,
+    "client_id": "Iv1.8a642b211332ec58",
+    "slug": "vs-code-engineering",
+    "node_id": "A_kwHOA6PZ4M4ABErn",
+    "owner": {
+     "login": "Visual-Studio-Code",
+     "id": 61069792,
+     "node_id": "MDEyOk9yZ2FuaXphdGlvbjYxMDY5Nzky",
+     "avatar_url": "https://avatars.githubusercontent.com/u/61069792?v=4",
+     "gravatar_id": "",
+     "url": "https://api.github.com/users/Visual-Studio-Code",
+     "html_url": "https://github.com/Visual-Studio-Code",
+     "followers_url": "https://api.github.com/users/Visual-Studio-Code/followers",
+     "following_url": "https://api.github.com/users/Visual-Studio-Code/following{/other_user}",
+     "gists_url": "https://api.github.com/users/Visual-Studio-Code/gists{/gist_id}",
+     "starred_url": "https://api.github.com/users/Visual-Studio-Code/starred{/owner}{/repo}",
+     "subscriptions_url": "https://api.github.com/users/Visual-Studio-Code/subscriptions",
+     "organizations_url": "https://api.github.com/users/Visual-Studio-Code/orgs",
+     "repos_url": "https://api.github.com/users/Visual-Studio-Code/repos",
+     "events_url": "https://api.github.com/users/Visual-Studio-Code/events{/privacy}",
+     "received_events_url": "https://api.github.com/users/Visual-Studio-Code/received_events",
+     "type": "Organization",
+     "user_view_type": "public",
+     "site_admin": false
+    },
+    "name": "VS Code Engineering",
+    "description": "This application is used for the following tasks:\r\n- [Community PR Checks](https://github.com/microsoft/vscode-engineering/blob/721d657e6d297ab472aef07b9a73d2836417bfeb/.github/actions/community-pr-check/src/main.ts#L19C9-L19C16)",
+    "external_url": "https://code.visualstudio.com",
+    "html_url": "https://github.com/apps/vs-code-engineering",
+    "created_at": "2023-01-13T13:34:40Z",
+    "updated_at": "2026-06-24T07:58:26Z",
+    "permissions": {
+     "actions": "write",
+     "checks": "write",
+     "contents": "write",
+     "issues": "write",
+     "metadata": "read",
+     "pull_requests": "write",
+     "workflows": "write"
+    },
+    "events": []
+   },
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4377939532",
+   "html_url": "https://github.com/microsoft/vscode/pull/314348#issuecomment-4377939532",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314348",
+   "id": 4377939532,
+   "node_id": "IC_kwDOAn8RLM8AAAABBPIOTA",
+   "user": {
+    "login": "tokyo4j",
+    "id": 22029524,
+    "node_id": "MDQ6VXNlcjIyMDI5NTI0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22029524?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tokyo4j",
+    "html_url": "https://github.com/tokyo4j",
+    "followers_url": "https://api.github.com/users/tokyo4j/followers",
+    "following_url": "https://api.github.com/users/tokyo4j/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tokyo4j/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tokyo4j/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tokyo4j/subscriptions",
+    "organizations_url": "https://api.github.com/users/tokyo4j/orgs",
+    "repos_url": "https://api.github.com/users/tokyo4j/repos",
+    "events_url": "https://api.github.com/users/tokyo4j/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tokyo4j/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-05T09:13:25Z",
+   "updated_at": "2026-05-05T09:13:25Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4377939532/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4487555948",
+   "html_url": "https://github.com/microsoft/vscode/pull/314348#issuecomment-4487555948",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/314348",
+   "id": 4487555948,
+   "node_id": "IC_kwDOAn8RLM8AAAABC3qrbA",
+   "user": {
+    "login": "tokyo4j",
+    "id": 22029524,
+    "node_id": "MDQ6VXNlcjIyMDI5NTI0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22029524?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tokyo4j",
+    "html_url": "https://github.com/tokyo4j",
+    "followers_url": "https://api.github.com/users/tokyo4j/followers",
+    "following_url": "https://api.github.com/users/tokyo4j/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tokyo4j/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tokyo4j/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tokyo4j/subscriptions",
+    "organizations_url": "https://api.github.com/users/tokyo4j/orgs",
+    "repos_url": "https://api.github.com/users/tokyo4j/repos",
+    "events_url": "https://api.github.com/users/tokyo4j/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tokyo4j/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-19T12:08:14Z",
+   "updated_at": "2026-05-19T12:08:14Z",
+   "body": "@lszomoru Could you review this PR or at least assign a milestone? I really like the overall UX of VSCode, but #253704 is an intolerable regression introduced by #249106 in 1.101 that hugely degrades the editing experience and urgently demands a fix (or an option to avoid it like one proposed this PR).\r\n\r\nIf you already have another approach in mind for fixing this, I’m happy to close the PR. As an OSS maintainer myself, I also understand the hesitation around reviewing an AI-assisted PR from a first-time contributor.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4487555948/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "node_id": "C_kwDOSUnDadoAKDdkOTI1NDhjY2EzYTE5NzVkNTgzNjNiMzFhMjlhMmY1NTg2M2M4MGQ",
+   "commit": {
+    "author": {
+     "name": "tokyo4j",
+     "email": "hrak1529@gmail.com",
+     "date": "2026-05-05T08:58:04Z"
+    },
+    "committer": {
+     "name": "tokyo4j",
+     "email": "hrak1529@gmail.com",
+     "date": "2026-05-05T09:09:01Z"
+    },
+    "message": "SCM - add `scm.diffDecorationsAlgorithm` setting\n\nSince #249106 changed the diffing algorithm for quick diff from\n`legacy` to `advanced`, the quick diff got quite slow for large files\n(>400 lines), often marking all the lines as \"modified\" even when\n`git status` shows nothing (#253704).\n\nTo workaround this, this commit adds a new setting\n`scm.diffDecorationsAlgorithm` for the diffing algorithm used for quick\ndiff. The default value is `advanced`.\n\nCo-authored-by: Codex <noreply@openai.com>",
+    "tree": {
+     "sha": "3537f7b80e28e2122763674a178e747107ccc30d",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3537f7b80e28e2122763674a178e747107ccc30d"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/7d92548cca3a1975d58363b31a29a2f55863c80d",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "html_url": "https://github.com/microsoft/vscode/commit/7d92548cca3a1975d58363b31a29a2f55863c80d",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/7d92548cca3a1975d58363b31a29a2f55863c80d/comments",
+   "author": {
+    "login": "tokyo4j",
+    "id": 22029524,
+    "node_id": "MDQ6VXNlcjIyMDI5NTI0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22029524?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tokyo4j",
+    "html_url": "https://github.com/tokyo4j",
+    "followers_url": "https://api.github.com/users/tokyo4j/followers",
+    "following_url": "https://api.github.com/users/tokyo4j/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tokyo4j/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tokyo4j/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tokyo4j/subscriptions",
+    "organizations_url": "https://api.github.com/users/tokyo4j/orgs",
+    "repos_url": "https://api.github.com/users/tokyo4j/repos",
+    "events_url": "https://api.github.com/users/tokyo4j/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tokyo4j/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "tokyo4j",
+    "id": 22029524,
+    "node_id": "MDQ6VXNlcjIyMDI5NTI0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22029524?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tokyo4j",
+    "html_url": "https://github.com/tokyo4j",
+    "followers_url": "https://api.github.com/users/tokyo4j/followers",
+    "following_url": "https://api.github.com/users/tokyo4j/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tokyo4j/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tokyo4j/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tokyo4j/subscriptions",
+    "organizations_url": "https://api.github.com/users/tokyo4j/orgs",
+    "repos_url": "https://api.github.com/users/tokyo4j/repos",
+    "events_url": "https://api.github.com/users/tokyo4j/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tokyo4j/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8b28f914f2a310829efea3aa7974f9dc168a1ca6",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8b28f914f2a310829efea3aa7974f9dc168a1ca6",
+     "html_url": "https://github.com/microsoft/vscode/commit/8b28f914f2a310829efea3aa7974f9dc168a1ca6"
+    }
+   ]
+  }
+ ]
+}

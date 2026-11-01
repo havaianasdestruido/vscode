@@ -1,0 +1,304 @@
+{
+ "fetchedAt": "2026-11-01T00:54:12.852Z",
+ "pr": {
+  "number": 325437,
+  "title": "Honor store: false when recording Responses API stateful markers in BYOK",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-07-11T15:10:48Z",
+  "updated_at": "2026-07-23T14:56:47Z",
+  "user": "Davixk",
+  "author_association": "CONTRIBUTOR",
+  "additions": 118,
+  "deletions": 2,
+  "changed_files": 4,
+  "mergeable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/byok-honor-store-false",
+   "sha": "b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "repo": "Davixk/vscode",
+   "label": "Davixk:fix/byok-honor-store-false"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "87efe6c5bfeb296ccf701d330cf6e55a46e5d61c"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\n* Read our Pull Request guidelines:\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\n* Associate an issue with the Pull Request.\n* Ensure that the code is up-to-date with the `main` branch.\n* Include a description of the proposed changes and how to test them.\n-->\n\nFixes #325436\n\n### Description\n\nBYOK custom endpoints using the Responses API record a stateful marker from every `response.completed`, even when the server answered `store: false`. The next request is then truncated to the items after the marker while a later guard strips the non-`resp_` `previous_response_id`, producing an unanswerable request (a `tool_result` without its `tool_use`, or no user message at all).\n\nTwo changes:\n\n* `OpenAIResponsesProcessor` emits the stateful marker only when `response.store !== false`, so a server that declares no persistence never gets a marker recorded and later requests carry the full input. Responses without a `store` field keep today's behavior, so CAPI is unaffected.\n* The BYOK Responses branch validates the pending marker before the body is built: a marker not shaped `resp_...` sets `ignoreStatefulMarker`, keeping truncation and `previous_response_id` a single decision. The late guard remains as an invariant. This also heals existing transcripts that already carry foreign markers.\n\nThe `previous_response_not_found` retry flow is untouched and remains the fallback for expired server state.\n\n### How to test\n\n1. Configure a `customendpoint` provider with `\"apiType\": \"responses\"` against a server that echoes `store: false`.\n2. Run a tool-calling turn, then a follow-up in the same conversation.\n3. Before: the follow-up is truncated to post-marker items with no `previous_response_id` and is rejected. After: the follow-up carries the full input and succeeds.\n\nAdded spec coverage: `responsesApi.spec.ts` (marker emitted for `store: true` and absent, not for `store: false`) and `openAIEndpoint.spec.ts` (a non-`resp_` marker in history yields full input and no `previous_response_id`).\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "d5f8c92df79e0c349c97b62f4d09d5cd4879185d",
+   "filename": "extensions/copilot/src/extension/byok/node/openAIEndpoint.ts",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FopenAIEndpoint.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FopenAIEndpoint.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FopenAIEndpoint.ts?ref=b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "patch": "@@ -8,6 +8,7 @@ import { ChatFetchResponseType, ChatResponse } from '../../../platform/chat/comm\n import { ConfigKey, IConfigurationService } from '../../../platform/configuration/common/configurationService';\n import { IDomainService } from '../../../platform/endpoint/common/domainService';\n import { IChatModelInformation } from '../../../platform/endpoint/common/endpointProvider';\n+import { getStatefulMarkerAndIndex } from '../../../platform/endpoint/common/statefulMarkerContainer';\n import { ChatEndpoint } from '../../../platform/endpoint/node/chatEndpoint';\n import { ILogService } from '../../../platform/log/common/logService';\n import { isOpenAiFunctionTool } from '../../../platform/networking/common/fetch';\n@@ -251,7 +252,10 @@ export class OpenAIEndpoint extends ChatEndpoint {\n \t\t\tconst zdr = !!this.modelMetadata.zeroDataRetentionEnabled;\n \t\t\t// When ZDR is on the server refuses to retain responses, so we must\n \t\t\t// not chain via `previous_response_id` and must not ask it to `store`.\n-\t\t\toptions.ignoreStatefulMarker = options.ignoreStatefulMarker || zdr;\n+\t\t\t// A marker without the `resp_` prefix (e.g. from CAPI) can't be chained\n+\t\t\t// either; decide before conversion truncates the input at the marker.\n+\t\t\tconst marker = getStatefulMarkerAndIndex(this.model, options.messages);\n+\t\t\toptions.ignoreStatefulMarker = options.ignoreStatefulMarker || zdr || (!!marker && !marker.statefulMarker.startsWith('resp_'));\n \t\t\tconst body = super.createRequestBody(options);\n \t\t\tbody.store = !zdr;\n \t\t\tbody.n = undefined;"
+  },
+  {
+   "sha": "af3c6efea0efbb2c1e5ac4b8b5c1848c83a06c3f",
+   "filename": "extensions/copilot/src/extension/byok/node/test/openAIEndpoint.spec.ts",
+   "status": "modified",
+   "additions": 28,
+   "deletions": 0,
+   "changes": 28,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2Ftest%2FopenAIEndpoint.spec.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2Ftest%2FopenAIEndpoint.spec.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2Ftest%2FopenAIEndpoint.spec.ts?ref=b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "patch": "@@ -438,6 +438,34 @@ describe('OpenAIEndpoint - Reasoning Properties', () => {\n \t\t\texpect(body.previous_response_id).toBeUndefined();\n \t\t\texpect(body.store).toBe(false);\n \t\t});\n+\n+\t\tit('sends the full input and no previous_response_id when the pending marker is not a Responses id', () => {\n+\t\t\tconst endpoint = instaService.createInstance(OpenAIEndpoint,\n+\t\t\t\tmodelMetadata,\n+\t\t\t\t'test-api-key',\n+\t\t\t\t'https://api.openai.com/v1/chat/completions');\n+\t\t\tconst messages: Raw.ChatMessage[] = [\n+\t\t\t\t{\n+\t\t\t\t\trole: Raw.ChatRole.User,\n+\t\t\t\t\tcontent: [{ type: Raw.ChatCompletionContentPartKind.Text, text: 'before marker' }]\n+\t\t\t\t},\n+\t\t\t\tcreateStatefulMarkerMessage(modelMetadata.id, 'capi_prev_123'),\n+\t\t\t\t{\n+\t\t\t\t\trole: Raw.ChatRole.User,\n+\t\t\t\t\tcontent: [{ type: Raw.ChatCompletionContentPartKind.Text, text: 'after marker' }]\n+\t\t\t\t}\n+\t\t\t];\n+\n+\t\t\tconst body = endpoint.createRequestBody({\n+\t\t\t\t...createTestOptions(messages),\n+\t\t\t\tignoreStatefulMarker: false,\n+\t\t\t});\n+\n+\t\t\texpect(body.previous_response_id).toBeUndefined();\n+\t\t\t// Input must not be truncated at the unusable marker\n+\t\t\texpect(JSON.stringify(body.input)).toContain('before marker');\n+\t\t\texpect(JSON.stringify(body.input)).toContain('after marker');\n+\t\t});\n \t});\n \n \tdescribe('reasoning effort forwarding', () => {"
+  },
+  {
+   "sha": "b0b66655842ebe484cd162443e8018a12d17ce53",
+   "filename": "extensions/copilot/src/platform/endpoint/node/responsesApi.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 1,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2FresponsesApi.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2FresponsesApi.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2FresponsesApi.ts?ref=b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "patch": "@@ -998,6 +998,10 @@ interface CapiResponsesTextDeltaEvent extends Omit<OpenAI.Responses.ResponseText\n }\n \n interface CapiResponseCompletedEvent extends OpenAI.Responses.ResponseCompletedEvent {\n+\tresponse: OpenAI.Responses.Response & {\n+\t\t// Echoes the request's `store` flag; the SDK's Response type omits it\n+\t\tstore?: boolean | null;\n+\t};\n \tcopilot_usage?: {\n \t\ttotal_nano_aiu: number;\n \t};\n@@ -1351,9 +1355,11 @@ export class OpenAIResponsesProcessor {\n \t\t\t\t\t});\n \t\t\t\t\tthis.logService.debug(`[responsesAPI_compaction] Compaction enabled but context not compacted after threshold was met. headerRequestId=${this.requestId}, gitHubRequestId=${this.ghRequestId}, promptTokens=${promptTokens}, totalTokens=${totalTokens}`);\n \t\t\t\t}\n+\t\t\t\t// An unstored response (store: false) can't be chained via previous_response_id\n+\t\t\t\tconst stored = capiChunk.response.store !== false;\n \t\t\t\tonProgress({\n \t\t\t\t\ttext: '',\n-\t\t\t\t\tstatefulMarker: chunk.response.id,\n+\t\t\t\t\tstatefulMarker: stored ? chunk.response.id : undefined,\n \t\t\t\t\tcontextManagement: shouldEmitResolvedCompaction ? latestCompactionItem : undefined,\n \t\t\t\t});\n \t\t\t\treturn {"
+  },
+  {
+   "sha": "b1c09c6385775253666735a91c8988679b39d83a",
+   "filename": "extensions/copilot/src/platform/endpoint/node/test/responsesApi.spec.ts",
+   "status": "modified",
+   "additions": 78,
+   "deletions": 0,
+   "changes": 78,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2Ftest%2FresponsesApi.spec.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2Ftest%2FresponsesApi.spec.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fplatform%2Fendpoint%2Fnode%2Ftest%2FresponsesApi.spec.ts?ref=b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "patch": "@@ -1574,6 +1574,84 @@ describe('processResponseFromChatEndpoint telemetry', () => {\n \t});\n });\n \n+describe('processResponseFromChatEndpoint store flag', () => {\n+\tasync function runCompletedEvent(store?: boolean | null): Promise<{ markers: string[]; deltas: number }> {\n+\t\tconst services = createPlatformServices();\n+\t\tconst accessor = services.createTestingAccessor();\n+\t\tconst instantiationService = accessor.get(IInstantiationService);\n+\t\tconst logService = accessor.get(ILogService);\n+\t\tconst telemetryService = new SpyingTelemetryService();\n+\n+\t\tconst completedEvent = {\n+\t\t\ttype: 'response.completed',\n+\t\t\tresponse: {\n+\t\t\t\tid: 'resp_store',\n+\t\t\t\tmodel: 'gpt-5-mini',\n+\t\t\t\tcreated_at: 123,\n+\t\t\t\t...(store !== undefined ? { store } : {}),\n+\t\t\t\tusage: {\n+\t\t\t\t\tinput_tokens: 11,\n+\t\t\t\t\toutput_tokens: 7,\n+\t\t\t\t\ttotal_tokens: 18,\n+\t\t\t\t\tinput_tokens_details: { cached_tokens: 0 },\n+\t\t\t\t\toutput_tokens_details: { reasoning_tokens: 0 },\n+\t\t\t\t},\n+\t\t\t\toutput: [\n+\t\t\t\t\t{\n+\t\t\t\t\t\ttype: 'message',\n+\t\t\t\t\t\tcontent: [{ type: 'output_text', text: 'reply' }],\n+\t\t\t\t\t}\n+\t\t\t\t],\n+\t\t\t}\n+\t\t};\n+\n+\t\tconst response = createFakeStreamResponse(`data: ${JSON.stringify(completedEvent)}\\n\\n`);\n+\t\tconst telemetryData = TelemetryData.createAndMarkAsIssued({ modelCallId: 'model-call-store' }, {});\n+\n+\t\tconst markers: string[] = [];\n+\t\tlet deltas = 0;\n+\t\tconst stream = await processResponseFromChatEndpoint(\n+\t\t\tinstantiationService,\n+\t\t\ttelemetryService,\n+\t\t\tlogService,\n+\t\t\tresponse,\n+\t\t\t1,\n+\t\t\tasync (_text, _unused, delta) => {\n+\t\t\t\tdeltas++;\n+\t\t\t\tif (delta.statefulMarker !== undefined) {\n+\t\t\t\t\tmarkers.push(delta.statefulMarker);\n+\t\t\t\t}\n+\t\t\t\treturn undefined;\n+\t\t\t},\n+\t\t\ttelemetryData\n+\t\t);\n+\n+\t\tfor await (const _ of stream) {\n+\t\t\t// consume stream\n+\t\t}\n+\n+\t\taccessor.dispose();\n+\t\tservices.dispose();\n+\t\treturn { markers, deltas };\n+\t}\n+\n+\tit('omits the stateful marker when the response is not stored (store: false)', async () => {\n+\t\tconst { markers, deltas } = await runCompletedEvent(false);\n+\t\texpect(deltas).toBeGreaterThan(0);\n+\t\texpect(markers).toEqual([]);\n+\t});\n+\n+\tit('emits the stateful marker when the response is stored (store: true)', async () => {\n+\t\tconst { markers } = await runCompletedEvent(true);\n+\t\texpect(markers).toEqual(['resp_store']);\n+\t});\n+\n+\tit('emits the stateful marker when store is absent', async () => {\n+\t\tconst { markers } = await runCompletedEvent(undefined);\n+\t\texpect(markers).toEqual(['resp_store']);\n+\t});\n+});\n+\n describe('summarizedAtRoundId and stateful marker interaction', () => {\n \tit('skips stateful marker when summarizedAtRoundId differs from connection', () => {\n \t\tconst services = createPlatformServices();"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4678136322,
+   "node_id": "PRR_kwDOAn8RLM8AAAABFtayAg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nPrevents stateless BYOK Responses endpoints from producing truncated follow-up requests.\n\n**Changes:**\n- Suppresses stateful markers when `store: false`.\n- Rejects non-`resp_` markers before request conversion.\n- Adds regression coverage for both behaviors.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated no comments.\n\n| File | Description |\n| ---- | ----------- |\n| `extensions/copilot/src/platform/endpoint/node/responsesApi.ts` | Honors the completed response’s `store` flag. |\n| `extensions/copilot/src/platform/endpoint/node/test/responsesApi.spec.ts` | Tests marker emission across store values. |\n| `extensions/copilot/src/extension/byok/node/openAIEndpoint.ts` | Validates markers before input truncation. |\n| `extensions/copilot/src/extension/byok/node/test/openAIEndpoint.spec.ts` | Verifies foreign markers preserve full input. |\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/325437#pullrequestreview-4678136322",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/325437",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/325437#pullrequestreview-4678136322"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/325437"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-07-11T15:13:23Z",
+   "commit_id": "f9d13c687c647c87524c0823e5c254a09b6df866"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "f9d13c687c647c87524c0823e5c254a09b6df866",
+   "node_id": "C_kwDOTTIzP9oAKGY5ZDEzYzY4N2M2NDdjODc1MjRjMDgyM2U1YzI1NGEwOWI2ZGY4NjY",
+   "commit": {
+    "author": {
+     "name": "Dave",
+     "email": "davixk83@gmail.com",
+     "date": "2026-07-10T19:20:50Z"
+    },
+    "committer": {
+     "name": "Dave",
+     "email": "davixk83@gmail.com",
+     "date": "2026-07-11T14:42:52Z"
+    },
+    "message": "Honor store:false when negotiating Responses API stateful markers\n\nSkip the stateful marker on response.completed when the response was\nnot stored, so unchainable ids never enter the history. In the BYOK\nResponses branch, decide marker usability before conversion so a\nnon-resp_ marker sends the full input instead of a truncated one with\nprevious_response_id stripped by the late guard.",
+    "tree": {
+     "sha": "50df8fd0093025b7520c56759d9f13250a942030",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/50df8fd0093025b7520c56759d9f13250a942030"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/f9d13c687c647c87524c0823e5c254a09b6df866",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/f9d13c687c647c87524c0823e5c254a09b6df866",
+   "html_url": "https://github.com/microsoft/vscode/commit/f9d13c687c647c87524c0823e5c254a09b6df866",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/f9d13c687c647c87524c0823e5c254a09b6df866/comments",
+   "author": {
+    "login": "Davixk",
+    "id": 22946919,
+    "node_id": "MDQ6VXNlcjIyOTQ2OTE5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22946919?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Davixk",
+    "html_url": "https://github.com/Davixk",
+    "followers_url": "https://api.github.com/users/Davixk/followers",
+    "following_url": "https://api.github.com/users/Davixk/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Davixk/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Davixk/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Davixk/subscriptions",
+    "organizations_url": "https://api.github.com/users/Davixk/orgs",
+    "repos_url": "https://api.github.com/users/Davixk/repos",
+    "events_url": "https://api.github.com/users/Davixk/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Davixk/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Davixk",
+    "id": 22946919,
+    "node_id": "MDQ6VXNlcjIyOTQ2OTE5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22946919?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Davixk",
+    "html_url": "https://github.com/Davixk",
+    "followers_url": "https://api.github.com/users/Davixk/followers",
+    "following_url": "https://api.github.com/users/Davixk/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Davixk/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Davixk/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Davixk/subscriptions",
+    "organizations_url": "https://api.github.com/users/Davixk/orgs",
+    "repos_url": "https://api.github.com/users/Davixk/repos",
+    "events_url": "https://api.github.com/users/Davixk/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Davixk/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "ba2a14cc6b031e2bfdd0531fb2ca1c8d60ff123e",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ba2a14cc6b031e2bfdd0531fb2ca1c8d60ff123e",
+     "html_url": "https://github.com/microsoft/vscode/commit/ba2a14cc6b031e2bfdd0531fb2ca1c8d60ff123e"
+    }
+   ]
+  },
+  {
+   "sha": "b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "node_id": "C_kwDOTTIzP9oAKGI3MDQzN2ViNDNjMDdiZmQxOWU0ZDM5YTcyZTUxNGQwMjNmN2U1YzY",
+   "commit": {
+    "author": {
+     "name": "Dave",
+     "email": "davixk83@gmail.com",
+     "date": "2026-07-22T23:19:02Z"
+    },
+    "committer": {
+     "name": "Dave",
+     "email": "davixk83@gmail.com",
+     "date": "2026-07-22T23:19:02Z"
+    },
+    "message": "Merge remote-tracking branch 'origin/main' into fix/byok-honor-store-false",
+    "tree": {
+     "sha": "4383b89c03688a7f3cc9c98afd181f77218a5265",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/4383b89c03688a7f3cc9c98afd181f77218a5265"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "html_url": "https://github.com/microsoft/vscode/commit/b70437eb43c07bfd19e4d39a72e514d023f7e5c6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b70437eb43c07bfd19e4d39a72e514d023f7e5c6/comments",
+   "author": {
+    "login": "Davixk",
+    "id": 22946919,
+    "node_id": "MDQ6VXNlcjIyOTQ2OTE5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22946919?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Davixk",
+    "html_url": "https://github.com/Davixk",
+    "followers_url": "https://api.github.com/users/Davixk/followers",
+    "following_url": "https://api.github.com/users/Davixk/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Davixk/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Davixk/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Davixk/subscriptions",
+    "organizations_url": "https://api.github.com/users/Davixk/orgs",
+    "repos_url": "https://api.github.com/users/Davixk/repos",
+    "events_url": "https://api.github.com/users/Davixk/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Davixk/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Davixk",
+    "id": 22946919,
+    "node_id": "MDQ6VXNlcjIyOTQ2OTE5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/22946919?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Davixk",
+    "html_url": "https://github.com/Davixk",
+    "followers_url": "https://api.github.com/users/Davixk/followers",
+    "following_url": "https://api.github.com/users/Davixk/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Davixk/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Davixk/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Davixk/subscriptions",
+    "organizations_url": "https://api.github.com/users/Davixk/orgs",
+    "repos_url": "https://api.github.com/users/Davixk/repos",
+    "events_url": "https://api.github.com/users/Davixk/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Davixk/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "f9d13c687c647c87524c0823e5c254a09b6df866",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/f9d13c687c647c87524c0823e5c254a09b6df866",
+     "html_url": "https://github.com/microsoft/vscode/commit/f9d13c687c647c87524c0823e5c254a09b6df866"
+    },
+    {
+     "sha": "87efe6c5bfeb296ccf701d330cf6e55a46e5d61c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/87efe6c5bfeb296ccf701d330cf6e55a46e5d61c",
+     "html_url": "https://github.com/microsoft/vscode/commit/87efe6c5bfeb296ccf701d330cf6e55a46e5d61c"
+    }
+   ]
+  }
+ ]
+}

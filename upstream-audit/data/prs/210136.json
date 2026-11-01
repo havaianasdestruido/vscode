@@ -1,0 +1,138 @@
+{
+ "fetchedAt": "2026-11-01T00:51:37.229Z",
+ "pr": {
+  "number": 210136,
+  "title": "feat: optimize check glibc version scripts",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-04-11T05:03:53Z",
+  "updated_at": "2026-01-20T10:13:51Z",
+  "user": "zWingz",
+  "author_association": "CONTRIBUTOR",
+  "additions": 5,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "optimize-check-requirements-script",
+   "sha": "ec992a5cb864a1a161b9817272d91cfaa612043a",
+   "repo": "zWingz/vscode",
+   "label": "zWingz:optimize-check-requirements-script"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\nIn centos7, using the `cat` command to check `glibc` version takes nearly 1 second\r\n<img width=\"574\" alt=\"image\" src=\"https://github.com/microsoft/vscode/assets/13031838/909140f0-fd9c-4d7d-b193-0386863f8230\">\r\n\r\nbut using the `strings` only tasks 18ms\r\n<img width=\"570\" alt=\"image\" src=\"https://github.com/microsoft/vscode/assets/13031838/5df3f311-ae52-4f66-89fc-0395662338dd\">\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "93b03b803de22badb56efe3af76976bf24c94ded",
+   "filename": "resources/server/bin/helpers/check-requirements-linux.sh",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/ec992a5cb864a1a161b9817272d91cfaa612043a/resources%2Fserver%2Fbin%2Fhelpers%2Fcheck-requirements-linux.sh",
+   "raw_url": "https://github.com/microsoft/vscode/raw/ec992a5cb864a1a161b9817272d91cfaa612043a/resources%2Fserver%2Fbin%2Fhelpers%2Fcheck-requirements-linux.sh",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/resources%2Fserver%2Fbin%2Fhelpers%2Fcheck-requirements-linux.sh?ref=ec992a5cb864a1a161b9817272d91cfaa612043a",
+   "patch": "@@ -133,7 +133,11 @@ elif [ -z \"$(ldd --version 2>&1 | grep 'musl libc')\" ]; then\n \t\t# we instead use the version of the cached libc.so.6 file itself.\n         libc_path_line=$(echo \"$libc_path\" | head -n1)\n         libc_real_path=$(readlink -f \"$libc_path_line\")\n-        libc_version=$(cat \"$libc_real_path\" | sed -n 's/.*release version \\([0-9]\\+\\.[0-9]\\+\\).*/\\1/p')\n+        if command -v strings >/dev/null 2>&1; then\n+            libc_version=$(strings \"$libc_real_path\" | grep \"release version\" | sed -n 's/.*release version \\([0-9]\\+\\.[0-9]\\+\\).*/\\1/p')\n+        else\n+            libc_version=$(cat \"$libc_real_path\" | sed -n 's/.*release version \\([0-9]\\+\\.[0-9]\\+\\).*/\\1/p')\n+        fi\n         if [ \"$(printf '%s\\n' \"2.28\" \"$libc_version\" | sort -V | head -n1)\" = \"2.28\" ]; then\n             found_required_glibc=1\n             break"
+  }
+ ],
+ "reviews": [],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "ec992a5cb864a1a161b9817272d91cfaa612043a",
+   "node_id": "C_kwDOF0QHTdoAKGVjOTkyYTVjYjg2NGExYTE2MWI5ODE3MjcyZDkxY2ZhYTYxMjA0M2E",
+   "commit": {
+    "author": {
+     "name": "zwingz",
+     "email": "371657110@qq.com",
+     "date": "2024-04-11T05:06:42Z"
+    },
+    "committer": {
+     "name": "zWing",
+     "email": "371657110@qq.com",
+     "date": "2024-04-11T06:09:47Z"
+    },
+    "message": "feat: optimize check glibc version scripts",
+    "tree": {
+     "sha": "d1010541b59d42746a4038086f09c7c52729d5c4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d1010541b59d42746a4038086f09c7c52729d5c4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/ec992a5cb864a1a161b9817272d91cfaa612043a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/ec992a5cb864a1a161b9817272d91cfaa612043a",
+   "html_url": "https://github.com/microsoft/vscode/commit/ec992a5cb864a1a161b9817272d91cfaa612043a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/ec992a5cb864a1a161b9817272d91cfaa612043a/comments",
+   "author": {
+    "login": "zWingz",
+    "id": 13031838,
+    "node_id": "MDQ6VXNlcjEzMDMxODM4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13031838?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zWingz",
+    "html_url": "https://github.com/zWingz",
+    "followers_url": "https://api.github.com/users/zWingz/followers",
+    "following_url": "https://api.github.com/users/zWingz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zWingz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zWingz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zWingz/subscriptions",
+    "organizations_url": "https://api.github.com/users/zWingz/orgs",
+    "repos_url": "https://api.github.com/users/zWingz/repos",
+    "events_url": "https://api.github.com/users/zWingz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zWingz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "zWingz",
+    "id": 13031838,
+    "node_id": "MDQ6VXNlcjEzMDMxODM4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13031838?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/zWingz",
+    "html_url": "https://github.com/zWingz",
+    "followers_url": "https://api.github.com/users/zWingz/followers",
+    "following_url": "https://api.github.com/users/zWingz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/zWingz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/zWingz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/zWingz/subscriptions",
+    "organizations_url": "https://api.github.com/users/zWingz/orgs",
+    "repos_url": "https://api.github.com/users/zWingz/repos",
+    "events_url": "https://api.github.com/users/zWingz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/zWingz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "81214e9f10be797a463e6341141fe6f37b232ac7",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/81214e9f10be797a463e6341141fe6f37b232ac7",
+     "html_url": "https://github.com/microsoft/vscode/commit/81214e9f10be797a463e6341141fe6f37b232ac7"
+    }
+   ]
+  }
+ ]
+}

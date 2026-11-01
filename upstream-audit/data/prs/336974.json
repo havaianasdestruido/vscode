@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:55:15.598Z",
+ "pr": {
+  "number": 336974,
+  "title": "Update SECURITY.md with link to security guidelines",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-21T06:11:17Z",
+  "updated_at": "2026-09-21T07:32:41Z",
+  "user": "jlhenson71174-dot",
+  "author_association": "NONE",
+  "additions": 1,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-1",
+   "sha": "a074e176b94b90056efb268a0d56b42aefcc8085",
+   "repo": "jlhenson71174-dot/vscode",
+   "label": "jlhenson71174-dot:patch-1"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "c0f6c8cd52aeceb78b91631bce1b37d161a93d3f"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "17d39f183808de05ce432bf50ddde84ca123304b",
+   "filename": "SECURITY.md",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 1,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/a074e176b94b90056efb268a0d56b42aefcc8085/SECURITY.md",
+   "raw_url": "https://github.com/microsoft/vscode/raw/a074e176b94b90056efb268a0d56b42aefcc8085/SECURITY.md",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/SECURITY.md?ref=a074e176b94b90056efb268a0d56b42aefcc8085",
+   "patch": "@@ -1,4 +1,4 @@\n-<!-- BEGIN MICROSOFT SECURITY.MD V1.0.0 BLOCK -->\n+https://aka.ms/SECURITY.md<!-- BEGIN MICROSOFT SECURITY.MD V1.0.0 BLOCK -->\n \n ## Security\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5263549100,
+   "node_id": "PRR_kwDOAn8RLM8AAAABObtirA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟡 Changes recommended\n\nThe added URL duplicates line 12 and corrupts the generated-block marker.\n\n*Get a fresh assessment by requesting another Copilot review.*\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Remove duplicate security-guidelines link from generated-block marker](#discussion_r4059672583) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nUpdates the repository security guidance link.\n\n**Changes:**\n- Prepends the security URL to the generated block marker.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `SECURITY.md` | Adds a duplicate security-guidelines URL. |\n</details>\n\n---\n\n💡 <a href=\"/microsoft/vscode/new/main?filename=.github/skills/code-review/SKILL.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add a `code-review` agent skill</a> or configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/336974#pullrequestreview-5263549100",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/336974",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/336974#pullrequestreview-5263549100"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/336974"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-21T06:13:55Z",
+   "commit_id": "a074e176b94b90056efb268a0d56b42aefcc8085"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "a074e176b94b90056efb268a0d56b42aefcc8085",
+   "node_id": "C_kwDOUjSi2toAKGEwNzRlMTc2Yjk0YjkwMDU2ZWZiMjY4YTBkNTZiNDJhZWZjYzgwODU",
+   "commit": {
+    "author": {
+     "name": "jlhenson71174-dot",
+     "email": "jlhenson71174@gmail.com",
+     "date": "2026-09-21T06:10:35Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-21T06:10:35Z"
+    },
+    "message": "Update SECURITY.md with link to security guidelines",
+    "tree": {
+     "sha": "6d247ad853df5f37691d35f68357396fa61aef7f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/6d247ad853df5f37691d35f68357396fa61aef7f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a074e176b94b90056efb268a0d56b42aefcc8085",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqsMpbCRC1aQ7uu5UhlAAA05AQAFVEOFmK4suHmRd7F+YsIOTd\nP2PXMrtJuxdMe8mMVotUuAfd4Yx6ZKIcPSv9QjeE9fhFr5lKrvO/BkQCg8YajQFR\neTUlKPX78krEdDprPOX2YS4me6sZAoaoYjzjXpAaJkhCHBk+4WevVmwWEVILi/GB\n2cx9j+KOSGxG5o/soyZOhByRZ+hQdwomTyLcVL1cdWeuu8ZNbJuP8qnnFr2BvqR0\nwuAA2AM8p1T5jhlyL4Flkk17gHWep3Re0PPEuiOzY5V1APYTGLpp2fiSXrmm6vzV\nBEsgKMeGKHJ/Bj7UAkCHRjEy/3qRUGdDzeVyf3h2MHjbzM5OMfXoUOBQgzhSaNwI\nQqfZRqGhur0yrUiBbuTlxYEdxOJuJpNro/8CLTXleRv27Ky7A6aocljxLFY/OpVj\nAq2eMn3VZ1Rd+EkH/nn2AA5WRGTRYDvv9XTS5UaaTfiM2YM3mo/vlyigSBfy5ZVs\nmxgj12dIM9xy71BPU86zQDbjGCfaQZPl2YQr6F9Ev1elPlR2ZfxYqWlknrJDQgfJ\nw4ZGZHxK2Tu91q1t6RdARn/sKpJnD27D/wgND1N8mZgTR1wfOZlDwDXFyxtw5/Dp\n4tzyETkvOJjtkYYagsF6xaeZbekR5M+nOZpEuPvBrnFkEoH3lkrkhtYo/YX1QKsO\nD5sxqqO3EO1PXPbhBL53\n=ge6G\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 6d247ad853df5f37691d35f68357396fa61aef7f\nparent c0f6c8cd52aeceb78b91631bce1b37d161a93d3f\nauthor jlhenson71174-dot <jlhenson71174@gmail.com> 1789971035 -0400\ncommitter GitHub <noreply@github.com> 1789971035 -0400\n\nUpdate SECURITY.md with link to security guidelines",
+     "verified_at": "2026-09-21T06:10:36Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a074e176b94b90056efb268a0d56b42aefcc8085",
+   "html_url": "https://github.com/microsoft/vscode/commit/a074e176b94b90056efb268a0d56b42aefcc8085",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a074e176b94b90056efb268a0d56b42aefcc8085/comments",
+   "author": {
+    "login": "jlhenson71174-dot",
+    "id": 331603112,
+    "node_id": "U_kgDOE8PcqA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/331603112?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jlhenson71174-dot",
+    "html_url": "https://github.com/jlhenson71174-dot",
+    "followers_url": "https://api.github.com/users/jlhenson71174-dot/followers",
+    "following_url": "https://api.github.com/users/jlhenson71174-dot/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jlhenson71174-dot/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jlhenson71174-dot/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jlhenson71174-dot/subscriptions",
+    "organizations_url": "https://api.github.com/users/jlhenson71174-dot/orgs",
+    "repos_url": "https://api.github.com/users/jlhenson71174-dot/repos",
+    "events_url": "https://api.github.com/users/jlhenson71174-dot/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jlhenson71174-dot/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c0f6c8cd52aeceb78b91631bce1b37d161a93d3f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c0f6c8cd52aeceb78b91631bce1b37d161a93d3f",
+     "html_url": "https://github.com/microsoft/vscode/commit/c0f6c8cd52aeceb78b91631bce1b37d161a93d3f"
+    }
+   ]
+  }
+ ]
+}

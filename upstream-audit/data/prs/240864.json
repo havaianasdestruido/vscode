@@ -1,0 +1,280 @@
+{
+ "fetchedAt": "2026-11-01T00:52:08.400Z",
+ "pr": {
+  "number": 240864,
+  "title": "fix: improve Wayland detection and environment setup",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-02-15T02:40:58Z",
+  "updated_at": "2026-01-20T10:13:48Z",
+  "user": "omarionnn",
+  "author_association": "NONE",
+  "additions": 12,
+  "deletions": 9,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 3,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix-wayland-detection",
+   "sha": "c0376a16fea7f57332f77f48d61c41875a0e6500",
+   "repo": "omarionnn/vscode",
+   "label": "omarionnn:fix-wayland-detection"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "**Overview**\r\nThis PR fixes the Wayland detection and environment setup issues when launching browsers through xdg-open in VS Code.\r\n\r\n**Issue**\r\nWhen running `xdg-open` commands from VS Code's integrated terminal under Wayland sessions, users encounter the error:\r\n\"Failed to open Wayland display, fallback to X11\"\r\n\r\nFixes #229096\r\n\r\n**Changes**\r\n- Fixed Wayland socket path detection by using correct XDG_RUNTIME_DIR path\r\n- Added proper GDK_BACKEND environment setup\r\n- Added Wayland-specific environment variables for browser compatibility\r\n- Maintained X11 fallback when Wayland is not available\r\n\r\n**Testing Notes**\r\nThis change requires a Linux system running a Wayland session to test. I have tested the changes on Fedora 40 with:\r\n- Wayland session (XDG_SESSION_TYPE=wayland)\r\n- VS Code 1.91.1\r\n- Firefox as default browser\r\n\r\nThe fix can be verified by:\r\n1. Running VS Code in a Wayland session\r\n2. Opening the integrated terminal\r\n3. Running `xdg-open https://www.google.es`\r\n4. Verifying the browser opens without the \"Failed to open Wayland display\" error\r\n\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "866e3f4929272bcc0a766c75ebea7d29250e8cd7",
+   "filename": "resources/linux/snap/electron-launch",
+   "status": "modified",
+   "additions": 12,
+   "deletions": 9,
+   "changes": 21,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c0376a16fea7f57332f77f48d61c41875a0e6500/resources%2Flinux%2Fsnap%2Felectron-launch",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c0376a16fea7f57332f77f48d61c41875a0e6500/resources%2Flinux%2Fsnap%2Felectron-launch",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/resources%2Flinux%2Fsnap%2Felectron-launch?ref=c0376a16fea7f57332f77f48d61c41875a0e6500",
+   "patch": "@@ -151,20 +151,23 @@ if [[ -n \"$XDG_RUNTIME_DIR\" && -z \"$DISABLE_WAYLAND\" ]]; then\n     if [ -n \"$WAYLAND_DISPLAY\" ]; then\n         wdisplay=\"$WAYLAND_DISPLAY\"\n     fi\n-    wayland_sockpath=\"$XDG_RUNTIME_DIR/../$wdisplay\"\n-    wayland_snappath=\"$XDG_RUNTIME_DIR/$wdisplay\"\n+    wayland_sockpath=\"$XDG_RUNTIME_DIR/$wdisplay\"\n     if [ -S \"$wayland_sockpath\" ]; then\n-        # if running under wayland, use it\n-        #export WAYLAND_DEBUG=1\n-        # shellcheck disable=SC2034\n         wayland_available=true\n-        # create the compat symlink for now\n-        if [ ! -e \"$wayland_snappath\" ]; then\n-            ln -s \"$wayland_sockpath\" \"$wayland_snappath\"\n-        fi\n+        export GDK_BACKEND=wayland\n+    else\n+        # Fallback to X11 if Wayland socket not found\n+        export GDK_BACKEND=x11\n     fi\n fi\n \n+# Add session type check\n+if [ \"$XDG_SESSION_TYPE\" = \"wayland\" ]; then\n+    export GDK_BACKEND=wayland\n+    export WEBKIT_FORCE_WAYLAND=1\n+    export MOZ_ENABLE_WAYLAND=1\n+fi\n+\n # Keep an array of data dirs, for looping through them\n IFS=':' read -r -a data_dirs_array <<< \"$XDG_DATA_DIRS\"\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2619301903,
+   "node_id": "PRR_kwDOAn8RLM6cH2AP",
+   "user": {
+    "login": "Ferkoslav",
+    "id": 175656519,
+    "node_id": "U_kgDOCnhORw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/175656519?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Ferkoslav",
+    "html_url": "https://github.com/Ferkoslav",
+    "followers_url": "https://api.github.com/users/Ferkoslav/followers",
+    "following_url": "https://api.github.com/users/Ferkoslav/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Ferkoslav/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Ferkoslav/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Ferkoslav/subscriptions",
+    "organizations_url": "https://api.github.com/users/Ferkoslav/orgs",
+    "repos_url": "https://api.github.com/users/Ferkoslav/repos",
+    "events_url": "https://api.github.com/users/Ferkoslav/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Ferkoslav/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "- [ ] ~~~~",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/240864#pullrequestreview-2619301903",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/240864",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/240864#pullrequestreview-2619301903"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/240864"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-02-15T04:30:03Z",
+   "commit_id": "c0376a16fea7f57332f77f48d61c41875a0e6500"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2660670414",
+   "html_url": "https://github.com/microsoft/vscode/pull/240864#issuecomment-2660670414",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/240864",
+   "id": 2660670414,
+   "node_id": "IC_kwDOAn8RLM6elpvO",
+   "user": {
+    "login": "omarionnn",
+    "id": 75476241,
+    "node_id": "MDQ6VXNlcjc1NDc2MjQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/75476241?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/omarionnn",
+    "html_url": "https://github.com/omarionnn",
+    "followers_url": "https://api.github.com/users/omarionnn/followers",
+    "following_url": "https://api.github.com/users/omarionnn/following{/other_user}",
+    "gists_url": "https://api.github.com/users/omarionnn/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/omarionnn/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/omarionnn/subscriptions",
+    "organizations_url": "https://api.github.com/users/omarionnn/orgs",
+    "repos_url": "https://api.github.com/users/omarionnn/repos",
+    "events_url": "https://api.github.com/users/omarionnn/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/omarionnn/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-15T02:43:39Z",
+   "updated_at": "2025-02-15T02:43:39Z",
+   "body": "default - no company specified) I have sole ownership of intellectual\r\nproperty rights to my Submissions and I am not making Submissions in the\r\ncourse of work for my employer.\r\n\r\n\r\nOn Fri, Feb 14, 2025 at 9:41 PM microsoft-github-policy-service[bot] <\r\n***@***.***> wrote:\r\n\r\n> @omarionnn <https://github.com/omarionnn> please read the following\r\n> Contributor License Agreement(CLA). If you agree with the CLA, please reply\r\n> with the following information.\r\n>\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n>\r\n> Options:\r\n>\r\n>    - (default - no company specified) I have sole ownership of\r\n>    intellectual property rights to my Submissions and I am not making\r\n>    Submissions in the course of work for my employer.\r\n>\r\n> @microsoft-github-policy-service agree\r\n>\r\n>\r\n>    - (when company given) I am making Submissions in the course of work\r\n>    for my employer (or my employer has intellectual property rights in my\r\n>    Submissions by contract or applicable law). I have permission from my\r\n>    employer to make Submissions and enter into this Agreement on behalf of my\r\n>    employer. By signing below, the defined term “You” includes me and my\r\n>    employer.\r\n>\r\n> @microsoft-github-policy-service agree company=\"Microsoft\"\r\n>\r\n> Contributor License Agreement Contribution License Agreement\r\n>\r\n> This Contribution License Agreement (*“Agreement”*) is agreed to by the\r\n> party signing below (*“You”*),\r\n> and conveys certain license rights to Microsoft Corporation and its\r\n> affiliates (“Microsoft”) for Your\r\n> contributions to Microsoft open source projects. This Agreement is\r\n> effective as of the latest signature\r\n> date below.\r\n>\r\n>    1. *Definitions*.\r\n>    *“Code”* means the computer software code, whether in human-readable\r\n>    or machine-executable form,\r\n>    that is delivered by You to Microsoft under this Agreement.\r\n>    *“Project”* means any of the projects owned or managed by Microsoft\r\n>    and offered under a license\r\n>    approved by the Open Source Initiative (www.opensource.org).\r\n>    *“Submit”* is the act of uploading, submitting, transmitting, or\r\n>    distributing code or other content to any\r\n>    Project, including but not limited to communication on electronic\r\n>    mailing lists, source code control\r\n>    systems, and issue tracking systems that are managed by, or on behalf\r\n>    of, the Project for the purpose of\r\n>    discussing and improving that Project, but excluding communication\r\n>    that is conspicuously marked or\r\n>    otherwise designated in writing by You as “Not a Submission.”\r\n>    *“Submission”* means the Code and any other copyrightable material\r\n>    Submitted by You, including any\r\n>    associated comments and documentation.\r\n>    2. *Your Submission*. You must agree to the terms of this Agreement\r\n>    before making a Submission to any\r\n>    Project. This Agreement covers any and all Submissions that You, now\r\n>    or in the future (except as\r\n>    described in Section 4 below), Submit to any Project.\r\n>    3. *Originality of Work*. You represent that each of Your Submissions\r\n>    is entirely Your original work.\r\n>    Should You wish to Submit materials that are not Your original work,\r\n>    You may Submit them separately\r\n>    to the Project if You (a) retain all copyright and license information\r\n>    that was in the materials as You\r\n>    received them, (b) in the description accompanying Your Submission,\r\n>    include the phrase “Submission\r\n>    containing materials of a third party:” followed by the names of the\r\n>    third party and any licenses or other\r\n>    restrictions of which You are aware, and (c) follow any other\r\n>    instructions in the Project’s written\r\n>    guidelines concerning Submissions.\r\n>    4. *Your Employer*. References to “employer” in this Agreement include\r\n>    Your employer or anyone else\r\n>    for whom You are acting in making Your Submission, e.g. as a\r\n>    contractor, vendor, or agent. If Your\r\n>    Submission is made in the course of Your work for an employer or Your\r\n>    employer has intellectual\r\n>    property rights in Your Submission by contract or applicable law, You\r\n>    must secure permission from Your\r\n>    employer to make the Submission before signing this Agreement. In that\r\n>    case, the term “You” in this\r\n>    Agreement will refer to You and the employer collectively. If You\r\n>    change employers in the future and\r\n>    desire to Submit additional Submissions for the new employer, then You\r\n>    agree to sign a new Agreement\r\n>    and secure permission from the new employer before Submitting those\r\n>    Submissions.\r\n>    5. *Licenses*.\r\n>\r\n>\r\n>    - *Copyright License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license in the\r\n>    Submission to reproduce, prepare derivative works of, publicly\r\n>    display, publicly perform, and distribute\r\n>    the Submission and such derivative works, and to sublicense any or all\r\n>    of the foregoing rights to third\r\n>    parties.\r\n>    - *Patent License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license under\r\n>    Your patent claims that are necessarily infringed by the Submission or\r\n>    the combination of the\r\n>    Submission with the Project to which it was Submitted to make, have\r\n>    made, use, offer to sell, sell and\r\n>    import or otherwise dispose of the Submission alone or with the\r\n>    Project.\r\n>    - *Other Rights Reserved*. Each party reserves all rights not\r\n>    expressly granted in this Agreement.\r\n>    No additional licenses or rights whatsoever (including, without\r\n>    limitation, any implied licenses) are\r\n>    granted by implication, exhaustion, estoppel or otherwise.\r\n>\r\n>\r\n>    6. *Representations and Warranties*. You represent that You are\r\n>    legally entitled to grant the above\r\n>    licenses. You represent that each of Your Submissions is entirely Your\r\n>    original work (except as You may\r\n>    have disclosed under Section 3). You represent that You have secured\r\n>    permission from Your employer to\r\n>    make the Submission in cases where Your Submission is made in the\r\n>    course of Your work for Your\r\n>    employer or Your employer has intellectual property rights in Your\r\n>    Submission by contract or applicable\r\n>    law. If You are signing this Agreement on behalf of Your employer, You\r\n>    represent and warrant that You\r\n>    have the necessary authority to bind the listed employer to the\r\n>    obligations contained in this Agreement.\r\n>    You are not expected to provide support for Your Submission, unless\r\n>    You choose to do so. UNLESS\r\n>    REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE\r\n>    WARRANTIES\r\n>    EXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED\r\n>    UNDER THIS AGREEMENT IS\r\n>    PROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO,\r\n>    ANY WARRANTY OF\r\n>    NONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\r\n>    7. *Notice to Microsoft*. You agree to notify Microsoft in writing of\r\n>    any facts or circumstances of which\r\n>    You later become aware that would make Your representations in this\r\n>    Agreement inaccurate in any\r\n>    respect.\r\n>    8. *Information about Submissions*. You agree that contributions to\r\n>    Projects and information about\r\n>    contributions may be maintained indefinitely and disclosed publicly,\r\n>    including Your name and other\r\n>    information that You submit with Your Submission.\r\n>    9. *Governing Law/Jurisdiction*. This Agreement is governed by the\r\n>    laws of the State of Washington, and\r\n>    the parties consent to exclusive jurisdiction and venue in the federal\r\n>    courts sitting in King County,\r\n>    Washington, unless no federal subject matter jurisdiction exists, in\r\n>    which case the parties consent to\r\n>    exclusive jurisdiction and venue in the Superior Court of King County,\r\n>    Washington. The parties waive all\r\n>    defenses of lack of personal jurisdiction and forum non-conveniens.\r\n>    10. *Entire Agreement/Assignment*. This Agreement is the entire\r\n>    agreement between the parties, and\r\n>    supersedes any and all prior agreements, understandings or\r\n>    communications, written or oral, between\r\n>    the parties relating to the subject matter hereof. This Agreement may\r\n>    be assigned by Microsoft.\r\n>\r\n> —\r\n> Reply to this email directly, view it on GitHub\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>,\r\n> or unsubscribe\r\n> <https://github.com/notifications/unsubscribe-auth/AR722EISEPRG4XN75H2PEB32P2SOBAVCNFSM6AAAAABXF2N6QOVHI2DSMVQWIX3LMV43OSLTON2WKQ3PNVWWK3TUHMZDMNRQGY2TOMRWGY>\r\n> .\r\n> You are receiving this because you were mentioned.Message ID:\r\n> ***@***.***>\r\n> [image: microsoft-github-policy-service[bot]]\r\n> *microsoft-github-policy-service[bot]* left a comment\r\n> (microsoft/vscode#240864)\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>\r\n>\r\n> @omarionnn <https://github.com/omarionnn> please read the following\r\n> Contributor License Agreement(CLA). If you agree with the CLA, please reply\r\n> with the following information.\r\n>\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n>\r\n> Options:\r\n>\r\n>    - (default - no company specified) I have sole ownership of\r\n>    intellectual property rights to my Submissions and I am not making\r\n>    Submissions in the course of work for my employer.\r\n>\r\n> @microsoft-github-policy-service agree\r\n>\r\n>\r\n>    - (when company given) I am making Submissions in the course of work\r\n>    for my employer (or my employer has intellectual property rights in my\r\n>    Submissions by contract or applicable law). I have permission from my\r\n>    employer to make Submissions and enter into this Agreement on behalf of my\r\n>    employer. By signing below, the defined term “You” includes me and my\r\n>    employer.\r\n>\r\n> @microsoft-github-policy-service agree company=\"Microsoft\"\r\n>\r\n> Contributor License Agreement Contribution License Agreement\r\n>\r\n> This Contribution License Agreement (*“Agreement”*) is agreed to by the\r\n> party signing below (*“You”*),\r\n> and conveys certain license rights to Microsoft Corporation and its\r\n> affiliates (“Microsoft”) for Your\r\n> contributions to Microsoft open source projects. This Agreement is\r\n> effective as of the latest signature\r\n> date below.\r\n>\r\n>    1. *Definitions*.\r\n>    *“Code”* means the computer software code, whether in human-readable\r\n>    or machine-executable form,\r\n>    that is delivered by You to Microsoft under this Agreement.\r\n>    *“Project”* means any of the projects owned or managed by Microsoft\r\n>    and offered under a license\r\n>    approved by the Open Source Initiative (www.opensource.org).\r\n>    *“Submit”* is the act of uploading, submitting, transmitting, or\r\n>    distributing code or other content to any\r\n>    Project, including but not limited to communication on electronic\r\n>    mailing lists, source code control\r\n>    systems, and issue tracking systems that are managed by, or on behalf\r\n>    of, the Project for the purpose of\r\n>    discussing and improving that Project, but excluding communication\r\n>    that is conspicuously marked or\r\n>    otherwise designated in writing by You as “Not a Submission.”\r\n>    *“Submission”* means the Code and any other copyrightable material\r\n>    Submitted by You, including any\r\n>    associated comments and documentation.\r\n>    2. *Your Submission*. You must agree to the terms of this Agreement\r\n>    before making a Submission to any\r\n>    Project. This Agreement covers any and all Submissions that You, now\r\n>    or in the future (except as\r\n>    described in Section 4 below), Submit to any Project.\r\n>    3. *Originality of Work*. You represent that each of Your Submissions\r\n>    is entirely Your original work.\r\n>    Should You wish to Submit materials that are not Your original work,\r\n>    You may Submit them separately\r\n>    to the Project if You (a) retain all copyright and license information\r\n>    that was in the materials as You\r\n>    received them, (b) in the description accompanying Your Submission,\r\n>    include the phrase “Submission\r\n>    containing materials of a third party:” followed by the names of the\r\n>    third party and any licenses or other\r\n>    restrictions of which You are aware, and (c) follow any other\r\n>    instructions in the Project’s written\r\n>    guidelines concerning Submissions.\r\n>    4. *Your Employer*. References to “employer” in this Agreement include\r\n>    Your employer or anyone else\r\n>    for whom You are acting in making Your Submission, e.g. as a\r\n>    contractor, vendor, or agent. If Your\r\n>    Submission is made in the course of Your work for an employer or Your\r\n>    employer has intellectual\r\n>    property rights in Your Submission by contract or applicable law, You\r\n>    must secure permission from Your\r\n>    employer to make the Submission before signing this Agreement. In that\r\n>    case, the term “You” in this\r\n>    Agreement will refer to You and the employer collectively. If You\r\n>    change employers in the future and\r\n>    desire to Submit additional Submissions for the new employer, then You\r\n>    agree to sign a new Agreement\r\n>    and secure permission from the new employer before Submitting those\r\n>    Submissions.\r\n>    5. *Licenses*.\r\n>\r\n>\r\n>    - *Copyright License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license in the\r\n>    Submission to reproduce, prepare derivative works of, publicly\r\n>    display, publicly perform, and distribute\r\n>    the Submission and such derivative works, and to sublicense any or all\r\n>    of the foregoing rights to third\r\n>    parties.\r\n>    - *Patent License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license under\r\n>    Your patent claims that are necessarily infringed by the Submission or\r\n>    the combination of the\r\n>    Submission with the Project to which it was Submitted to make, have\r\n>    made, use, offer to sell, sell and\r\n>    import or otherwise dispose of the Submission alone or with the\r\n>    Project.\r\n>    - *Other Rights Reserved*. Each party reserves all rights not\r\n>    expressly granted in this Agreement.\r\n>    No additional licenses or rights whatsoever (including, without\r\n>    limitation, any implied licenses) are\r\n>    granted by implication, exhaustion, estoppel or otherwise.\r\n>\r\n>\r\n>    6. *Representations and Warranties*. You represent that You are\r\n>    legally entitled to grant the above\r\n>    licenses. You represent that each of Your Submissions is entirely Your\r\n>    original work (except as You may\r\n>    have disclosed under Section 3). You represent that You have secured\r\n>    permission from Your employer to\r\n>    make the Submission in cases where Your Submission is made in the\r\n>    course of Your work for Your\r\n>    employer or Your employer has intellectual property rights in Your\r\n>    Submission by contract or applicable\r\n>    law. If You are signing this Agreement on behalf of Your employer, You\r\n>    represent and warrant that You\r\n>    have the necessary authority to bind the listed employer to the\r\n>    obligations contained in this Agreement.\r\n>    You are not expected to provide support for Your Submission, unless\r\n>    You choose to do so. UNLESS\r\n>    REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE\r\n>    WARRANTIES\r\n>    EXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED\r\n>    UNDER THIS AGREEMENT IS\r\n>    PROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO,\r\n>    ANY WARRANTY OF\r\n>    NONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\r\n>    7. *Notice to Microsoft*. You agree to notify Microsoft in writing of\r\n>    any facts or circumstances of which\r\n>    You later become aware that would make Your representations in this\r\n>    Agreement inaccurate in any\r\n>    respect.\r\n>    8. *Information about Submissions*. You agree that contributions to\r\n>    Projects and information about\r\n>    contributions may be maintained indefinitely and disclosed publicly,\r\n>    including Your name and other\r\n>    information that You submit with Your Submission.\r\n>    9. *Governing Law/Jurisdiction*. This Agreement is governed by the\r\n>    laws of the State of Washington, and\r\n>    the parties consent to exclusive jurisdiction and venue in the federal\r\n>    courts sitting in King County,\r\n>    Washington, unless no federal subject matter jurisdiction exists, in\r\n>    which case the parties consent to\r\n>    exclusive jurisdiction and venue in the Superior Court of King County,\r\n>    Washington. The parties waive all\r\n>    defenses of lack of personal jurisdiction and forum non-conveniens.\r\n>    10. *Entire Agreement/Assignment*. This Agreement is the entire\r\n>    agreement between the parties, and\r\n>    supersedes any and all prior agreements, understandings or\r\n>    communications, written or oral, between\r\n>    the parties relating to the subject matter hereof. This Agreement may\r\n>    be assigned by Microsoft.\r\n>\r\n> —\r\n> Reply to this email directly, view it on GitHub\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>,\r\n> or unsubscribe\r\n> <https://github.com/notifications/unsubscribe-auth/AR722EISEPRG4XN75H2PEB32P2SOBAVCNFSM6AAAAABXF2N6QOVHI2DSMVQWIX3LMV43OSLTON2WKQ3PNVWWK3TUHMZDMNRQGY2TOMRWGY>\r\n> .\r\n> You are receiving this because you were mentioned.Message ID:\r\n> ***@***.***>\r\n>\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2660670414/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2660684403",
+   "html_url": "https://github.com/microsoft/vscode/pull/240864#issuecomment-2660684403",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/240864",
+   "id": 2660684403,
+   "node_id": "IC_kwDOAn8RLM6eltJz",
+   "user": {
+    "login": "omarionnn",
+    "id": 75476241,
+    "node_id": "MDQ6VXNlcjc1NDc2MjQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/75476241?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/omarionnn",
+    "html_url": "https://github.com/omarionnn",
+    "followers_url": "https://api.github.com/users/omarionnn/followers",
+    "following_url": "https://api.github.com/users/omarionnn/following{/other_user}",
+    "gists_url": "https://api.github.com/users/omarionnn/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/omarionnn/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/omarionnn/subscriptions",
+    "organizations_url": "https://api.github.com/users/omarionnn/orgs",
+    "repos_url": "https://api.github.com/users/omarionnn/repos",
+    "events_url": "https://api.github.com/users/omarionnn/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/omarionnn/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-15T03:05:50Z",
+   "updated_at": "2025-02-15T03:05:50Z",
+   "body": "   - I have sole ownership of intellectual property rights to my\r\n   Submissions and I am not making Submissions in the course of work for my\r\n   employer.\r\n\r\n@microsoft-github-policy-service agree\r\n\r\n\r\n   -\r\n\r\n\r\n\r\nOn Fri, Feb 14, 2025 at 9:41 PM microsoft-github-policy-service[bot] <\r\n***@***.***> wrote:\r\n\r\n> @omarionnn <https://github.com/omarionnn> please read the following\r\n> Contributor License Agreement(CLA). If you agree with the CLA, please reply\r\n> with the following information.\r\n>\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n>\r\n> Options:\r\n>\r\n>    - (default - no company specified) I have sole ownership of\r\n>    intellectual property rights to my Submissions and I am not making\r\n>    Submissions in the course of work for my employer.\r\n>\r\n> @microsoft-github-policy-service agree\r\n>\r\n>\r\n>    - (when company given) I am making Submissions in the course of work\r\n>    for my employer (or my employer has intellectual property rights in my\r\n>    Submissions by contract or applicable law). I have permission from my\r\n>    employer to make Submissions and enter into this Agreement on behalf of my\r\n>    employer. By signing below, the defined term “You” includes me and my\r\n>    employer.\r\n>\r\n> @microsoft-github-policy-service agree company=\"Microsoft\"\r\n>\r\n> Contributor License Agreement Contribution License Agreement\r\n>\r\n> This Contribution License Agreement (*“Agreement”*) is agreed to by the\r\n> party signing below (*“You”*),\r\n> and conveys certain license rights to Microsoft Corporation and its\r\n> affiliates (“Microsoft”) for Your\r\n> contributions to Microsoft open source projects. This Agreement is\r\n> effective as of the latest signature\r\n> date below.\r\n>\r\n>    1. *Definitions*.\r\n>    *“Code”* means the computer software code, whether in human-readable\r\n>    or machine-executable form,\r\n>    that is delivered by You to Microsoft under this Agreement.\r\n>    *“Project”* means any of the projects owned or managed by Microsoft\r\n>    and offered under a license\r\n>    approved by the Open Source Initiative (www.opensource.org).\r\n>    *“Submit”* is the act of uploading, submitting, transmitting, or\r\n>    distributing code or other content to any\r\n>    Project, including but not limited to communication on electronic\r\n>    mailing lists, source code control\r\n>    systems, and issue tracking systems that are managed by, or on behalf\r\n>    of, the Project for the purpose of\r\n>    discussing and improving that Project, but excluding communication\r\n>    that is conspicuously marked or\r\n>    otherwise designated in writing by You as “Not a Submission.”\r\n>    *“Submission”* means the Code and any other copyrightable material\r\n>    Submitted by You, including any\r\n>    associated comments and documentation.\r\n>    2. *Your Submission*. You must agree to the terms of this Agreement\r\n>    before making a Submission to any\r\n>    Project. This Agreement covers any and all Submissions that You, now\r\n>    or in the future (except as\r\n>    described in Section 4 below), Submit to any Project.\r\n>    3. *Originality of Work*. You represent that each of Your Submissions\r\n>    is entirely Your original work.\r\n>    Should You wish to Submit materials that are not Your original work,\r\n>    You may Submit them separately\r\n>    to the Project if You (a) retain all copyright and license information\r\n>    that was in the materials as You\r\n>    received them, (b) in the description accompanying Your Submission,\r\n>    include the phrase “Submission\r\n>    containing materials of a third party:” followed by the names of the\r\n>    third party and any licenses or other\r\n>    restrictions of which You are aware, and (c) follow any other\r\n>    instructions in the Project’s written\r\n>    guidelines concerning Submissions.\r\n>    4. *Your Employer*. References to “employer” in this Agreement include\r\n>    Your employer or anyone else\r\n>    for whom You are acting in making Your Submission, e.g. as a\r\n>    contractor, vendor, or agent. If Your\r\n>    Submission is made in the course of Your work for an employer or Your\r\n>    employer has intellectual\r\n>    property rights in Your Submission by contract or applicable law, You\r\n>    must secure permission from Your\r\n>    employer to make the Submission before signing this Agreement. In that\r\n>    case, the term “You” in this\r\n>    Agreement will refer to You and the employer collectively. If You\r\n>    change employers in the future and\r\n>    desire to Submit additional Submissions for the new employer, then You\r\n>    agree to sign a new Agreement\r\n>    and secure permission from the new employer before Submitting those\r\n>    Submissions.\r\n>    5. *Licenses*.\r\n>\r\n>\r\n>    - *Copyright License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license in the\r\n>    Submission to reproduce, prepare derivative works of, publicly\r\n>    display, publicly perform, and distribute\r\n>    the Submission and such derivative works, and to sublicense any or all\r\n>    of the foregoing rights to third\r\n>    parties.\r\n>    - *Patent License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license under\r\n>    Your patent claims that are necessarily infringed by the Submission or\r\n>    the combination of the\r\n>    Submission with the Project to which it was Submitted to make, have\r\n>    made, use, offer to sell, sell and\r\n>    import or otherwise dispose of the Submission alone or with the\r\n>    Project.\r\n>    - *Other Rights Reserved*. Each party reserves all rights not\r\n>    expressly granted in this Agreement.\r\n>    No additional licenses or rights whatsoever (including, without\r\n>    limitation, any implied licenses) are\r\n>    granted by implication, exhaustion, estoppel or otherwise.\r\n>\r\n>\r\n>    6. *Representations and Warranties*. You represent that You are\r\n>    legally entitled to grant the above\r\n>    licenses. You represent that each of Your Submissions is entirely Your\r\n>    original work (except as You may\r\n>    have disclosed under Section 3). You represent that You have secured\r\n>    permission from Your employer to\r\n>    make the Submission in cases where Your Submission is made in the\r\n>    course of Your work for Your\r\n>    employer or Your employer has intellectual property rights in Your\r\n>    Submission by contract or applicable\r\n>    law. If You are signing this Agreement on behalf of Your employer, You\r\n>    represent and warrant that You\r\n>    have the necessary authority to bind the listed employer to the\r\n>    obligations contained in this Agreement.\r\n>    You are not expected to provide support for Your Submission, unless\r\n>    You choose to do so. UNLESS\r\n>    REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE\r\n>    WARRANTIES\r\n>    EXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED\r\n>    UNDER THIS AGREEMENT IS\r\n>    PROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO,\r\n>    ANY WARRANTY OF\r\n>    NONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\r\n>    7. *Notice to Microsoft*. You agree to notify Microsoft in writing of\r\n>    any facts or circumstances of which\r\n>    You later become aware that would make Your representations in this\r\n>    Agreement inaccurate in any\r\n>    respect.\r\n>    8. *Information about Submissions*. You agree that contributions to\r\n>    Projects and information about\r\n>    contributions may be maintained indefinitely and disclosed publicly,\r\n>    including Your name and other\r\n>    information that You submit with Your Submission.\r\n>    9. *Governing Law/Jurisdiction*. This Agreement is governed by the\r\n>    laws of the State of Washington, and\r\n>    the parties consent to exclusive jurisdiction and venue in the federal\r\n>    courts sitting in King County,\r\n>    Washington, unless no federal subject matter jurisdiction exists, in\r\n>    which case the parties consent to\r\n>    exclusive jurisdiction and venue in the Superior Court of King County,\r\n>    Washington. The parties waive all\r\n>    defenses of lack of personal jurisdiction and forum non-conveniens.\r\n>    10. *Entire Agreement/Assignment*. This Agreement is the entire\r\n>    agreement between the parties, and\r\n>    supersedes any and all prior agreements, understandings or\r\n>    communications, written or oral, between\r\n>    the parties relating to the subject matter hereof. This Agreement may\r\n>    be assigned by Microsoft.\r\n>\r\n> —\r\n> Reply to this email directly, view it on GitHub\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>,\r\n> or unsubscribe\r\n> <https://github.com/notifications/unsubscribe-auth/AR722EISEPRG4XN75H2PEB32P2SOBAVCNFSM6AAAAABXF2N6QOVHI2DSMVQWIX3LMV43OSLTON2WKQ3PNVWWK3TUHMZDMNRQGY2TOMRWGY>\r\n> .\r\n> You are receiving this because you were mentioned.Message ID:\r\n> ***@***.***>\r\n> [image: microsoft-github-policy-service[bot]]\r\n> *microsoft-github-policy-service[bot]* left a comment\r\n> (microsoft/vscode#240864)\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>\r\n>\r\n> @omarionnn <https://github.com/omarionnn> please read the following\r\n> Contributor License Agreement(CLA). If you agree with the CLA, please reply\r\n> with the following information.\r\n>\r\n> @microsoft-github-policy-service agree [company=\"{your company}\"]\r\n>\r\n> Options:\r\n>\r\n>    - (default - no company specified) I have sole ownership of\r\n>    intellectual property rights to my Submissions and I am not making\r\n>    Submissions in the course of work for my employer.\r\n>\r\n> @microsoft-github-policy-service agree\r\n>\r\n>\r\n>    - (when company given) I am making Submissions in the course of work\r\n>    for my employer (or my employer has intellectual property rights in my\r\n>    Submissions by contract or applicable law). I have permission from my\r\n>    employer to make Submissions and enter into this Agreement on behalf of my\r\n>    employer. By signing below, the defined term “You” includes me and my\r\n>    employer.\r\n>\r\n> @microsoft-github-policy-service agree company=\"Microsoft\"\r\n>\r\n> Contributor License Agreement Contribution License Agreement\r\n>\r\n> This Contribution License Agreement (*“Agreement”*) is agreed to by the\r\n> party signing below (*“You”*),\r\n> and conveys certain license rights to Microsoft Corporation and its\r\n> affiliates (“Microsoft”) for Your\r\n> contributions to Microsoft open source projects. This Agreement is\r\n> effective as of the latest signature\r\n> date below.\r\n>\r\n>    1. *Definitions*.\r\n>    *“Code”* means the computer software code, whether in human-readable\r\n>    or machine-executable form,\r\n>    that is delivered by You to Microsoft under this Agreement.\r\n>    *“Project”* means any of the projects owned or managed by Microsoft\r\n>    and offered under a license\r\n>    approved by the Open Source Initiative (www.opensource.org).\r\n>    *“Submit”* is the act of uploading, submitting, transmitting, or\r\n>    distributing code or other content to any\r\n>    Project, including but not limited to communication on electronic\r\n>    mailing lists, source code control\r\n>    systems, and issue tracking systems that are managed by, or on behalf\r\n>    of, the Project for the purpose of\r\n>    discussing and improving that Project, but excluding communication\r\n>    that is conspicuously marked or\r\n>    otherwise designated in writing by You as “Not a Submission.”\r\n>    *“Submission”* means the Code and any other copyrightable material\r\n>    Submitted by You, including any\r\n>    associated comments and documentation.\r\n>    2. *Your Submission*. You must agree to the terms of this Agreement\r\n>    before making a Submission to any\r\n>    Project. This Agreement covers any and all Submissions that You, now\r\n>    or in the future (except as\r\n>    described in Section 4 below), Submit to any Project.\r\n>    3. *Originality of Work*. You represent that each of Your Submissions\r\n>    is entirely Your original work.\r\n>    Should You wish to Submit materials that are not Your original work,\r\n>    You may Submit them separately\r\n>    to the Project if You (a) retain all copyright and license information\r\n>    that was in the materials as You\r\n>    received them, (b) in the description accompanying Your Submission,\r\n>    include the phrase “Submission\r\n>    containing materials of a third party:” followed by the names of the\r\n>    third party and any licenses or other\r\n>    restrictions of which You are aware, and (c) follow any other\r\n>    instructions in the Project’s written\r\n>    guidelines concerning Submissions.\r\n>    4. *Your Employer*. References to “employer” in this Agreement include\r\n>    Your employer or anyone else\r\n>    for whom You are acting in making Your Submission, e.g. as a\r\n>    contractor, vendor, or agent. If Your\r\n>    Submission is made in the course of Your work for an employer or Your\r\n>    employer has intellectual\r\n>    property rights in Your Submission by contract or applicable law, You\r\n>    must secure permission from Your\r\n>    employer to make the Submission before signing this Agreement. In that\r\n>    case, the term “You” in this\r\n>    Agreement will refer to You and the employer collectively. If You\r\n>    change employers in the future and\r\n>    desire to Submit additional Submissions for the new employer, then You\r\n>    agree to sign a new Agreement\r\n>    and secure permission from the new employer before Submitting those\r\n>    Submissions.\r\n>    5. *Licenses*.\r\n>\r\n>\r\n>    - *Copyright License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license in the\r\n>    Submission to reproduce, prepare derivative works of, publicly\r\n>    display, publicly perform, and distribute\r\n>    the Submission and such derivative works, and to sublicense any or all\r\n>    of the foregoing rights to third\r\n>    parties.\r\n>    - *Patent License*. You grant Microsoft, and those who receive the\r\n>    Submission directly or\r\n>    indirectly from Microsoft, a perpetual, worldwide, non-exclusive,\r\n>    royalty-free, irrevocable license under\r\n>    Your patent claims that are necessarily infringed by the Submission or\r\n>    the combination of the\r\n>    Submission with the Project to which it was Submitted to make, have\r\n>    made, use, offer to sell, sell and\r\n>    import or otherwise dispose of the Submission alone or with the\r\n>    Project.\r\n>    - *Other Rights Reserved*. Each party reserves all rights not\r\n>    expressly granted in this Agreement.\r\n>    No additional licenses or rights whatsoever (including, without\r\n>    limitation, any implied licenses) are\r\n>    granted by implication, exhaustion, estoppel or otherwise.\r\n>\r\n>\r\n>    6. *Representations and Warranties*. You represent that You are\r\n>    legally entitled to grant the above\r\n>    licenses. You represent that each of Your Submissions is entirely Your\r\n>    original work (except as You may\r\n>    have disclosed under Section 3). You represent that You have secured\r\n>    permission from Your employer to\r\n>    make the Submission in cases where Your Submission is made in the\r\n>    course of Your work for Your\r\n>    employer or Your employer has intellectual property rights in Your\r\n>    Submission by contract or applicable\r\n>    law. If You are signing this Agreement on behalf of Your employer, You\r\n>    represent and warrant that You\r\n>    have the necessary authority to bind the listed employer to the\r\n>    obligations contained in this Agreement.\r\n>    You are not expected to provide support for Your Submission, unless\r\n>    You choose to do so. UNLESS\r\n>    REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE\r\n>    WARRANTIES\r\n>    EXPRESSLY STATED IN SECTIONS 3, 4, AND 6, THE SUBMISSION PROVIDED\r\n>    UNDER THIS AGREEMENT IS\r\n>    PROVIDED WITHOUT WARRANTY OF ANY KIND, INCLUDING, BUT NOT LIMITED TO,\r\n>    ANY WARRANTY OF\r\n>    NONINFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.\r\n>    7. *Notice to Microsoft*. You agree to notify Microsoft in writing of\r\n>    any facts or circumstances of which\r\n>    You later become aware that would make Your representations in this\r\n>    Agreement inaccurate in any\r\n>    respect.\r\n>    8. *Information about Submissions*. You agree that contributions to\r\n>    Projects and information about\r\n>    contributions may be maintained indefinitely and disclosed publicly,\r\n>    including Your name and other\r\n>    information that You submit with Your Submission.\r\n>    9. *Governing Law/Jurisdiction*. This Agreement is governed by the\r\n>    laws of the State of Washington, and\r\n>    the parties consent to exclusive jurisdiction and venue in the federal\r\n>    courts sitting in King County,\r\n>    Washington, unless no federal subject matter jurisdiction exists, in\r\n>    which case the parties consent to\r\n>    exclusive jurisdiction and venue in the Superior Court of King County,\r\n>    Washington. The parties waive all\r\n>    defenses of lack of personal jurisdiction and forum non-conveniens.\r\n>    10. *Entire Agreement/Assignment*. This Agreement is the entire\r\n>    agreement between the parties, and\r\n>    supersedes any and all prior agreements, understandings or\r\n>    communications, written or oral, between\r\n>    the parties relating to the subject matter hereof. This Agreement may\r\n>    be assigned by Microsoft.\r\n>\r\n> —\r\n> Reply to this email directly, view it on GitHub\r\n> <https://github.com/microsoft/vscode/pull/240864#issuecomment-2660657266>,\r\n> or unsubscribe\r\n> <https://github.com/notifications/unsubscribe-auth/AR722EISEPRG4XN75H2PEB32P2SOBAVCNFSM6AAAAABXF2N6QOVHI2DSMVQWIX3LMV43OSLTON2WKQ3PNVWWK3TUHMZDMNRQGY2TOMRWGY>\r\n> .\r\n> You are receiving this because you were mentioned.Message ID:\r\n> ***@***.***>\r\n>\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2660684403/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2902757485",
+   "html_url": "https://github.com/microsoft/vscode/pull/240864#issuecomment-2902757485",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/240864",
+   "id": 2902757485,
+   "node_id": "IC_kwDOAn8RLM6tBJBt",
+   "user": {
+    "login": "3v1n0",
+    "id": 345675,
+    "node_id": "MDQ6VXNlcjM0NTY3NQ==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/345675?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/3v1n0",
+    "html_url": "https://github.com/3v1n0",
+    "followers_url": "https://api.github.com/users/3v1n0/followers",
+    "following_url": "https://api.github.com/users/3v1n0/following{/other_user}",
+    "gists_url": "https://api.github.com/users/3v1n0/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/3v1n0/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/3v1n0/subscriptions",
+    "organizations_url": "https://api.github.com/users/3v1n0/orgs",
+    "repos_url": "https://api.github.com/users/3v1n0/repos",
+    "events_url": "https://api.github.com/users/3v1n0/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/3v1n0/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-05-22T22:36:11Z",
+   "updated_at": "2025-05-22T22:36:11Z",
+   "body": "Please see https://github.com/microsoft/vscode/pull/199052/commits/38bced1e03c648e910eaec0247ddf20a6e4b18fb instead",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2902757485/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c0376a16fea7f57332f77f48d61c41875a0e6500",
+   "node_id": "C_kwDON50ZwNoAKGMwMzc2YTE2ZmVhN2Y1NzMzMmY3N2Y0OGQ2MWM0MTg3NWEwZTY1MDA",
+   "commit": {
+    "author": {
+     "name": "Omari Nyarko",
+     "email": "omarinyarko@MacBookPro.lan",
+     "date": "2025-02-15T02:21:17Z"
+    },
+    "committer": {
+     "name": "Omari Nyarko",
+     "email": "omarinyarko@MacBookPro.lan",
+     "date": "2025-02-15T02:21:17Z"
+    },
+    "message": "fix: improve Wayland detection and environment setup",
+    "tree": {
+     "sha": "0b2f88f1d33b643267b7718adf449a20a54f4665",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/0b2f88f1d33b643267b7718adf449a20a54f4665"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c0376a16fea7f57332f77f48d61c41875a0e6500",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c0376a16fea7f57332f77f48d61c41875a0e6500",
+   "html_url": "https://github.com/microsoft/vscode/commit/c0376a16fea7f57332f77f48d61c41875a0e6500",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c0376a16fea7f57332f77f48d61c41875a0e6500/comments",
+   "author": null,
+   "committer": null,
+   "parents": [
+    {
+     "sha": "64ac3ba854151fa3aa817cf2176300de2bb17af8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/64ac3ba854151fa3aa817cf2176300de2bb17af8",
+     "html_url": "https://github.com/microsoft/vscode/commit/64ac3ba854151fa3aa817cf2176300de2bb17af8"
+    }
+   ]
+  }
+ ]
+}

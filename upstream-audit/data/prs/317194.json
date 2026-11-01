@@ -1,0 +1,570 @@
+{
+ "fetchedAt": "2026-11-01T00:54:01.090Z",
+ "pr": {
+  "number": 317194,
+  "title": "Add focus follows mouse accessibility setting",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-18T22:56:27Z",
+  "updated_at": "2026-10-21T14:18:28Z",
+  "user": "RoFz",
+  "author_association": "NONE",
+  "additions": 555,
+  "deletions": 0,
+  "changed_files": 4,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 8,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "pr/focus-follows-mouse",
+   "sha": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "repo": "RoFz/vscode",
+   "label": "RoFz:pr/focus-follows-mouse"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "1e4d8bd8967be11ae2878cafe076c86846601aa1"
+  },
+  "body": "Implements an initial focus-follows-mouse behavior for https://github.com/microsoft/vscode/issues/93772 (per-terminal handling intentionally deferred; see discussion), as agreed with @meganrogge in https://github.com/microsoft/vscode/issues/93772#issuecomment-4466612536.\n\n## What this does\n\nWhen enabled, hovering a workbench part moves keyboard focus to it after a short debounce, so the keyboard goes where the mouse is rather than where you last clicked.\n\n- Side Bar, Panel, and Auxiliary Bar via `IWorkbenchLayoutService.focusPart`\n- Editor groups via `group.focus()` (groups added/removed at runtime are tracked)\n\n## Settings\n\n- `accessibility.focusFollowsMouse.enabled` (boolean, default `false`)\n- `accessibility.focusFollowsMouse.delay` (number ms, default `200`, minimum `0`)\n\n## Design notes\n\n- Implemented as an `IWorkbenchContribution` registered at `AfterRestored`, following the sibling `UnfocusedViewDimmingContribution` and the `accessibility.dimUnfocused.*` settings conventions.\n- Debounced (default 200ms) so brief mouse transit does not steal focus; the delay is read live so changes apply without reload.\n- Guards: no focus shift while a mouse button is held (drag/selection), or while a context menu is open; a `mouseleave` cancels a still-pending focus.\n- Part listeners are main-window only; editor groups are covered across windows via `IEditorGroupsService`. Per-terminal handling is intentionally out of scope for this initial version.\n\n## How to test\n\n1. Set `\"accessibility.focusFollowsMouse.enabled\": true`.\n2. Move the mouse (without clicking) over the editor, a split editor group, the Side Bar, or the Panel/terminal; after ~200ms the keyboard focus follows. Typing then goes to the hovered part.\n3. Adjust `accessibility.focusFollowsMouse.delay` and confirm the timing changes.\n4. Confirm focus does not shift while dragging a selection or with a context menu open.\n5. Toggle the setting off and confirm the behavior stops.\n\n## Testing done\n\n- Unit tests added (14, covering enable/disable, runtime toggle, the guards, group lifecycle, and the configurable delay).\n- Manually verified the full behavior (including the control and guards) in a development build with real mouse and keyboard input on Linux.\n- ESLint, hygiene, and layer checks pass for the changed files.\n\nNote: manual verification was on Linux; the change is platform-agnostic browser-layer code (standard DOM mouse events plus core workbench services, no OS-specific APIs), so it is expected to behave the same on Windows, macOS, web, and remote, but I have not personally tested those targets.\n\nI will sign the CLA when the bot prompts.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "77d51f7cb6609a280d15287e496e569ac3c02c6f",
+   "filename": "src/vs/workbench/contrib/accessibility/browser/accessibility.contribution.ts",
+   "status": "modified",
+   "additions": 2,
+   "deletions": 0,
+   "changes": 2,
+   "blob_url": "https://github.com/microsoft/vscode/blob/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2Faccessibility.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2Faccessibility.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2Faccessibility.contribution.ts?ref=06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "patch": "@@ -9,6 +9,7 @@ import { IWorkbenchContributionsRegistry, WorkbenchPhase, Extensions as Workbenc\n import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';\n import { Registry } from '../../../../platform/registry/common/platform.js';\n import { UnfocusedViewDimmingContribution } from './unfocusedViewDimmingContribution.js';\n+import { FocusFollowsMouseContribution } from './focusFollowsMouseContribution.js';\n import { AccessibilityStatus } from './accessibilityStatus.js';\n import { EditorAccessibilityHelpContribution } from './editorAccessibilityHelp.js';\n import { SaveAccessibilitySignalContribution } from '../../accessibilitySignals/browser/saveAccessibilitySignal.js';\n@@ -37,3 +38,4 @@ registerWorkbenchContribution2(SaveAccessibilitySignalContribution.ID, SaveAcces\n registerWorkbenchContribution2(SpeechAccessibilitySignalContribution.ID, SpeechAccessibilitySignalContribution, WorkbenchPhase.AfterRestored);\n registerWorkbenchContribution2(DiffEditorActiveAnnouncementContribution.ID, DiffEditorActiveAnnouncementContribution, WorkbenchPhase.AfterRestored);\n registerWorkbenchContribution2(DynamicSpeechAccessibilityConfiguration.ID, DynamicSpeechAccessibilityConfiguration, WorkbenchPhase.AfterRestored);\n+registerWorkbenchContribution2(FocusFollowsMouseContribution.ID, FocusFollowsMouseContribution, WorkbenchPhase.AfterRestored);"
+  },
+  {
+   "sha": "cb98b17635ec3e37432df88203ac5a40c06c4016",
+   "filename": "src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts",
+   "status": "modified",
+   "additions": 17,
+   "deletions": 0,
+   "changes": 17,
+   "blob_url": "https://github.com/microsoft/vscode/blob/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FaccessibilityConfiguration.ts?ref=06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "patch": "@@ -34,6 +34,8 @@ export const accessibleViewHasAssignedKeybindings = new RawContextKey<boolean>('\n export const enum AccessibilityWorkbenchSettingId {\n \tDimUnfocusedEnabled = 'accessibility.dimUnfocused.enabled',\n \tDimUnfocusedOpacity = 'accessibility.dimUnfocused.opacity',\n+\tFocusFollowsMouseEnabled = 'accessibility.focusFollowsMouse.enabled',\n+\tFocusFollowsMouseDelay = 'accessibility.focusFollowsMouse.delay',\n \tHideAccessibleView = 'accessibility.hideAccessibleView',\n \tAccessibleViewCloseOnKeyPress = 'accessibility.accessibleView.closeOnKeyPress',\n \tVerboseChatProgressUpdates = 'accessibility.verboseChatProgressUpdates',\n@@ -864,6 +866,21 @@ export function registerAccessibilityConfiguration() {\n \t\t\t\ttags: ['accessibility'],\n \t\t\t\tscope: ConfigurationScope.APPLICATION,\n \t\t\t},\n+\t\t\t[AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled]: {\n+\t\t\t\tdescription: localize('focusFollowsMouseEnabled', 'Controls whether keyboard focus follows the mouse when hovering over editor groups, the Side Bar, the Panel, and the Secondary Side Bar. Focusing requires the part to be visible and the cursor to remain over it for a brief moment.'),\n+\t\t\t\ttype: 'boolean',\n+\t\t\t\tdefault: false,\n+\t\t\t\ttags: ['accessibility'],\n+\t\t\t\tscope: ConfigurationScope.APPLICATION,\n+\t\t\t},\n+\t\t\t[AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay]: {\n+\t\t\t\tmarkdownDescription: localize('focusFollowsMouseDelay', 'The delay in milliseconds before keyboard focus follows the mouse. This will only take effect when {0} is enabled.', `\\`#${AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled}#\\``),\n+\t\t\t\ttype: 'number',\n+\t\t\t\tminimum: 0,\n+\t\t\t\tdefault: 200,\n+\t\t\t\ttags: ['accessibility'],\n+\t\t\t\tscope: ConfigurationScope.APPLICATION,\n+\t\t\t},\n \t\t\t[AccessibilityWorkbenchSettingId.HideAccessibleView]: {\n \t\t\t\tdescription: localize('accessibility.hideAccessibleView', \"Controls whether the Accessible View is hidden.\"),\n \t\t\t\ttype: 'boolean',"
+  },
+  {
+   "sha": "35179ce82fc2ed751ee3b1c5af3918509e2f6a64",
+   "filename": "src/vs/workbench/contrib/accessibility/browser/focusFollowsMouseContribution.ts",
+   "status": "added",
+   "additions": 169,
+   "deletions": 0,
+   "changes": 169,
+   "blob_url": "https://github.com/microsoft/vscode/blob/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FfocusFollowsMouseContribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FfocusFollowsMouseContribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Fbrowser%2FfocusFollowsMouseContribution.ts?ref=06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "patch": "@@ -0,0 +1,169 @@\n+/*---------------------------------------------------------------------------------------------\n+ *  Copyright (c) Microsoft Corporation. All rights reserved.\n+ *  Licensed under the MIT License. See License.txt in the project root for license information.\n+ *--------------------------------------------------------------------------------------------*/\n+\n+import { addDisposableListener, EventType } from '../../../../base/browser/dom.js';\n+import { mainWindow } from '../../../../base/browser/window.js';\n+import { RunOnceScheduler } from '../../../../base/common/async.js';\n+import { Event } from '../../../../base/common/event.js';\n+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';\n+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';\n+import { IEditorGroup, IEditorGroupsService, GroupsOrder } from '../../../services/editor/common/editorGroupsService.js';\n+import { IWorkbenchContribution } from '../../../common/contributions.js';\n+import { Parts, IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';\n+import { AccessibilityWorkbenchSettingId } from './accessibilityConfiguration.js';\n+import { IEditorGroupView } from '../../../browser/parts/editor/editor.js';\n+\n+/** Fallback debounce delay in ms when the configured value is missing or invalid. */\n+const DEFAULT_FOCUS_DELAY_MS = 200;\n+\n+export class FocusFollowsMouseContribution extends Disposable implements IWorkbenchContribution {\n+\n+\tstatic readonly ID = 'workbench.contrib.focusFollowsMouse';\n+\n+\t/** Disposables for the currently-active set of mouse listeners. Cleared when feature is disabled. */\n+\tprivate readonly listenerStore = this._register(new DisposableStore());\n+\n+\t/** Per-editor-group disposables, keyed by group id. */\n+\tprivate readonly groupListeners = this._register(new DisposableMap<number>());\n+\n+\t// A single scheduler and pending action are shared across all parts and\n+\t// editor groups by design: only one focus can be pending at a time, and the\n+\t// most recently hovered target wins. Each `mouseenter` overwrites the\n+\t// pending action and restarts the timer; `mouseleave` (or disable) cancels\n+\t// it. This intentionally focuses whatever the cursor most recently entered.\n+\tprivate readonly focusScheduler = this._register(new RunOnceScheduler(() => this.pendingFocus?.(), DEFAULT_FOCUS_DELAY_MS));\n+\tprivate pendingFocus: (() => void) | undefined = undefined;\n+\n+\tconstructor(\n+\t\t@IConfigurationService private readonly configurationService: IConfigurationService,\n+\t\t@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,\n+\t\t@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,\n+\t) {\n+\t\tsuper();\n+\n+\t\tthis._register(Event.runAndSubscribe(configurationService.onDidChangeConfiguration, e => {\n+\t\t\t// The delay is read lazily in getDelay(), so only the enabled flag\n+\t\t\t// needs to drive enable/disable here.\n+\t\t\tif (e && !e.affectsConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled)) {\n+\t\t\t\treturn;\n+\t\t\t}\n+\t\t\tthis.update();\n+\t\t}));\n+\t}\n+\n+\tprivate update(): void {\n+\t\tconst enabled = this.configurationService.getValue<boolean>(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled);\n+\t\tif (enabled) {\n+\t\t\tthis.enable();\n+\t\t} else {\n+\t\t\tthis.disable();\n+\t\t}\n+\t}\n+\n+\t/**\n+\t * Resolves the configured debounce delay, falling back to the default when\n+\t * the user-provided value is missing or not a non-negative number.\n+\t */\n+\tprivate getDelay(): number {\n+\t\tconst delay = this.configurationService.getValue<number>(AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay);\n+\t\treturn typeof delay === 'number' && delay >= 0 ? delay : DEFAULT_FOCUS_DELAY_MS;\n+\t}\n+\n+\tprivate cancelPendingFocus(): void {\n+\t\tthis.pendingFocus = undefined;\n+\t\tthis.focusScheduler.cancel();\n+\t}\n+\n+\tprivate enable(): void {\n+\t\tthis.listenerStore.clear();\n+\t\tthis.groupListeners.clearAndDisposeAll();\n+\n+\t\t// Sidebar\n+\t\tthis.addPartListener(Parts.SIDEBAR_PART, () => this.layoutService.focusPart(Parts.SIDEBAR_PART));\n+\n+\t\t// Panel\n+\t\tthis.addPartListener(Parts.PANEL_PART, () => this.layoutService.focusPart(Parts.PANEL_PART));\n+\n+\t\t// Auxiliary bar\n+\t\tthis.addPartListener(Parts.AUXILIARYBAR_PART, () => this.layoutService.focusPart(Parts.AUXILIARYBAR_PART));\n+\n+\t\t// Editor groups — attach to each existing group and watch for new ones\n+\t\tfor (const group of this.editorGroupsService.getGroups(GroupsOrder.CREATION_TIME)) {\n+\t\t\tthis.attachGroupListener(group);\n+\t\t}\n+\n+\t\tthis.listenerStore.add(this.editorGroupsService.onDidAddGroup(group => this.attachGroupListener(group)));\n+\t\tthis.listenerStore.add(this.editorGroupsService.onDidRemoveGroup(group => this.groupListeners.deleteAndDispose(group.id)));\n+\t}\n+\n+\tprivate disable(): void {\n+\t\tthis.listenerStore.clear();\n+\t\tthis.groupListeners.clearAndDisposeAll();\n+\t\tthis.cancelPendingFocus();\n+\t}\n+\n+\t/**\n+\t * Attaches mouse listeners to the container of a workbench part.\n+\t * Does nothing if the part container is not yet visible/available.\n+\t * Parts are resolved for the main window only; the same parts in auxiliary\n+\t * windows are not covered (editor groups, handled separately, are covered\n+\t * across all windows via IEditorGroupsService).\n+\t */\n+\tprivate addPartListener(part: Parts, focusFn: () => void): void {\n+\t\tconst container = this.layoutService.getContainer(mainWindow, part);\n+\t\tif (!container) {\n+\t\t\treturn;\n+\t\t}\n+\t\tthis.listenerStore.add(addDisposableListener(container, EventType.MOUSE_ENTER, (e: MouseEvent) => {\n+\t\t\tthis.scheduleFocus(e, focusFn);\n+\t\t}));\n+\t\tthis.listenerStore.add(addDisposableListener(container, EventType.MOUSE_LEAVE, () => this.cancelPendingFocus()));\n+\t}\n+\n+\t/**\n+\t * Attaches mouse listeners directly to the DOM element of an editor group.\n+\t * `IEditorGroup` exposes no public DOM accessor, so the group is narrowed to\n+\t * its internal `IEditorGroupView` (the same cast the editor service uses).\n+\t */\n+\tprivate attachGroupListener(group: IEditorGroup): void {\n+\t\tconst element = (group as IEditorGroupView).element;\n+\t\tif (!element) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tconst store = new DisposableStore();\n+\t\tstore.add(addDisposableListener(element, EventType.MOUSE_ENTER, (e: MouseEvent) => {\n+\t\t\tthis.scheduleFocus(e, () => {\n+\t\t\t\t// Re-resolve the group at focus time in case it has since been disposed.\n+\t\t\t\tconst live = this.editorGroupsService.getGroup(group.id);\n+\t\t\t\tlive?.focus();\n+\t\t\t});\n+\t\t}));\n+\n+\t\t// Cancel any pending focus when the mouse leaves the group, so a brief\n+\t\t// transit across a group border does not accidentally steal focus.\n+\t\tstore.add(addDisposableListener(element, EventType.MOUSE_LEAVE, () => this.cancelPendingFocus()));\n+\n+\t\tthis.groupListeners.set(group.id, store);\n+\t}\n+\n+\t/**\n+\t * Schedules a focus action after the configured delay, guarded against unsafe conditions.\n+\t */\n+\tprivate scheduleFocus(e: MouseEvent, focusFn: () => void): void {\n+\t\t// If a mouse button is held (e.g. drag-and-drop), do not shift focus.\n+\t\tif (e.buttons !== 0) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\t// If a context menu is open, do not shift focus.\n+\t\tif (this.layoutService.activeContainer.classList.contains('context-menu-visible')) {\n+\t\t\treturn;\n+\t\t}\n+\n+\t\tthis.pendingFocus = focusFn;\n+\t\tthis.focusScheduler.schedule(this.getDelay());\n+\t}\n+}"
+  },
+  {
+   "sha": "911c9e084390b297ceb577edd66bcbdf0b82fac3",
+   "filename": "src/vs/workbench/contrib/accessibility/test/browser/focusFollowsMouseContribution.test.ts",
+   "status": "added",
+   "additions": 367,
+   "deletions": 0,
+   "changes": 367,
+   "blob_url": "https://github.com/microsoft/vscode/blob/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Ftest%2Fbrowser%2FfocusFollowsMouseContribution.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Ftest%2Fbrowser%2FfocusFollowsMouseContribution.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Faccessibility%2Ftest%2Fbrowser%2FfocusFollowsMouseContribution.test.ts?ref=06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "patch": "@@ -0,0 +1,367 @@\n+/*---------------------------------------------------------------------------------------------\n+ *  Copyright (c) Microsoft Corporation. All rights reserved.\n+ *  Licensed under the MIT License. See License.txt in the project root for license information.\n+ *--------------------------------------------------------------------------------------------*/\n+\n+import assert from 'assert';\n+import { Emitter } from '../../../../../base/common/event.js';\n+import { DisposableStore } from '../../../../../base/common/lifecycle.js';\n+import { runWithFakedTimers } from '../../../../../base/test/common/timeTravelScheduler.js';\n+import { timeout } from '../../../../../base/common/async.js';\n+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';\n+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';\n+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';\n+import { IEditorGroup, IEditorGroupsService, GroupsOrder } from '../../../../services/editor/common/editorGroupsService.js';\n+import { IWorkbenchLayoutService, Parts } from '../../../../services/layout/browser/layoutService.js';\n+import { TestLayoutService, TestEditorGroupsService, TestEditorGroupView } from '../../../../test/browser/workbenchTestServices.js';\n+import { FocusFollowsMouseContribution } from '../../browser/focusFollowsMouseContribution.js';\n+import { AccessibilityWorkbenchSettingId } from '../../browser/accessibilityConfiguration.js';\n+import { mainWindow } from '../../../../../base/browser/window.js';\n+\n+// ---------------------------------------------------------------------------\n+// Test doubles\n+// ---------------------------------------------------------------------------\n+\n+/**\n+ * Layout service that routes getContainer() per-Part and records focusPart calls.\n+ */\n+class TestFocusLayoutService extends TestLayoutService {\n+\n+\treadonly focusedParts: Parts[] = [];\n+\tprivate readonly partContainers = new Map<Parts, HTMLElement>();\n+\n+\tsetPartContainer(part: Parts, el: HTMLElement): void {\n+\t\tthis.partContainers.set(part, el);\n+\t}\n+\n+\toverride getContainer(_targetWindow?: Window, part?: Parts): HTMLElement {\n+\t\tconst el = part !== undefined ? this.partContainers.get(part) : undefined;\n+\t\treturn el ?? super.getContainer();\n+\t}\n+\n+\toverride focusPart(part: Parts): void {\n+\t\tthis.focusedParts.push(part);\n+\t}\n+}\n+\n+/**\n+ * Minimal editor group with a real HTMLElement so mouseenter/mouseleave fire.\n+ */\n+class TestGroupWithElement extends TestEditorGroupView {\n+\n+\toverride readonly element: HTMLElement;\n+\treadonly focusCalls: number[] = [];\n+\n+\tconstructor(id: number) {\n+\t\tsuper(id);\n+\t\tthis.element = mainWindow.document.createElement('div');\n+\t}\n+\n+\toverride focus(): void {\n+\t\tthis.focusCalls.push(this.id);\n+\t}\n+}\n+\n+/**\n+ * Editor groups service backed by mutable group list with emitters.\n+ */\n+class TestFocusEditorGroupsService extends TestEditorGroupsService {\n+\n+\tprivate readonly _onDidAddGroup = new Emitter<IEditorGroup>();\n+\tprivate readonly _onDidRemoveGroup = new Emitter<IEditorGroup>();\n+\n+\toverride readonly onDidAddGroup = this._onDidAddGroup.event;\n+\toverride readonly onDidRemoveGroup = this._onDidRemoveGroup.event;\n+\n+\tconstructor(public override groups: TestGroupWithElement[] = []) {\n+\t\tsuper(groups);\n+\t}\n+\n+\taddTestGroup(group: TestGroupWithElement): void {\n+\t\tthis.groups.push(group);\n+\t\tthis._onDidAddGroup.fire(group);\n+\t}\n+\n+\tremoveTestGroup(group: TestGroupWithElement): void {\n+\t\tthis.groups = this.groups.filter(g => g.id !== group.id);\n+\t\tthis._onDidRemoveGroup.fire(group);\n+\t}\n+\n+\toverride getGroups(_order?: GroupsOrder): readonly IEditorGroup[] {\n+\t\treturn this.groups;\n+\t}\n+\n+\toverride getGroup(id: number): IEditorGroup | undefined {\n+\t\treturn this.groups.find(g => g.id === id);\n+\t}\n+}\n+\n+// ---------------------------------------------------------------------------\n+// Helpers\n+// ---------------------------------------------------------------------------\n+\n+const DELAY = 200; // must match DEFAULT_FOCUS_DELAY_MS in the contribution\n+\n+function fireMouseEnter(el: HTMLElement, buttons = 0): void {\n+\tel.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, buttons }));\n+}\n+\n+function fireMouseLeave(el: HTMLElement): void {\n+\tel.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));\n+}\n+\n+function buildContribution(\n+\tstore: Pick<DisposableStore, 'add'>,\n+\tconfigService: TestConfigurationService,\n+\tlayoutService: TestFocusLayoutService,\n+\teditorGroupsService: TestFocusEditorGroupsService,\n+): FocusFollowsMouseContribution {\n+\t// Wire services using a minimal manual DI approach\n+\tconst contribution = new FocusFollowsMouseContribution(\n+\t\tconfigService as unknown as IConfigurationService,\n+\t\tlayoutService as unknown as IWorkbenchLayoutService,\n+\t\teditorGroupsService as unknown as IEditorGroupsService,\n+\t);\n+\tstore.add(contribution);\n+\treturn contribution;\n+}\n+\n+// ---------------------------------------------------------------------------\n+// Suite\n+// ---------------------------------------------------------------------------\n+\n+suite('FocusFollowsMouseContribution', () => {\n+\tconst store = ensureNoDisposablesAreLeakedInTestSuite();\n+\n+\tlet configService: TestConfigurationService;\n+\tlet layoutService: TestFocusLayoutService;\n+\tlet editorGroupsService: TestFocusEditorGroupsService;\n+\tlet sidebarEl: HTMLElement;\n+\tlet panelEl: HTMLElement;\n+\n+\tsetup(() => {\n+\t\tconfigService = new TestConfigurationService();\n+\t\tlayoutService = new TestFocusLayoutService();\n+\n+\t\tsidebarEl = mainWindow.document.createElement('div');\n+\t\tpanelEl = mainWindow.document.createElement('div');\n+\t\tlayoutService.setPartContainer(Parts.SIDEBAR_PART, sidebarEl);\n+\t\tlayoutService.setPartContainer(Parts.PANEL_PART, panelEl);\n+\n+\t\teditorGroupsService = new TestFocusEditorGroupsService();\n+\t});\n+\n+\t// -------------------------------------------------------------------------\n+\t// Disabled by default — no focus fired\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('does not fire focus when feature is disabled', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, false);\n+\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'No part should be focused when feature is off');\n+\t}));\n+\n+\t// -------------------------------------------------------------------------\n+\t// Sidebar and panel focus\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('focuses sidebar after delay on mouseenter', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\n+\t\t// No immediate focus\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'Focus should not fire immediately');\n+\n+\t\tawait timeout(DELAY + 50);\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 1);\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.SIDEBAR_PART);\n+\t}));\n+\n+\ttest('focuses panel after delay on mouseenter', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(panelEl);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.PANEL_PART);\n+\t}));\n+\n+\t// -------------------------------------------------------------------------\n+\t// Guards\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('does not focus when a mouse button is held during mouseenter', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(sidebarEl, /* buttons = */ 1); // primary button held\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'Should not focus while dragging');\n+\t}));\n+\n+\ttest('does not focus when a context menu is visible', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\t// activeContainer is mainWindow.document.body in TestLayoutService\n+\t\tlayoutService.activeContainer.classList.add('context-menu-visible');\n+\t\ttry {\n+\t\t\tfireMouseEnter(sidebarEl);\n+\t\t\tawait timeout(DELAY + 50);\n+\t\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'Should not focus with context menu open');\n+\t\t} finally {\n+\t\t\tlayoutService.activeContainer.classList.remove('context-menu-visible');\n+\t\t}\n+\t}));\n+\n+\t// -------------------------------------------------------------------------\n+\t// Editor group listeners\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('focuses editor group after delay on mouseenter', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconst group = store.add(new TestGroupWithElement(1));\n+\t\teditorGroupsService.addTestGroup(group);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(group.element);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(group.focusCalls.length, 1, 'Group focus() should be called once');\n+\t}));\n+\n+\ttest('cancels pending group focus on mouseleave', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconst group = store.add(new TestGroupWithElement(1));\n+\t\teditorGroupsService.addTestGroup(group);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(group.element);\n+\t\tfireMouseLeave(group.element); // cancel before delay elapses\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(group.focusCalls.length, 0, 'Focus should be cancelled by mouseleave');\n+\t}));\n+\n+\ttest('attaches listener to groups added after construction', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tconst group = store.add(new TestGroupWithElement(2));\n+\t\teditorGroupsService.addTestGroup(group);\n+\n+\t\tfireMouseEnter(group.element);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(group.focusCalls.length, 1, 'Dynamically added group should receive focus');\n+\t}));\n+\n+\ttest('cleans up listener when a group is removed', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconst group = store.add(new TestGroupWithElement(3));\n+\t\teditorGroupsService.addTestGroup(group);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\teditorGroupsService.removeTestGroup(group);\n+\n+\t\t// After removal, mouseenter should not schedule focus (listener disposed)\n+\t\tfireMouseEnter(group.element);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(group.focusCalls.length, 0, 'Removed group should not receive focus');\n+\t}));\n+\n+\t// -------------------------------------------------------------------------\n+\t// Runtime config change\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('enables listeners when setting is toggled on at runtime', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, false);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\t// Toggle on and notify the contribution\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tconfigService.onDidChangeConfigurationEmitter.fire({\n+\t\t\taffectsConfiguration: (key: string) => key === AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled,\n+\t\t} as unknown as IConfigurationChangeEvent);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 1);\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.SIDEBAR_PART);\n+\t}));\n+\n+\ttest('disables listeners when setting is toggled off at runtime', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\t// Toggle off and notify the contribution\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, false);\n+\t\tconfigService.onDidChangeConfigurationEmitter.fire({\n+\t\t\taffectsConfiguration: (key: string) => key === AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled,\n+\t\t} as unknown as IConfigurationChangeEvent);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'No focus should fire after feature is disabled');\n+\t}));\n+\n+\t// -------------------------------------------------------------------------\n+\t// Configurable debounce delay\n+\t// -------------------------------------------------------------------------\n+\n+\ttest('respects a custom configured delay', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconst customDelay = 500;\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay, customDelay);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\n+\t\t// Still pending at the old default delay\n+\t\tawait timeout(DELAY + 50);\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'Focus should not fire before the custom delay elapses');\n+\n+\t\t// Fires once the custom delay has elapsed\n+\t\tawait timeout(customDelay);\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.SIDEBAR_PART);\n+\t}));\n+\n+\ttest('picks up a delay change at runtime without a config event', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay, 100);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\t// Change the delay; the next schedule reads it live (no enable/disable needed)\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay, 400);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\t\tawait timeout(150);\n+\t\tassert.strictEqual(layoutService.focusedParts.length, 0, 'Focus should respect the updated delay');\n+\n+\t\tawait timeout(300);\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.SIDEBAR_PART);\n+\t}));\n+\n+\ttest('falls back to the default delay when configured value is invalid', () => runWithFakedTimers({ useFakeTimers: true }, async () => {\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseEnabled, true);\n+\t\tconfigService.setUserConfiguration(AccessibilityWorkbenchSettingId.FocusFollowsMouseDelay, -1);\n+\t\tbuildContribution(store, configService, layoutService, editorGroupsService);\n+\n+\t\tfireMouseEnter(sidebarEl);\n+\t\tawait timeout(DELAY + 50);\n+\n+\t\tassert.strictEqual(layoutService.focusedParts[0], Parts.SIDEBAR_PART);\n+\t}));\n+});"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4314553959,
+   "node_id": "PRR_kwDOAn8RLM8AAAABASreZw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nAdds a new accessibility feature that moves keyboard focus to the workbench part under the mouse cursor after a short debounce, implementing a focus-follows-mouse behavior (issue #93772). The contribution is wired into the accessibility contribution registry alongside the existing unfocused-view dimming contribution and is configured by two new application-scoped settings.\n\n**Changes:**\n- Introduces `FocusFollowsMouseContribution` with mouse listeners on the side bar, panel, auxiliary bar, and per-editor-group elements, debounced and guarded against held buttons and visible context menus.\n- Adds `accessibility.focusFollowsMouse.enabled` and `accessibility.focusFollowsMouse.delay` configuration keys.\n- Adds unit tests covering enable/disable, the guards, runtime toggling, editor group lifecycle, and custom delays.\n\n### Reviewed changes\n\nCopilot reviewed 4 out of 4 changed files in this pull request and generated 4 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/contrib/accessibility/browser/accessibility.contribution.ts | Registers the new contribution at `AfterRestored`. |\n| src/vs/workbench/contrib/accessibility/browser/accessibilityConfiguration.ts | Declares the two new settings (enabled/delay) and their descriptions. |\n| src/vs/workbench/contrib/accessibility/browser/focusFollowsMouseContribution.ts | Implements the focus-follows-mouse behavior with guards and listener lifecycle. |\n| src/vs/workbench/contrib/accessibility/test/browser/focusFollowsMouseContribution.test.ts | Adds tests with test doubles for the layout/editor groups services. |\n\n\n\n<details>\n<summary>Comments suppressed due to low confidence (2)</summary>\n\n**src/vs/workbench/contrib/accessibility/browser/focusFollowsMouseContribution.ts:163**\n* The only \"do not steal focus\" guard besides held mouse buttons is the `context-menu-visible` class on the active container. This misses common cases where keyboard focus should be preserved despite the cursor wandering over a part — most notably while the Quick Input/Command Palette is open, while a modal dialog is shown, or while a notification toast/hover input is focused. With this contribution enabled, simply moving the mouse over the side bar while typing in the Command Palette will dismiss the picker by stealing focus, which is a significant usability regression for an accessibility feature. Consider also checking for an open quick input (e.g. via `IQuickInputService.currentQuick` / `quick-input-widget` visibility) or a non-document-active focus owner before scheduling.\n```\n\tprivate scheduleFocus(e: MouseEvent, focusFn: () => void): void {\n\t\t// If a mouse button is held (e.g. drag-and-drop), do not shift focus.\n\t\tif (e.buttons !== 0) {\n\t\t\treturn;\n\t\t}\n\n\t\t// If a context menu is open, do not shift focus.\n\t\tif (this.layoutService.activeContainer.classList.contains('context-menu-visible')) {\n\t\t\treturn;\n\t\t}\n\n\t\tthis.pendingFocus = focusFn;\n\t\tthis.focusScheduler.schedule(this.getDelay());\n\t}\n```\n**src/vs/workbench/contrib/accessibility/browser/focusFollowsMouseContribution.ts:154**\n* `scheduleFocus` only checks `e.buttons !== 0` at the moment of `mouseenter`. If the cursor enters a part with no button held and the user then starts dragging (e.g. selecting text in an editor) during the debounce window, the timer still fires and focus is stolen mid-drag — exactly the case the guard is intended to prevent. Consider also re-checking via a `mousedown` listener (or the global pointer state) when the timer elapses, or canceling the pending focus on `mousedown`.\n```\n\tprivate scheduleFocus(e: MouseEvent, focusFn: () => void): void {\n\t\t// If a mouse button is held (e.g. drag-and-drop), do not shift focus.\n\t\tif (e.buttons !== 0) {\n\t\t\treturn;\n\t\t}\n```\n</details>\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314553959",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/317194",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314553959"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/317194"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-18T23:03:00Z",
+   "commit_id": "ae5ff0c7eec9d54f2227e413b53c04dcf9dd58c5"
+  },
+  {
+   "id": 4314626190,
+   "node_id": "PRR_kwDOAn8RLM8AAAABASv4jg",
+   "user": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?u=ac6d5c21112692537320106efa7620d6f2bd775a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626190",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/317194",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626190"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/317194"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-18T23:23:49Z",
+   "commit_id": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838"
+  },
+  {
+   "id": 4314626231,
+   "node_id": "PRR_kwDOAn8RLM8AAAABASv4tw",
+   "user": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?u=ac6d5c21112692537320106efa7620d6f2bd775a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626231",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/317194",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626231"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/317194"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-18T23:23:50Z",
+   "commit_id": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838"
+  },
+  {
+   "id": 4314626292,
+   "node_id": "PRR_kwDOAn8RLM8AAAABASv49A",
+   "user": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?u=ac6d5c21112692537320106efa7620d6f2bd775a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626292",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/317194",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626292"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/317194"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-18T23:23:51Z",
+   "commit_id": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838"
+  },
+  {
+   "id": 4314626350,
+   "node_id": "PRR_kwDOAn8RLM8AAAABASv5Lg",
+   "user": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?u=ac6d5c21112692537320106efa7620d6f2bd775a&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626350",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/317194",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/317194#pullrequestreview-4314626350"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/317194"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-18T23:23:53Z",
+   "commit_id": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4482981273",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#issuecomment-4482981273",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/317194",
+   "id": 4482981273,
+   "node_id": "IC_kwDOAn8RLM8AAAABCzTdmQ",
+   "user": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-18T23:00:32Z",
+   "updated_at": "2026-05-18T23:00:32Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4482981273/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4489115274",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#issuecomment-4489115274",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/317194",
+   "id": 4489115274,
+   "node_id": "IC_kwDOAn8RLM8AAAABC5J2ig",
+   "user": {
+    "login": "meganrogge",
+    "id": 29464607,
+    "node_id": "MDQ6VXNlcjI5NDY0NjA3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/29464607?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/meganrogge",
+    "html_url": "https://github.com/meganrogge",
+    "followers_url": "https://api.github.com/users/meganrogge/followers",
+    "following_url": "https://api.github.com/users/meganrogge/following{/other_user}",
+    "gists_url": "https://api.github.com/users/meganrogge/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/meganrogge/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/meganrogge/subscriptions",
+    "organizations_url": "https://api.github.com/users/meganrogge/orgs",
+    "repos_url": "https://api.github.com/users/meganrogge/repos",
+    "events_url": "https://api.github.com/users/meganrogge/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/meganrogge/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-05-19T15:05:01Z",
+   "updated_at": "2026-05-19T15:05:01Z",
+   "body": "Thank you! I am about to be out for 2 weekis, but have put this on planning to review when I'm back 😄 ",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4489115274/reactions",
+    "total_count": 5,
+    "+1": 5,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5313596586",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#issuecomment-5313596586",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/317194",
+   "id": 5313596586,
+   "node_id": "IC_kwDOAn8RLM8AAAABPLcMqg",
+   "user": {
+    "login": "insilications",
+    "id": 55766834,
+    "node_id": "MDQ6VXNlcjU1NzY2ODM0",
+    "avatar_url": "https://avatars.githubusercontent.com/u/55766834?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/insilications",
+    "html_url": "https://github.com/insilications",
+    "followers_url": "https://api.github.com/users/insilications/followers",
+    "following_url": "https://api.github.com/users/insilications/following{/other_user}",
+    "gists_url": "https://api.github.com/users/insilications/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/insilications/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/insilications/subscriptions",
+    "organizations_url": "https://api.github.com/users/insilications/orgs",
+    "repos_url": "https://api.github.com/users/insilications/repos",
+    "events_url": "https://api.github.com/users/insilications/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/insilications/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-17T08:21:39Z",
+   "updated_at": "2026-08-17T08:21:39Z",
+   "body": "I am using this in my private fork for awhile and it has been working very nicely",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5313596586/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6318255983",
+   "html_url": "https://github.com/microsoft/vscode/pull/317194#issuecomment-6318255983",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/317194",
+   "id": 6318255983,
+   "node_id": "IC_kwDOAn8RLM8AAAABeJjvbw",
+   "user": {
+    "login": "lalishansh",
+    "id": 61790879,
+    "node_id": "MDQ6VXNlcjYxNzkwODc5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61790879?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/lalishansh",
+    "html_url": "https://github.com/lalishansh",
+    "followers_url": "https://api.github.com/users/lalishansh/followers",
+    "following_url": "https://api.github.com/users/lalishansh/following{/other_user}",
+    "gists_url": "https://api.github.com/users/lalishansh/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/lalishansh/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/lalishansh/subscriptions",
+    "organizations_url": "https://api.github.com/users/lalishansh/orgs",
+    "repos_url": "https://api.github.com/users/lalishansh/repos",
+    "events_url": "https://api.github.com/users/lalishansh/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/lalishansh/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-21T14:14:14Z",
+   "updated_at": "2026-10-21T14:18:28Z",
+   "body": "> I am using this in my private fork for awhile and it has been working very nicely\r\n\r\ndo you build it separately or apply patches while pulling from package manager ??\r\nAh and also what happens when focus is moved manually (like to terminal), for example tiling window managers have `mouse follow focus`\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6318255983/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "node_id": "C_kwDOR_WlZtoAKDA2ZTkwYjU3ZDBjNWZhZGYwODVmYTUzZmJhNmY5NmM0NGNmZGQ4Mzg",
+   "commit": {
+    "author": {
+     "name": "RoFz",
+     "email": "4117458+RoFz@users.noreply.github.com",
+     "date": "2026-04-10T19:22:16Z"
+    },
+    "committer": {
+     "name": "RoFz",
+     "email": "4117458+RoFz@users.noreply.github.com",
+     "date": "2026-05-18T23:21:04Z"
+    },
+    "message": "feat(accessibility): add focus-follows-mouse support\n\n- feat(accessibility): add accessibility.focusFollowsMouse.enabled setting\n- feat(accessibility): add configurable accessibility.focusFollowsMouse.delay setting (default 200ms)\n- feat(accessibility): add FocusFollowsMouseContribution\n- feat(accessibility): register contribution at Restored lifecycle phase\n- test(accessibility): add FocusFollowsMouseContribution unit tests",
+    "tree": {
+     "sha": "75c05a1159e83e173c2bb7ccf5a1eb8100dff2e4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/75c05a1159e83e173c2bb7ccf5a1eb8100dff2e4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niQIzBAABCgAdFiEETd3rB1vjAhJIibKWbwXtG1a/9/IFAmoLnuAACgkQbwXtG1a/\n9/It1w/+P1oKHsNGj4hEe+5tX26ZHN4/7BtyM+CkVQhLFrNzKZl+qFwcx8bTYyAM\nkM6VRW832GHwTL/JC96Q6wpuAbg8F4W3QGqP7q6U+GYMtAVflJazXMkPp/uY+66S\nhLAiFI0PqHQH2d+LgBSk0EVve9I/nqRkgs12iU+7se0zJp+53GKOiQ6R/+yc2pWD\nnQrSGh9aChjSfrHKRdsT6Ptm4DMsuuAOvLfOtmAaM+3MjA+DoW9V8GMY7yqVl3g3\n9fzJENH4kmZ1mHwjLLp7vSWsijHereQgihNdsWQ33d/sSjn3epc/IOqsKOYpvSgK\nv1bBaUWenZS/DeeQ2OMyc8+fZ3Ftv3UB3Yxz/cBLFHM9AextGRykIafbNCaENr0D\npVjZ2FodglKpxsZC16zZrWFukKCX1VO6vHAEqn1xdh3EMXLS70wYZkAmAYZeZbhq\npxOXX/t5oqi07+Wt6PSx3Yio32HQbXXnIFpJUr6uHM1ls/Jgc2hWXQzQi2zFqr2N\nIz5VgESehaRApi1ti7LT11m+NF4DtrAFJad8ldJtyzRhj/ShMYbiAF5oDltpE3Qh\nHChVDKEhwczS6YUuHAK8ocvd6Esgc+qMEy5+C2YHgGakubh5Cm9ptjPajjhm0XSL\n6bB8EJHqvKKG7EY7fffbqbGqjcXWhmZ3HZmHY4Io5bli/NIY4NY=\n=chze\n-----END PGP SIGNATURE-----",
+     "payload": "tree 75c05a1159e83e173c2bb7ccf5a1eb8100dff2e4\nparent 6d97cdd22a89d8e6c4281bed34f37a4f8659a4be\nauthor RoFz <4117458+RoFz@users.noreply.github.com> 1775848936 +0100\ncommitter RoFz <4117458+RoFz@users.noreply.github.com> 1779146464 +0000\n\nfeat(accessibility): add focus-follows-mouse support\n\n- feat(accessibility): add accessibility.focusFollowsMouse.enabled setting\n- feat(accessibility): add configurable accessibility.focusFollowsMouse.delay setting (default 200ms)\n- feat(accessibility): add FocusFollowsMouseContribution\n- feat(accessibility): register contribution at Restored lifecycle phase\n- test(accessibility): add FocusFollowsMouseContribution unit tests\n",
+     "verified_at": "2026-05-18T23:21:18Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "html_url": "https://github.com/microsoft/vscode/commit/06e90b57d0c5fadf085fa53fba6f96c44cfdd838",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/06e90b57d0c5fadf085fa53fba6f96c44cfdd838/comments",
+   "author": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "RoFz",
+    "id": 4117458,
+    "node_id": "MDQ6VXNlcjQxMTc0NTg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4117458?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/RoFz",
+    "html_url": "https://github.com/RoFz",
+    "followers_url": "https://api.github.com/users/RoFz/followers",
+    "following_url": "https://api.github.com/users/RoFz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/RoFz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/RoFz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/RoFz/subscriptions",
+    "organizations_url": "https://api.github.com/users/RoFz/orgs",
+    "repos_url": "https://api.github.com/users/RoFz/repos",
+    "events_url": "https://api.github.com/users/RoFz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/RoFz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6d97cdd22a89d8e6c4281bed34f37a4f8659a4be",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6d97cdd22a89d8e6c4281bed34f37a4f8659a4be",
+     "html_url": "https://github.com/microsoft/vscode/commit/6d97cdd22a89d8e6c4281bed34f37a4f8659a4be"
+    }
+   ]
+  }
+ ]
+}

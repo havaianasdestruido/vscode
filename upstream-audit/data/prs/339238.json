@@ -1,0 +1,272 @@
+{
+ "fetchedAt": "2026-11-01T00:55:32.170Z",
+ "pr": {
+  "number": 339238,
+  "title": "Build a 64-bit Windows setup with Inno Setup 7",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-10-02T07:05:32Z",
+  "updated_at": "2026-10-05T08:01:02Z",
+  "user": "dennisameling",
+  "author_association": "NONE",
+  "additions": 7,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "commits_count": 2,
+  "labels": [
+   "install-update",
+   "windows",
+   "perf"
+  ],
+  "milestone": "Backlog",
+  "requested_reviewers": [],
+  "head": {
+   "ref": "dennisameling/inno-setup-x64-setup",
+   "sha": "b886b70046e489fa83d5431c7f4fc769f1903c61",
+   "repo": "dennisameling/vscode",
+   "label": "dennisameling:dennisameling/inno-setup-x64-setup"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "2dca67a07aba894351849f39d337a921758722e8"
+  },
+  "body": "Refs #339236\n\nOn Windows on Arm, the VS Code installer takes much longer than it needs to because the setup is an x86 executable, and x86 emulation there is much slower than x64 emulation. Inno Setup 7 can build a 64-bit setup through the new [`SetupArchitecture`](https://jrsoftware.org/ishelp/index.php?topic=setup_setuparchitecture) directive, but it still builds an x86 setup by default.\n\nThis PR sets `SetupArchitecture=x64` in `code.iss`. VS Code only ships x64 and arm64 builds, and both can run an x64 setup, so no per-arch condition is needed.\n\n### Why the version guard\n\nVS Code gets ISCC from the [`innosetup`](https://www.npmjs.com/package/innosetup) npm package ([joaomoreno/node-innosetup-compiler](https://github.com/joaomoreno/node-innosetup-compiler)). It's currently at **6.4.1**, which is also the latest version published to npm. Inno Setup 6 doesn't know the directive and would fail the build, so it's wrapped in `#if Ver >= EncodeVer(7, 0, 0)`. That makes this PR safe to merge now. It changes nothing until `innosetup` is updated to 7.x, and then it takes effect without further changes. Git for Windows used the same approach in https://github.com/git-for-windows/build-extra/pull/732.\n\n### 64-bit safety of the Pascal Script\n\nGit for Windows had to fix record layouts for Windows API calls when moving to a 64-bit setup, because pointers become 8 bytes wide. `code.iss` doesn't declare any records. Its only external import is `MultiByteToWideChar`, whose parameters are all either 32-bit integers or string types that Pascal Script passes as pointers, so it is ABI-correct on x64 without changes. The script also uses none of the features that Inno Setup 7 removed for 64-bit setups (`{sysnative}`, `EnableFsRedirection`, or loading 32-bit DLLs).\n\n### Testing\n\nI compiled the full `code.iss` with the same `/d` definitions that `gulpfile.vscode.win32.ts` passes (quality `stable`, so the Appx code paths are included) against a stub source directory. I checked the PE machine type of each resulting `VSCodeSetup.exe`:\n\n| Compiler | arm64 user | arm64 system | x64 user | x64 system |\n|---|---|---|---|---|\n| Inno Setup 6.4.1 (current `innosetup` npm) | x86 | x86 | x86 | x86 |\n| Inno Setup 7.1.0 | **x64** | **x64** | **x64** | **x64** |\n\nAll builds succeed. The only new compiler warnings with 7.1.0 are about obsolete `[LangOptions]` font directives in one of the bundled `i18n/Default.*.isl` files, and they don't relate to this change.\n\nI haven't run these stub setups end to end (installing or updating), since that needs a real build. That's worth doing on the first Inno Setup 7 build, including an update from an existing 32-bit-setup install, which Inno Setup documents as supported.\n\n### Follow-up needed\n\nPublish `innosetup@7.x` and bump `package.json`/`package-lock.json`. That step activates this change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "56a59d8fc18bae34f3dd807166715fd65c965243",
+   "filename": "build/win32/code.iss",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 0,
+   "changes": 7,
+   "blob_url": "https://github.com/microsoft/vscode/blob/b886b70046e489fa83d5431c7f4fc769f1903c61/build%2Fwin32%2Fcode.iss",
+   "raw_url": "https://github.com/microsoft/vscode/raw/b886b70046e489fa83d5431c7f4fc769f1903c61/build%2Fwin32%2Fcode.iss",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/build%2Fwin32%2Fcode.iss?ref=b886b70046e489fa83d5431c7f4fc769f1903c61",
+   "patch": "@@ -35,6 +35,13 @@ ArchitecturesAllowed={#ArchitecturesAllowed}\n ArchitecturesInstallIn64BitMode={#ArchitecturesInstallIn64BitMode}\n WizardStyle=modern\n \n+// Inno Setup 7 builds a 32-bit setup unless told otherwise. Build a 64-bit one\n+// instead, since the x86 setup runs much slower under emulation on Windows on Arm.\n+// The directive doesn't exist before Inno Setup 7, hence the version guard.\n+#if Ver >= EncodeVer(7, 0, 0)\n+SetupArchitecture=x64\n+#endif\n+\n // We've seen an uptick on broken installations from updates which were unable\n // to shutdown VS Code. We rely on the fact that the update signals\n // that VS Code is ready to be shutdown, so we're good to use `force` here."
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5389115730,
+   "node_id": "PRR_kwDOAn8RLM8AAAABQTdhUg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟢 Approval recommended\n\nThe focused, version-gated change matches the stated architecture requirements and preserves current compiler compatibility.\n\n**Review effort:** Balanced  \n**Findings:** None\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nAdds guarded Inno Setup 7 support for generating x64 Windows installers, improving installation performance on Windows Arm.\n\n**Changes:**\n- Sets `SetupArchitecture=x64`.\n- Preserves compatibility with Inno Setup 6 through a version guard.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `build/​win32/​code.iss` | Configures Inno Setup 7 to produce an x64 setup executable. |\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/339238#pullrequestreview-5389115730",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/339238",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/339238#pullrequestreview-5389115730"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/339238"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-02T07:08:30Z",
+   "commit_id": "94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+   "node_id": "C_kwDOU4WBLNoAKDk0YmQ4NGY0ZGQ4OTNmZDA0ZWFlM2EwYzllNzc2YTliYWU2YzFjNzI",
+   "commit": {
+    "author": {
+     "name": "Dennis Ameling",
+     "email": "dennis@dennisameling.com",
+     "date": "2026-10-02T07:04:51Z"
+    },
+    "committer": {
+     "name": "Dennis Ameling",
+     "email": "dennis@dennisameling.com",
+     "date": "2026-10-02T07:05:09Z"
+    },
+    "message": "Build a 64-bit Windows setup with Inno Setup 7\n\nInno Setup 7 adds the SetupArchitecture directive but keeps building a\n32-bit x86 setup by default. On Windows on Arm, x86 runs under much\nslower emulation than x64, so the arm64 installer takes far longer than\nit needs to.\n\nSet SetupArchitecture=x64. VS Code only ships x64 and arm64 builds, both\nof which can run an x64 setup. The directive doesn't exist in Inno Setup\n6, which is what the innosetup npm package currently provides, so guard\nit on the compiler version. The change takes effect as soon as that\ndependency moves to 7.x.\n\nRefs #339236\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+    "tree": {
+     "sha": "e0c26424dc4cb2861159bf8d9a7336f4a7daf2b2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e0c26424dc4cb2861159bf8d9a7336f4a7daf2b2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg0/U4WSIETC1d6i6yfFBjTWSpK/\ngfKu01G/8IGv65rfYAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5\nAAAAQAwwxYXfqLNwu0PIQJK/PXZHy1WILB/5cNYLkUF+xmW+9utwKGq/ZrMebf4IB58n/5\nNyCokEDWSfpovbV1A9Fgs=\n-----END SSH SIGNATURE-----",
+     "payload": "tree e0c26424dc4cb2861159bf8d9a7336f4a7daf2b2\nparent de892dd1f9971e3a7d8c758a8788d86854047605\nauthor Dennis Ameling <dennis@dennisameling.com> 1790924691 +0200\ncommitter Dennis Ameling <dennis@dennisameling.com> 1790924709 +0200\n\nBuild a 64-bit Windows setup with Inno Setup 7\n\nInno Setup 7 adds the SetupArchitecture directive but keeps building a\n32-bit x86 setup by default. On Windows on Arm, x86 runs under much\nslower emulation than x64, so the arm64 installer takes far longer than\nit needs to.\n\nSet SetupArchitecture=x64. VS Code only ships x64 and arm64 builds, both\nof which can run an x64 setup. The directive doesn't exist in Inno Setup\n6, which is what the innosetup npm package currently provides, so guard\nit on the compiler version. The change takes effect as soon as that\ndependency moves to 7.x.\n\nRefs #339236\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+     "verified_at": "2026-10-02T07:05:17Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+   "html_url": "https://github.com/microsoft/vscode/commit/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72/comments",
+   "author": {
+    "login": "dennisameling",
+    "id": 17739158,
+    "node_id": "MDQ6VXNlcjE3NzM5MTU4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/17739158?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dennisameling",
+    "html_url": "https://github.com/dennisameling",
+    "followers_url": "https://api.github.com/users/dennisameling/followers",
+    "following_url": "https://api.github.com/users/dennisameling/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dennisameling/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dennisameling/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dennisameling/subscriptions",
+    "organizations_url": "https://api.github.com/users/dennisameling/orgs",
+    "repos_url": "https://api.github.com/users/dennisameling/repos",
+    "events_url": "https://api.github.com/users/dennisameling/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dennisameling/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "dennisameling",
+    "id": 17739158,
+    "node_id": "MDQ6VXNlcjE3NzM5MTU4",
+    "avatar_url": "https://avatars.githubusercontent.com/u/17739158?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dennisameling",
+    "html_url": "https://github.com/dennisameling",
+    "followers_url": "https://api.github.com/users/dennisameling/followers",
+    "following_url": "https://api.github.com/users/dennisameling/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dennisameling/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dennisameling/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dennisameling/subscriptions",
+    "organizations_url": "https://api.github.com/users/dennisameling/orgs",
+    "repos_url": "https://api.github.com/users/dennisameling/repos",
+    "events_url": "https://api.github.com/users/dennisameling/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dennisameling/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "de892dd1f9971e3a7d8c758a8788d86854047605",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/de892dd1f9971e3a7d8c758a8788d86854047605",
+     "html_url": "https://github.com/microsoft/vscode/commit/de892dd1f9971e3a7d8c758a8788d86854047605"
+    }
+   ]
+  },
+  {
+   "sha": "b886b70046e489fa83d5431c7f4fc769f1903c61",
+   "node_id": "C_kwDOU4WBLNoAKGI4ODZiNzAwNDZlNDg5ZmE4M2Q1NDMxYzdmNGZjNzY5ZjE5MDNjNjE",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-10-05T08:00:44Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-05T08:00:44Z"
+    },
+    "message": "Merge branch 'main' into dennisameling/inno-setup-x64-setup",
+    "tree": {
+     "sha": "551f219c6fc03b1534037ff34b19e6c21c1bf140",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/551f219c6fc03b1534037ff34b19e6c21c1bf140"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b886b70046e489fa83d5431c7f4fc769f1903c61",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqw1ksCRC1aQ7uu5UhlAAAsxwQADVNW9yf9ngRx2utBITI2m2W\nrFETEH86lHKM3exLg7k5kgXZllc2LFZrUpGQvEvMBfhytCx/Jw+KC2RY8mkM7S5d\nRRNwtOBpMw4zgpZ3IpomcPuTCEfOAwoN7VS02ll4OUCXuiqa9gICOtIHpE+E6WRH\nKE3AfIn9wHMZ2LBKXZsM5tKrMc7WbQcDjJiV9FEL1OAh/M7v8XgarR1XMWMh9hhq\nHCR9xZTwHOwMQ8Qc/FuE7AvbbyObKbhn6+pL/cqZ3fHC9UHPMvWxF+JgOed2dy47\npyDjspv6R7opqcgwHhm2hDpiCboiANsccS3DPwSTUgUD3E6gggqCGaOH/+vAslu8\nRcRonoEqEfzUzmKLsElMswsYvyzg+cM5ebOQqjsg4mv1Mi/k/Y3vOoWgQIL8PNbe\n1s+2m1zoCrtaEh6I9ezG7b3DJgjebph4aFHlrWd1417SIbkzB3neh3ZI5XULSII6\ndqj/umMnnuV6ZLaMEE1TnnDmdj1GRfStaFyX8iZasqZ1mYRR1au+bcDWeYQ8YviL\nOS4rnEFz9k/QgcnT2tAz4DJfJubymFWlq8x5BeHRAcCRMdV7VbqD8qqQrkagUq6G\n1dx7yPPHw5zbwnOYYiXpSrvTm+3tEtQ4+g/eMoazBkLNw6KLCTQQRreQ1tf46DWq\nouZElYAWGS/k6d5QY9lS\n=CYke\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 551f219c6fc03b1534037ff34b19e6c21c1bf140\nparent 94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72\nparent 2dca67a07aba894351849f39d337a921758722e8\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1791187244 -0700\ncommitter GitHub <noreply@github.com> 1791187244 -0700\n\nMerge branch 'main' into dennisameling/inno-setup-x64-setup",
+     "verified_at": "2026-10-05T08:00:45Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b886b70046e489fa83d5431c7f4fc769f1903c61",
+   "html_url": "https://github.com/microsoft/vscode/commit/b886b70046e489fa83d5431c7f4fc769f1903c61",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b886b70046e489fa83d5431c7f4fc769f1903c61/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72",
+     "html_url": "https://github.com/microsoft/vscode/commit/94bd84f4dd893fd04eae3a0c9e776a9bae6c1c72"
+    },
+    {
+     "sha": "2dca67a07aba894351849f39d337a921758722e8",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2dca67a07aba894351849f39d337a921758722e8",
+     "html_url": "https://github.com/microsoft/vscode/commit/2dca67a07aba894351849f39d337a921758722e8"
+    }
+   ]
+  }
+ ]
+}

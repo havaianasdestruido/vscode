@@ -1,0 +1,928 @@
+{
+ "fetchedAt": "2026-11-01T00:54:04.156Z",
+ "pr": {
+  "number": 318520,
+  "title": "Sanitize non-finite range coordinates in Diagnostic.from",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-27T06:55:10Z",
+  "updated_at": "2026-10-31T18:15:00Z",
+  "user": "yogeshwaran-c",
+  "author_association": "CONTRIBUTOR",
+  "additions": 99,
+  "deletions": 3,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 4,
+  "commits_count": 8,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/validate-diagnostic-range",
+   "sha": "6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "repo": "yogeshwaran-c/vscode",
+   "label": "yogeshwaran-c:fix/validate-diagnostic-range"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "0861b77b3fe8d0d4e2b47c121ef0d2b68fa35992"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\n* Read our Pull Request guidelines:\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\n* Associate an issue with the Pull Request.\n* Ensure that the code is up-to-date with the `main` branch.\n* Include a description of the proposed changes and how to test them.\n-->\n\nFixes #177094\n\n### Problem\n\nDiagnostics with non-finite range coordinates (`NaN`, `Infinity`) are passed through `Diagnostic.from` into `IMarkerData` unchanged. When marshalled across the RPC boundary to the main thread (and onward to LSP language servers), `NaN` is serialized as JSON `null`, which violates the LSP spec (uinteger required) and causes downstream language servers to fail when handling code action requests.\n\nThe original report shows the malformed payload:\n\n```json\n\"start\": { \"line\": null, \"character\": 0 }\n```\n\nThis is the case @jrieken called out in [#177094 (comment)](https://github.com/microsoft/vscode/issues/177094#issuecomment-1472228867): *\"diagnostics are created for ill-formed ranges (nan, null, -1) and our validation doesn't catch all of them ... anyone is invited to improve range validation.\"*\n\n### Fix\n\nAfter converting `value.range` via `Range.from(...)`, replace only non-finite coordinates. Non-finite start coordinates fall back to `1`; non-finite end coordinates fall back to the corresponding sanitized start coordinate. Then clamp the end position so it cannot precede the start, preserving the remaining finite coordinates wherever possible. The diagnostic is preserved (extension authors still see their message in the Problems view) and downstream consumers + LSP clients receive a finite, ordered range.\n\nScope is intentionally narrow: only the diagnostic conversion path. `Range.from` itself is unchanged, and other call sites (location, document symbol, etc.) are unaffected.\n\n### Tests\n\nAdded a `Diagnostic` suite to `extHostTypeConverters.test.ts` with explicit equality assertions for all four 1-based coordinates:\n- Well-formed range remains `(3,5)-(7,9)`, and its diagnostic message is preserved.\n- Non-finite start and end lines fall back to `(1,1)-(1,1)`.\n- A single NaN column preserves the finite line and column, producing `(3,6)-(3,6)`.\n- A non-finite end falls back to the finite start at `(6,4)-(6,4)` without inverting the range.\n- An infinite end line is sanitized to `(1,1)-(1,1)`.\n\nFocused test command on Windows:\n\n```powershell\n.\\scripts\\test.bat --run src\\vs\\workbench\\api\\test\\common\\extHostTypeConverters.test.ts --grep \"extHostTypeConverters Diagnostic\"\n```\n\nNot rerun for this documentation-only follow-up: the isolated checkout lacks its build/test dependencies, and approval to install them was unavailable. The current implementation and exact-value assertions were verified against both review comments.\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "21154023627fc0c978ac676a9e5d765fd74d5a37",
+   "filename": "src/vs/workbench/api/common/extHostTypeConverters.ts",
+   "status": "modified",
+   "additions": 27,
+   "deletions": 1,
+   "changes": 28,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostTypeConverters.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostTypeConverters.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fapi%2Fcommon%2FextHostTypeConverters.ts?ref=6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "patch": "@@ -268,8 +268,34 @@ export namespace Diagnostic {\n \t\t\t}\n \t\t}\n \n+\t\t// Sanitize range to ensure all coordinates are finite numbers. Non-finite\n+\t\t// values (NaN, Infinity) get serialized to JSON null and produce invalid\n+\t\t// LSP code action requests, see https://github.com/microsoft/vscode/issues/177094.\n+\t\tlet range = Range.from(value.range);\n+\t\tif (range && (\n+\t\t\t!Number.isFinite(range.startLineNumber)\n+\t\t\t|| !Number.isFinite(range.startColumn)\n+\t\t\t|| !Number.isFinite(range.endLineNumber)\n+\t\t\t|| !Number.isFinite(range.endColumn)\n+\t\t)) {\n+\t\t\t// Replace only the non-finite coordinates so valid ones are kept, and\n+\t\t\t// derive the end fallback from the (sanitized) start so we never emit a\n+\t\t\t// range whose end precedes its start.\n+\t\t\tconst startLineNumber = Number.isFinite(range.startLineNumber) ? range.startLineNumber : 1;\n+\t\t\tconst startColumn = Number.isFinite(range.startColumn) ? range.startColumn : 1;\n+\t\t\tlet endLineNumber = Number.isFinite(range.endLineNumber) ? range.endLineNumber : startLineNumber;\n+\t\t\tlet endColumn = Number.isFinite(range.endColumn) ? range.endColumn : startColumn;\n+\t\t\tif (endLineNumber < startLineNumber) {\n+\t\t\t\tendLineNumber = startLineNumber;\n+\t\t\t}\n+\t\t\tif (endLineNumber === startLineNumber && endColumn < startColumn) {\n+\t\t\t\tendColumn = startColumn;\n+\t\t\t}\n+\t\t\trange = { startLineNumber, startColumn, endLineNumber, endColumn };\n+\t\t}\n+\n \t\treturn {\n-\t\t\t...Range.from(value.range),\n+\t\t\t...range,\n \t\t\tmessage: value.message,\n \t\t\tsource: value.source,\n \t\t\tcode,"
+  },
+  {
+   "sha": "3aa71dee8d8c9cb98e0034292c3983a4f4a126e2",
+   "filename": "src/vs/workbench/api/test/common/extHostTypeConverters.test.ts",
+   "status": "modified",
+   "additions": 72,
+   "deletions": 2,
+   "changes": 74,
+   "blob_url": "https://github.com/microsoft/vscode/blob/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fcommon%2FextHostTypeConverters.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fcommon%2FextHostTypeConverters.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fapi%2Ftest%2Fcommon%2FextHostTypeConverters.test.ts?ref=6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "patch": "@@ -8,8 +8,8 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';\n import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';\n import { NullLogService } from '../../../../platform/log/common/log.js';\n import { IconPathDto } from '../../common/extHost.protocol.js';\n-import { ChatPromptReference, ChatRequestModeInstructions, ChatResponseVoiceProgressPart, ChatToolInvocationPart, IconPath } from '../../common/extHostTypeConverters.js';\n-import { ChatReferenceBinaryData, ChatResponseVoiceProgressPart as ExtHostChatResponseVoiceProgressPart, ChatSubagentToolInvocationData, ChatToolInvocationPart as ExtHostChatToolInvocationPart, ThemeColor, ThemeIcon } from '../../common/extHostTypes.js';\n+import { ChatPromptReference, ChatRequestModeInstructions, ChatResponseVoiceProgressPart, ChatToolInvocationPart, Diagnostic as DiagnosticConverter, IconPath } from '../../common/extHostTypeConverters.js';\n+import { ChatReferenceBinaryData, ChatResponseVoiceProgressPart as ExtHostChatResponseVoiceProgressPart, ChatSubagentToolInvocationData, ChatToolInvocationPart as ExtHostChatToolInvocationPart, Diagnostic, Position, Range, ThemeColor, ThemeIcon } from '../../common/extHostTypes.js';\n import { IElementVariableEntry } from '../../../contrib/chat/common/attachments/chatVariableEntries.js';\n import { IChatRequestModeInstructions } from '../../../contrib/chat/common/model/chatModel.js';\n import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';\n@@ -293,6 +293,76 @@ suite('extHostTypeConverters', function () {\n \t\t});\n \t});\n \n+\tsuite('Diagnostic', function () {\n+\t\ttest('from preserves a well-formed range', function () {\n+\t\t\tconst diag = new Diagnostic(new Range(2, 4, 6, 8), 'hello');\n+\t\t\tconst marker = DiagnosticConverter.from(diag);\n+\t\t\tassert.strictEqual(marker.startLineNumber, 3);\n+\t\t\tassert.strictEqual(marker.startColumn, 5);\n+\t\t\tassert.strictEqual(marker.endLineNumber, 7);\n+\t\t\tassert.strictEqual(marker.endColumn, 9);\n+\t\t\tassert.strictEqual(marker.message, 'hello');\n+\t\t});\n+\n+\t\ttest('from sanitizes an all-NaN range to (1,1,1,1)', function () {\n+\t\t\t// Extensions may inadvertently construct positions with NaN\n+\t\t\t// (e.g. from arithmetic involving undefined). NaN serializes to\n+\t\t\t// JSON null which breaks LSP code action requests -- see\n+\t\t\t// https://github.com/microsoft/vscode/issues/177094.\n+\t\t\tconst diag = new Diagnostic(\n+\t\t\t\tnew Range(new Position(NaN, 0), new Position(NaN, 0)),\n+\t\t\t\t'broken',\n+\t\t\t);\n+\t\t\tconst marker = DiagnosticConverter.from(diag);\n+\t\t\tassert.strictEqual(marker.startLineNumber, 1);\n+\t\t\tassert.strictEqual(marker.startColumn, 1);\n+\t\t\tassert.strictEqual(marker.endLineNumber, 1);\n+\t\t\tassert.strictEqual(marker.endColumn, 1);\n+\t\t});\n+\n+\t\ttest('from replaces only the non-finite coordinate and keeps the rest', function () {\n+\t\t\t// The Range constructor reorders positions, so the NaN character ends\n+\t\t\t// up as the end column; the finite line/column survive sanitization and\n+\t\t\t// the missing end column falls back to the start column (an empty range).\n+\t\t\tconst diag = new Diagnostic(\n+\t\t\t\tnew Range(new Position(2, NaN), new Position(2, 5)),\n+\t\t\t\t'broken',\n+\t\t\t);\n+\t\t\tconst marker = DiagnosticConverter.from(diag);\n+\t\t\tassert.strictEqual(marker.startLineNumber, 3);\n+\t\t\tassert.strictEqual(marker.startColumn, 6);\n+\t\t\tassert.strictEqual(marker.endLineNumber, 3);\n+\t\t\tassert.strictEqual(marker.endColumn, 6);\n+\t\t});\n+\n+\t\ttest('from keeps a non-finite end from preceding a finite start', function () {\n+\t\t\t// Range reorders so the finite (5,3) becomes the start and the NaN\n+\t\t\t// position becomes the end; the end must fall back to the start rather\n+\t\t\t// than inverting the range.\n+\t\t\tconst diag = new Diagnostic(\n+\t\t\t\tnew Range(new Position(NaN, NaN), new Position(5, 3)),\n+\t\t\t\t'broken',\n+\t\t\t);\n+\t\t\tconst marker = DiagnosticConverter.from(diag);\n+\t\t\tassert.strictEqual(marker.startLineNumber, 6);\n+\t\t\tassert.strictEqual(marker.startColumn, 4);\n+\t\t\tassert.strictEqual(marker.endLineNumber, 6);\n+\t\t\tassert.strictEqual(marker.endColumn, 4);\n+\t\t});\n+\n+\t\ttest('from sanitizes an Infinity end line to (1,1,1,1)', function () {\n+\t\t\tconst diag = new Diagnostic(\n+\t\t\t\tnew Range(new Position(0, 0), new Position(Infinity, 0)),\n+\t\t\t\t'broken',\n+\t\t\t);\n+\t\t\tconst marker = DiagnosticConverter.from(diag);\n+\t\t\tassert.strictEqual(marker.startLineNumber, 1);\n+\t\t\tassert.strictEqual(marker.startColumn, 1);\n+\t\t\tassert.strictEqual(marker.endLineNumber, 1);\n+\t\t\tassert.strictEqual(marker.endColumn, 1);\n+\t\t});\n+\t});\n+\n \tsuite('ChatToolInvocationPart', function () {\n \t\ttest('converts subagent data with its model name', function () {\n \t\t\tconst data = new ChatSubagentToolInvocationData('Run tests', 'execution', 'npm test', 'Passed');"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4370087789,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBHo_bQ",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\n> [!NOTE]\n> Copilot was unable to run its full agentic suite in this review.\n\nAdds sanitization for `Diagnostic` range coordinates to prevent non-finite values (NaN/Infinity) from producing invalid JSON/LSP requests, and introduces regression tests to validate the converter behavior.\n\n**Changes:**\n- Sanitize converted diagnostic ranges when any coordinate is non-finite.\n- Add unit tests covering well-formed ranges and NaN/Infinity edge cases for diagnostics.\n\n### Reviewed changes\n\nCopilot reviewed 2 out of 2 changed files in this pull request and generated 2 comments.\n\n| File | Description |\n| ---- | ----------- |\n| src/vs/workbench/api/common/extHostTypeConverters.ts | Sanitizes diagnostic range coordinates to avoid non-finite values propagating into marker DTOs. |\n| src/vs/workbench/api/test/common/extHostTypeConverters.test.ts | Adds tests to ensure `Diagnostic.from` preserves valid ranges and sanitizes NaN/Infinity inputs. |\n\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4370087789",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/318520",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4370087789"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/318520"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-27T06:56:52Z",
+   "commit_id": "965bf7c7ddba456fc07f176ba3e2bc1a80f32775"
+  },
+  {
+   "id": 4373403712,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBKzYQA",
+   "user": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?u=42e6e26369606542d3f3d86805b09bcc1de45bcc&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4373403712",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/318520",
+   "author_association": "MEMBER",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4373403712"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/318520"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-27T14:53:11Z",
+   "commit_id": "965bf7c7ddba456fc07f176ba3e2bc1a80f32775"
+  },
+  {
+   "id": 4403007213,
+   "node_id": "PRR_kwDOAn8RLM8AAAABBnCO7Q",
+   "user": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?u=b8dab7469132de9b6f1cf6c8b40a7353cc58b6ba&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4403007213",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/318520",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/318520#pullrequestreview-4403007213"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/318520"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-06-01T16:43:33Z",
+   "commit_id": "5815a1287fa3b6620e7c1c26c6cd464336375e80"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4629575104",
+   "html_url": "https://github.com/microsoft/vscode/pull/318520#issuecomment-4629575104",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/318520",
+   "id": 4629575104,
+   "node_id": "IC_kwDOAn8RLM8AAAABE_G1wA",
+   "user": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-06-05T08:22:57Z",
+   "updated_at": "2026-06-05T08:22:57Z",
+   "body": "@\n@dbaeumer this should be ready for another look. The latest commits address the direction concern: each coordinate is now sanitized independently (`5815a12`), so a non-finite `end` no longer inverts the range — `end` is clamped to be `>=` `start` on both line and character rather than collapsing past it. CI is green (the only pending gate is Community PR Approvals). Could you re-review when you have a moment? Thanks!\n@",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4629575104/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+   "node_id": "C_kwDORXVh_doAKDk2NWJmN2M3ZGRiYTQ1NmZjMDdmMTc2YmEzZTJiYzFhODBmMzI3NzU",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-27T06:54:21Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-05-27T06:54:21Z"
+    },
+    "message": "Sanitize non-finite range coordinates in Diagnostic.from\n\nDiagnostics whose range contains non-finite numbers (NaN, Infinity) currently\nflow through to IMarkerData unchanged. When marshalled across the RPC\nboundary, NaN is serialized as JSON null, which breaks LSP code action\nrequests (the spec requires uinteger line/character values).\n\nSanitize the converted range in Diagnostic.from: if any of the four\ncoordinates is non-finite, replace the range with a known-good (1,1,1,1)\ndefault so downstream IMarkerData consumers and LSP clients receive a\nvalid range.\n\nFixes #177094",
+    "tree": {
+     "sha": "fd8185a02ae199ba7ec82e6d587d3ce4db531dee",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fd8185a02ae199ba7ec82e6d587d3ce4db531dee"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+   "html_url": "https://github.com/microsoft/vscode/commit/965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/965bf7c7ddba456fc07f176ba3e2bc1a80f32775/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "73d268acaa509c3fcff0977f64211205fbe04585",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/73d268acaa509c3fcff0977f64211205fbe04585",
+     "html_url": "https://github.com/microsoft/vscode/commit/73d268acaa509c3fcff0977f64211205fbe04585"
+    }
+   ]
+  },
+  {
+   "sha": "5815a1287fa3b6620e7c1c26c6cd464336375e80",
+   "node_id": "C_kwDORXVh_doAKDU4MTVhMTI4N2ZhM2I2NjIwZTdjMWMyNmM2Y2Q0NjQzMzYzNzVlODA",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-06-01T16:42:31Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-06-01T16:42:49Z"
+    },
+    "message": "Sanitize Diagnostic range coordinates per-axis without inverting\n\nReplace only the non-finite coordinates instead of resetting the whole range, so valid line/character values are preserved. Derive the end fallback from the sanitized start and clamp it so the end can never precede the start on either axis.\n\nTests assert the exact sanitized coordinates and cover a non-finite end that would otherwise invert a finite start.",
+    "tree": {
+     "sha": "f5bf530d62b2e596906611a770ac4844c2c0bc96",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/f5bf530d62b2e596906611a770ac4844c2c0bc96"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5815a1287fa3b6620e7c1c26c6cd464336375e80",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5815a1287fa3b6620e7c1c26c6cd464336375e80",
+   "html_url": "https://github.com/microsoft/vscode/commit/5815a1287fa3b6620e7c1c26c6cd464336375e80",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5815a1287fa3b6620e7c1c26c6cd464336375e80/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/965bf7c7ddba456fc07f176ba3e2bc1a80f32775",
+     "html_url": "https://github.com/microsoft/vscode/commit/965bf7c7ddba456fc07f176ba3e2bc1a80f32775"
+    }
+   ]
+  },
+  {
+   "sha": "a870368874d8acc19671eba8c201fa9169b84f03",
+   "node_id": "C_kwDORXVh_doAKGE4NzAzNjg4NzRkOGFjYzE5NjcxZWJhOGMyMDFmYTkxNjliODRmMDM",
+   "commit": {
+    "author": {
+     "name": "Dirk Baeumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-21T05:48:49Z"
+    },
+    "committer": {
+     "name": "Dirk Baeumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-21T05:48:49Z"
+    },
+    "message": "Merge main into fix/validate-diagnostic-range\n\nResolve test merge conflicts for #318520 while preserving both branches' tests.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+    "tree": {
+     "sha": "5af8ed1967f92023aaa4f89a655453e30f30a2ba",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5af8ed1967f92023aaa4f89a655453e30f30a2ba"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/a870368874d8acc19671eba8c201fa9169b84f03",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/a870368874d8acc19671eba8c201fa9169b84f03",
+   "html_url": "https://github.com/microsoft/vscode/commit/a870368874d8acc19671eba8c201fa9169b84f03",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/a870368874d8acc19671eba8c201fa9169b84f03/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "parents": [
+    {
+     "sha": "5815a1287fa3b6620e7c1c26c6cd464336375e80",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5815a1287fa3b6620e7c1c26c6cd464336375e80",
+     "html_url": "https://github.com/microsoft/vscode/commit/5815a1287fa3b6620e7c1c26c6cd464336375e80"
+    },
+    {
+     "sha": "60a1c53be7c6b9178d1e18b77eda01199758cb63",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/60a1c53be7c6b9178d1e18b77eda01199758cb63",
+     "html_url": "https://github.com/microsoft/vscode/commit/60a1c53be7c6b9178d1e18b77eda01199758cb63"
+    }
+   ]
+  },
+  {
+   "sha": "435f2f56b7acdaf9e77617e272369a93057bcbae",
+   "node_id": "C_kwDORXVh_doAKDQzNWYyZjU2YjdhY2RhZjllNzc2MTdlMjcyMzY5YTkzMDU3YmNiYWU",
+   "commit": {
+    "author": {
+     "name": "Dirk Bäumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-26T08:19:21Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-26T08:19:21Z"
+    },
+    "message": "Merge branch 'main' into fix/validate-diagnostic-range",
+    "tree": {
+     "sha": "20463b12cbe1209a7fd622bc405e4febe3f0296a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/20463b12cbe1209a7fd622bc405e4febe3f0296a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/435f2f56b7acdaf9e77617e272369a93057bcbae",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq3w0JCRC1aQ7uu5UhlAAAfSEQAHPwwn3IRRkFvbyeembuFHBN\nzlrrkBtlQk9RmxmsgXOAWb8MKPjMpWb4ZhlomqmIoOT0FjBDVjwHMEZDB4ZY6KeX\nh9c6El0z8z4wH336uSXvhZDi35Qrr58GX42eCGeP3VX279FnX5xTWCCMkZGw9Jz7\nw8b/M0yOC/ikXZQMYA6oQuHQ/r8zVD20kr+laBpxHv0mWTQPfq3osoaxCLR4EMd/\nHYP6p+lloBGwzSHjuFeq/5DMGg4RqAFTsvUa5W4yO3EXzPBrrapvKJwmdoSlFEpP\nDuHX5wsLRDITgdTBs4Agup/xBvpSxy1pxThxIFs3SrLMpYTcSokqvrja9luaSAXK\n/Nl0Adla9eVR5dVSFnIDLNX2XBCZ6MkUW38yA6BGiC7Q+HZU9RjE+CzShml5YZHA\nJwu3eq0bTSFDNHsWNysWVMzc6gcXQFYvVbOWmS3UwPfCGj9ibjoV1PQ7hzhhTX4p\nTntQ3KE8vg8f6oIVD+/s0G4OyKaD1AsIyqKscWkLBMhId3ZAUTtfl5WlaAZuqp6b\nc11gTL9wBV+f1aYUcGPwn6BiBcs0ozNBPkOr8FHC8ttRhE2x0KFJ4Xz6qgZifa8W\ni4VLVO0az8MHpeTCUk7q7zp5y/yA2WzbWIkfWNsfkEEoS7BE6MdjXWkL+eNyVM38\n/9nP4cs823cWSnb6rS1a\n=CY/O\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 20463b12cbe1209a7fd622bc405e4febe3f0296a\nparent a870368874d8acc19671eba8c201fa9169b84f03\nparent ff05b50d4efafeaa0c1e025b13b7c1c5b196bc9f\nauthor Dirk Bäumer <dirkb@microsoft.com> 1793002761 +0100\ncommitter GitHub <noreply@github.com> 1793002761 +0100\n\nMerge branch 'main' into fix/validate-diagnostic-range",
+     "verified_at": "2026-10-26T08:19:22Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/435f2f56b7acdaf9e77617e272369a93057bcbae",
+   "html_url": "https://github.com/microsoft/vscode/commit/435f2f56b7acdaf9e77617e272369a93057bcbae",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/435f2f56b7acdaf9e77617e272369a93057bcbae/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a870368874d8acc19671eba8c201fa9169b84f03",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a870368874d8acc19671eba8c201fa9169b84f03",
+     "html_url": "https://github.com/microsoft/vscode/commit/a870368874d8acc19671eba8c201fa9169b84f03"
+    },
+    {
+     "sha": "ff05b50d4efafeaa0c1e025b13b7c1c5b196bc9f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ff05b50d4efafeaa0c1e025b13b7c1c5b196bc9f",
+     "html_url": "https://github.com/microsoft/vscode/commit/ff05b50d4efafeaa0c1e025b13b7c1c5b196bc9f"
+    }
+   ]
+  },
+  {
+   "sha": "6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+   "node_id": "C_kwDORXVh_doAKDZjOWQwNzIxOTA1MTc4NWJiNmRlYjBjZDVmNjBhYTk4YWZkNjM4ZWY",
+   "commit": {
+    "author": {
+     "name": "Dirk Bäumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-28T07:15:33Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-28T07:15:33Z"
+    },
+    "message": "Merge branch 'main' into fix/validate-diagnostic-range",
+    "tree": {
+     "sha": "86e7f8e8a67a0c6461035067e45403bba3fcdee3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/86e7f8e8a67a0c6461035067e45403bba3fcdee3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq4aEVCRC1aQ7uu5UhlAAAMHcQAEM1+fEXfJramfJOotulbvqQ\nkh/xmxe5D/9tOGqAsOTXXG3LIEToJUugyGQlAT8zhaonfPj54H3+BxKFso4P3gIG\no4MZG89XLsaxf+zlo/psMTZC9t2Pf1bklnKNDr0qND64eFrciNFV8229cXykAmSc\nqp6tJwHnK0DgOvMdPmTCCsiVs9+UaG5Ka4hhsx3Vn0p2vmjV4zj40VFlc2NqO+gj\nLjeBRQXVcMKfEcVHpwWD5J7SzpFBw5RAfF+VawJkzhTX3gzgb1QjCwrCaoVGGbgK\n1Fkf6Ooa0B/RepKbvGKOPWwtYh83pVJh+oPWiPLwLZt/WZP7PiPvCsef/b56UMLg\nhG0vLytJuEXJjEomlgvL1cFTT6YzLnWh5fht2nT8O80AM3Dk5LfXuSet5/C8f3q9\nSOqOD4dTIuKcTTqVcMBUjjxMRg7iDxR1oXhU1lJkVRFJQ3BLiXkkTEm7O/iuUCzO\nui4CU/Z1LVv0EW94IAiiZrXr9LPIY4xlR03kxXsCWNLaTRKtqxeTOErMLZ3DxrkM\n++43bNZaZb8yznBgptq1FuB8dHZgaAQi2uae6LxSnpEOa4HxqQRUHbQId6wffJpB\nTWSLGsHD5eN6rZSBIes7UTaRYt9KkOQnNes1/pq8/Iu05w01UXzYwsvdXnIjTZac\ng0en2NTx9KBahQ0O+h2u\n=/Pzo\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 86e7f8e8a67a0c6461035067e45403bba3fcdee3\nparent 435f2f56b7acdaf9e77617e272369a93057bcbae\nparent ea8056df9f08fb7c452589213ec77fabbd3481b9\nauthor Dirk Bäumer <dirkb@microsoft.com> 1793171733 +0100\ncommitter GitHub <noreply@github.com> 1793171733 +0100\n\nMerge branch 'main' into fix/validate-diagnostic-range",
+     "verified_at": "2026-10-28T07:15:34Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+   "html_url": "https://github.com/microsoft/vscode/commit/6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6c9d07219051785bb6deb0cd5f60aa98afd638ef/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "435f2f56b7acdaf9e77617e272369a93057bcbae",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/435f2f56b7acdaf9e77617e272369a93057bcbae",
+     "html_url": "https://github.com/microsoft/vscode/commit/435f2f56b7acdaf9e77617e272369a93057bcbae"
+    },
+    {
+     "sha": "ea8056df9f08fb7c452589213ec77fabbd3481b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ea8056df9f08fb7c452589213ec77fabbd3481b9",
+     "html_url": "https://github.com/microsoft/vscode/commit/ea8056df9f08fb7c452589213ec77fabbd3481b9"
+    }
+   ]
+  },
+  {
+   "sha": "c223462bc2d42a6120ebde7d5582651018e21e7f",
+   "node_id": "C_kwDORXVh_doAKGMyMjM0NjJiYzJkNDJhNjEyMGViZGU3ZDU1ODI2NTEwMThlMjFlN2Y",
+   "commit": {
+    "author": {
+     "name": "Dirk Bäumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-29T11:44:00Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-29T11:44:00Z"
+    },
+    "message": "Merge branch 'main' into fix/validate-diagnostic-range",
+    "tree": {
+     "sha": "c4e7afe1ba107c86537d9771ef31ac9f5f73ddd7",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c4e7afe1ba107c86537d9771ef31ac9f5f73ddd7"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c223462bc2d42a6120ebde7d5582651018e21e7f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq4zGBCRC1aQ7uu5UhlAAAzIgQAEE/1l7J3FwkeImlbqjLY0hL\n1vRNlWPPWibYIHedByFj+1fFjpOGzn70h5DfIFQL6TjQpaIw/WIc/lzuyHZxYwni\n+vwMRzGPqyDud/t91fZP+iiRbqAfv1rTvM/psUO2TScX7E8pl9zdbYsc6SYXHLer\n0oGARO0BuL4MSzwznBtK7UP6zGRfP+EWp3eu/iNUU0bdI9riO1tOz+4s8NWC384v\n+Bk+vQhmQhZHhrGHrWzySYPQgEFg9LhzeHIPid9+rJi1p15No/nU1VmGAxTiKRnX\nepDz8DJS4XwXfI7msrUfNFuuxEp5VppqlnoocGecGL8DKd9phrq2kog+FFO0YHNr\nuCdct1CnUEvQ1KXngbpCxUsOQNQwSwLAd1UK4wxuHTvCC02o16gZMkbtYHkZWx3N\nGe8v2Jvm7rCPzbF1va5RC+t6a9AlKc7DGt6N/N/jcqrskNGPgkJ5IhsV87TNGkUp\nk0nl5zjunqkXtPKTsNCZI9shO+GDPUbfSVlABwVpfMwICQY1loY+KhAU7nicJ6Gf\nARkGby9/Nb6ithV2QhgSSqEY0+DkkvFMu/udPRdB0GTAtksmYKUiiCTtsiAPkL13\nJ9Ic6dpRvLMQ4OjMT75kFepZyCvCTOYoPs6bayhN/VtorkowEXAv8AJFafuon6Z0\nJ1O+iUwxXfXrN1D3kOp5\n=BLPI\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c4e7afe1ba107c86537d9771ef31ac9f5f73ddd7\nparent 6c9d07219051785bb6deb0cd5f60aa98afd638ef\nparent 0f33e8274d74eb642577d8cae03beee61fed4a35\nauthor Dirk Bäumer <dirkb@microsoft.com> 1793274240 +0100\ncommitter GitHub <noreply@github.com> 1793274240 +0100\n\nMerge branch 'main' into fix/validate-diagnostic-range",
+     "verified_at": "2026-10-29T11:44:01Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c223462bc2d42a6120ebde7d5582651018e21e7f",
+   "html_url": "https://github.com/microsoft/vscode/commit/c223462bc2d42a6120ebde7d5582651018e21e7f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c223462bc2d42a6120ebde7d5582651018e21e7f/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6c9d07219051785bb6deb0cd5f60aa98afd638ef",
+     "html_url": "https://github.com/microsoft/vscode/commit/6c9d07219051785bb6deb0cd5f60aa98afd638ef"
+    },
+    {
+     "sha": "0f33e8274d74eb642577d8cae03beee61fed4a35",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0f33e8274d74eb642577d8cae03beee61fed4a35",
+     "html_url": "https://github.com/microsoft/vscode/commit/0f33e8274d74eb642577d8cae03beee61fed4a35"
+    }
+   ]
+  },
+  {
+   "sha": "4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+   "node_id": "C_kwDORXVh_doAKDRjYWVlYTk5MmRmYThlN2JiMDhlOTUzMzI4MmNmZmRjYzViMTE5ZDA",
+   "commit": {
+    "author": {
+     "name": "Dirk Bäumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-30T08:25:23Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-30T08:25:23Z"
+    },
+    "message": "Merge branch 'main' into fix/validate-diagnostic-range",
+    "tree": {
+     "sha": "54cce71b16c2dd18d4a9834f5305f85d50db9270",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/54cce71b16c2dd18d4a9834f5305f85d50db9270"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq5FR0CRC1aQ7uu5UhlAAAeWwQACL0hfhKq+BjBN1IEbWOBnFs\nmW/5+P5ihrEwjZlnB28QNGD5hRZMQwZB0ZJL4HWH/XGiOOhjMoo5kdYoi2xu4a0l\nxCQbyC4XUWouE95h/YS4LzOXh6pcyFmc6gP7SsQ2v/r3s41ek0rzuJNytjpe86z8\naDo6CNR6GLaT9NeWx+8yM8rhTntiAPub0LudIHzmRSlnKcwLAC2gwlwEp0XvmQ7q\nAH3hm4+dMt3V6H5951zs0X14NnR9Oq2tfQRwEKR8E7MSkGWtpz0A666IrLDJSPyq\nK3Y+GHGn5hsH5IRdKUilRCLuhUV+fyJteniCGPQcl5a9M3t4G8nAW1DISvJXya+8\nxZ8NEytGJDQb+nqLB9qgCxAe3xS133JSSlWWQWI0bc2Ps5ih50CgNCL78cYR4RWR\nycha6i2xiddhyrgdgQU4tF1fsMJl9VDfH8HK8u4eN1oFrBrWYMILm+FmBIkrC6B+\ngmSSUW/GpjQXmKIxQxzUYzyrdxMEdwMChhggpspvegH11L3jn7dFTm09lbh1UaC+\npMKv6gDZyJBl3luT9VHVowHpVn8TwWpYbd7wToZNYH5lVZ14EVaUWG19p23rckSo\nkUf9kqVnFJ16GKTqjVflmQ6B2w08ajhR2nq16pBd9Jy9J1lM0lvbQT+yOKOCF0Os\nMu45WaRI5wVDQlKwObzZ\n=SMX6\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 54cce71b16c2dd18d4a9834f5305f85d50db9270\nparent c223462bc2d42a6120ebde7d5582651018e21e7f\nparent 3d6b819552e03a5eb57668491eed05ac2facae50\nauthor Dirk Bäumer <dirkb@microsoft.com> 1793348723 +0100\ncommitter GitHub <noreply@github.com> 1793348723 +0100\n\nMerge branch 'main' into fix/validate-diagnostic-range",
+     "verified_at": "2026-10-30T08:25:24Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+   "html_url": "https://github.com/microsoft/vscode/commit/4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/4caeea992dfa8e7bb08e9533282cffdcc5b119d0/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "c223462bc2d42a6120ebde7d5582651018e21e7f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/c223462bc2d42a6120ebde7d5582651018e21e7f",
+     "html_url": "https://github.com/microsoft/vscode/commit/c223462bc2d42a6120ebde7d5582651018e21e7f"
+    },
+    {
+     "sha": "3d6b819552e03a5eb57668491eed05ac2facae50",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3d6b819552e03a5eb57668491eed05ac2facae50",
+     "html_url": "https://github.com/microsoft/vscode/commit/3d6b819552e03a5eb57668491eed05ac2facae50"
+    }
+   ]
+  },
+  {
+   "sha": "6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "node_id": "C_kwDORXVh_doAKDZmNjBmNTE5ZDliN2FjNmM5ODAzYWFkNDc5ZjA2YjZkYTE0Y2QzYzU",
+   "commit": {
+    "author": {
+     "name": "Dirk Bäumer",
+     "email": "dirkb@microsoft.com",
+     "date": "2026-10-31T18:14:57Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-31T18:14:57Z"
+    },
+    "message": "Merge branch 'main' into fix/validate-diagnostic-range",
+    "tree": {
+     "sha": "c479319a5ee299c8868ea9ad995ca395558625c0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/c479319a5ee299c8868ea9ad995ca395558625c0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq5jAhCRC1aQ7uu5UhlAAATV0QAHioMGmOFGweaShTs2C0BZv8\nkCSOCC5hGThvxdaPOC/F0RO5rRWg6avLAvHU39MMGQoZU0h9VzY2C2ztjkl7Kv3I\ncCMjinCuL70VmytETC5HvXQwWEICbmgaIadp2iMBeGHNd7QC0TSFnHI38H8IXXXT\nQXONqS0ab/d1WySZiVyKP6w0zPqU0GWnElYqdA9Kv0OHovKtAcMu4Te+Q8j908y7\nnssKqn+lJ7AdvFq7dAKR0xv70QpMmso08UGzKoByfb2udegAI4mgT3GJdCfAZ04U\nQkkmP/27yQjbNRHsAxval2BSj0gzE/WQHZRAW7Q5WahFWKHW95ImIBR+P6WZr0Xg\n+GRMcDKvA09/KY+oAhahutaAVF4HUBqz5YJtpwpZv42srgoZahXtfvGxCyiekGxa\nDAbVJtHT0GZhfLmC1312gyiLAR0OV7jCpGPNOFpIhFPI7ZhEZzo3QYG9q6Iay/Uu\n21WO5epS/RKX3cIYnvKFarT+Yx+WMKe6rtmXMbP193FQ0OmiZMafsygmwtHdZOqA\nRzPId81hx2QSIxmEgS3BMXJlbnv+Enw3KnwVLQ43pDMhxuOV+UGj2ZNCrQJHhmKt\neVyoh4v49XcrDV30DQ6nlhdyx2VVYRxPMqLe8uRwMTXhRmW5RHt18y9UNfqdw7I/\n4e4ogL2CYhLqSpiUezqk\n=pJnU\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree c479319a5ee299c8868ea9ad995ca395558625c0\nparent 4caeea992dfa8e7bb08e9533282cffdcc5b119d0\nparent 0861b77b3fe8d0d4e2b47c121ef0d2b68fa35992\nauthor Dirk Bäumer <dirkb@microsoft.com> 1793470497 +0100\ncommitter GitHub <noreply@github.com> 1793470497 +0100\n\nMerge branch 'main' into fix/validate-diagnostic-range",
+     "verified_at": "2026-10-31T18:14:58Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "html_url": "https://github.com/microsoft/vscode/commit/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/6f60f519d9b7ac6c9803aad479f06b6da14cd3c5/comments",
+   "author": {
+    "login": "dbaeumer",
+    "id": 1931590,
+    "node_id": "MDQ6VXNlcjE5MzE1OTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1931590?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dbaeumer",
+    "html_url": "https://github.com/dbaeumer",
+    "followers_url": "https://api.github.com/users/dbaeumer/followers",
+    "following_url": "https://api.github.com/users/dbaeumer/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dbaeumer/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dbaeumer/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dbaeumer/subscriptions",
+    "organizations_url": "https://api.github.com/users/dbaeumer/orgs",
+    "repos_url": "https://api.github.com/users/dbaeumer/repos",
+    "events_url": "https://api.github.com/users/dbaeumer/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dbaeumer/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4caeea992dfa8e7bb08e9533282cffdcc5b119d0",
+     "html_url": "https://github.com/microsoft/vscode/commit/4caeea992dfa8e7bb08e9533282cffdcc5b119d0"
+    },
+    {
+     "sha": "0861b77b3fe8d0d4e2b47c121ef0d2b68fa35992",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0861b77b3fe8d0d4e2b47c121ef0d2b68fa35992",
+     "html_url": "https://github.com/microsoft/vscode/commit/0861b77b3fe8d0d4e2b47c121ef0d2b68fa35992"
+    }
+   ]
+  }
+ ]
+}

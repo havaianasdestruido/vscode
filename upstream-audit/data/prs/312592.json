@@ -1,0 +1,223 @@
+{
+ "fetchedAt": "2026-11-01T00:53:18.109Z",
+ "pr": {
+  "number": 312592,
+  "title": "docs: clarify unicodeHighlight settings serve a security purpose",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-26T09:33:21Z",
+  "updated_at": "2026-06-05T22:28:39Z",
+  "user": "ousamabenyounes",
+  "author_association": "NONE",
+  "additions": 3,
+  "deletions": 3,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 2,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/issue-212812",
+   "sha": "18e5cdeccf6dff046f59868caa5464968c451bd0",
+   "repo": "ousamabenyounes/vscode",
+   "label": "ousamabenyounes:fix/issue-212812"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "bf6c2aee69ac2b921752e5855ce796374ff1c0af"
+  },
+  "body": "## Why\n\nIssue #212812 reports that the descriptions for the `editor.unicodeHighlight.*` settings (`nonBasicASCII`, `invisibleCharacters`, `ambiguousCharacters`) describe **what** is highlighted but not **why**. Users have read these as cosmetic annoyances rather than mitigations against:\n\n- Homoglyph attacks (confusable characters that make malicious code look benign).\n- Invisible Unicode that hides code from review.\n- Hidden Unicode that disguises the meaning of source code.\n\nThis led at least one user to spend time arguing in another issue about whether these characters are a real concern, when the editor's own setting docs could just have said so.\n\n## What\n\nIn `src/vs/editor/common/config/editorOptions.ts`, append a short security rationale to each of the three relevant descriptions:\n\n- `nonBasicASCII`: note that highlighting helps reveal hidden Unicode in untrusted code.\n- `invisibleCharacters`: note that invisible characters can hide code from review and are flagged for security reasons.\n- `ambiguousCharacters`: note that homoglyphs can make malicious code look benign and are flagged for security reasons.\n\nNo behavior change. Description-text only.\n\nFixes #212812",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8806c2bb2216694618328c69433e301bc10cd109",
+   "filename": "src/vs/editor/common/config/editorOptions.ts",
+   "status": "modified",
+   "additions": 3,
+   "deletions": 3,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/18e5cdeccf6dff046f59868caa5464968c451bd0/src%2Fvs%2Feditor%2Fcommon%2Fconfig%2FeditorOptions.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/18e5cdeccf6dff046f59868caa5464968c451bd0/src%2Fvs%2Feditor%2Fcommon%2Fconfig%2FeditorOptions.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcommon%2Fconfig%2FeditorOptions.ts?ref=18e5cdeccf6dff046f59868caa5464968c451bd0",
+   "patch": "@@ -4342,19 +4342,19 @@ class UnicodeHighlight extends BaseEditorOption<EditorOption.unicodeHighlighting\n \t\t\t\t\ttype: ['boolean', 'string'],\n \t\t\t\t\tenum: [true, false, inUntrustedWorkspace],\n \t\t\t\t\tdefault: defaults.nonBasicASCII,\n-\t\t\t\t\tdescription: nls.localize('unicodeHighlight.nonBasicASCII', \"Controls whether all non-basic ASCII characters are highlighted. Only characters between U+0020 and U+007E, tab, line-feed and carriage-return are considered basic ASCII.\")\n+\t\t\t\t\tdescription: nls.localize('unicodeHighlight.nonBasicASCII', \"Controls whether all non-basic ASCII characters are highlighted. Only characters between U+0020 and U+007E, tab, line-feed and carriage-return are considered basic ASCII. Surfacing these characters helps reviewers notice uncommon code points that could be used to obscure intent (a security concern, especially in untrusted code). Zero-width and other invisible characters are covered separately by `#editor.unicodeHighlight.invisibleCharacters#`.\")\n \t\t\t\t},\n \t\t\t\t[unicodeHighlightConfigKeys.invisibleCharacters]: {\n \t\t\t\t\trestricted: true,\n \t\t\t\t\ttype: 'boolean',\n \t\t\t\t\tdefault: defaults.invisibleCharacters,\n-\t\t\t\t\tdescription: nls.localize('unicodeHighlight.invisibleCharacters', \"Controls whether characters that just reserve space or have no width at all are highlighted.\")\n+\t\t\t\t\tdescription: nls.localize('unicodeHighlight.invisibleCharacters', \"Controls whether characters that just reserve space or have no width at all are highlighted. Invisible characters can hide code from review and are flagged for security reasons.\")\n \t\t\t\t},\n \t\t\t\t[unicodeHighlightConfigKeys.ambiguousCharacters]: {\n \t\t\t\t\trestricted: true,\n \t\t\t\t\ttype: 'boolean',\n \t\t\t\t\tdefault: defaults.ambiguousCharacters,\n-\t\t\t\t\tdescription: nls.localize('unicodeHighlight.ambiguousCharacters', \"Controls whether characters are highlighted that can be confused with basic ASCII characters, except those that are common in the current user locale.\")\n+\t\t\t\t\tdescription: nls.localize('unicodeHighlight.ambiguousCharacters', \"Controls whether characters are highlighted that can be confused with basic ASCII characters, except those that are common in the current user locale. Confusable characters (homoglyphs) are flagged for security reasons because they can be used to make malicious code look benign.\")\n \t\t\t\t},\n \t\t\t\t[unicodeHighlightConfigKeys.includeComments]: {\n \t\t\t\t\trestricted: true,"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4281584997,
+   "node_id": "PRR_kwDOAn8RLM7_M81l",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR updates the editor setting descriptions for `editor.unicodeHighlight.*` to clarify that Unicode highlighting is intended as a security mitigation (e.g., against hidden/invisible/confusable Unicode in code), addressing #212812. No runtime behavior changes are included.\n\n**Changes:**\n- Extended the `nonBasicASCII` setting description with a security rationale.\n- Extended the `invisibleCharacters` setting description with a security rationale.\n- Extended the `ambiguousCharacters` setting description with a security rationale.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/312592#pullrequestreview-4281584997",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/312592",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/312592#pullrequestreview-4281584997"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/312592"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-13T12:31:03Z",
+   "commit_id": "419d04e06888eb75c1ab52d6f88f967d18931cf4"
+  },
+  {
+   "id": 4282366157,
+   "node_id": "PRR_kwDOAn8RLM7_P7jN",
+   "user": {
+    "login": "ousamabenyounes",
+    "id": 2910651,
+    "node_id": "MDQ6VXNlcjI5MTA2NTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2910651?u=367ab30b79344aa8448ff04d731e8e265927e5ec&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ousamabenyounes",
+    "html_url": "https://github.com/ousamabenyounes",
+    "followers_url": "https://api.github.com/users/ousamabenyounes/followers",
+    "following_url": "https://api.github.com/users/ousamabenyounes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ousamabenyounes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ousamabenyounes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ousamabenyounes/subscriptions",
+    "organizations_url": "https://api.github.com/users/ousamabenyounes/orgs",
+    "repos_url": "https://api.github.com/users/ousamabenyounes/repos",
+    "events_url": "https://api.github.com/users/ousamabenyounes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ousamabenyounes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/312592#pullrequestreview-4282366157",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/312592",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/312592#pullrequestreview-4282366157"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/312592"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-13T14:02:01Z",
+   "commit_id": "92b250611640f01ebb8498bb0769b3fe300d2be7"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "18e5cdeccf6dff046f59868caa5464968c451bd0",
+   "node_id": "C_kwDOSM4zUdoAKDE4ZTVjZGVjY2Y2ZGZmMDQ2ZjU5ODY4Y2FhNTQ2NDk2OGM0NTFiZDA",
+   "commit": {
+    "author": {
+     "name": "Ousama Ben Younes",
+     "email": "benyounes.ousama@gmail.com",
+     "date": "2026-04-26T09:33:08Z"
+    },
+    "committer": {
+     "name": "Ousama Ben Younes",
+     "email": "benyounes.ousama@gmail.com",
+     "date": "2026-06-05T22:25:24Z"
+    },
+    "message": "docs: clarify unicodeHighlight settings are security features\n\nPer #212812, the descriptions for `editor.unicodeHighlight.nonBasicASCII`,\n`invisibleCharacters`, and `ambiguousCharacters` describe what is\nhighlighted but not why. Users have read these as cosmetic annoyances\nrather than mitigations against homoglyph attacks and hidden Unicode\nthat disguises code meaning.\n\nAppend a short security rationale to each of the three relevant\ndescriptions so users understand the purpose when they encounter the\nsetting in the Settings UI.\n\nFixes #212812",
+    "tree": {
+     "sha": "5ac9d194438675ce0d140dfcd1602a22e6c17210",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/5ac9d194438675ce0d140dfcd1602a22e6c17210"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/18e5cdeccf6dff046f59868caa5464968c451bd0",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/18e5cdeccf6dff046f59868caa5464968c451bd0",
+   "html_url": "https://github.com/microsoft/vscode/commit/18e5cdeccf6dff046f59868caa5464968c451bd0",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/18e5cdeccf6dff046f59868caa5464968c451bd0/comments",
+   "author": {
+    "login": "ousamabenyounes",
+    "id": 2910651,
+    "node_id": "MDQ6VXNlcjI5MTA2NTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2910651?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ousamabenyounes",
+    "html_url": "https://github.com/ousamabenyounes",
+    "followers_url": "https://api.github.com/users/ousamabenyounes/followers",
+    "following_url": "https://api.github.com/users/ousamabenyounes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ousamabenyounes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ousamabenyounes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ousamabenyounes/subscriptions",
+    "organizations_url": "https://api.github.com/users/ousamabenyounes/orgs",
+    "repos_url": "https://api.github.com/users/ousamabenyounes/repos",
+    "events_url": "https://api.github.com/users/ousamabenyounes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ousamabenyounes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "ousamabenyounes",
+    "id": 2910651,
+    "node_id": "MDQ6VXNlcjI5MTA2NTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2910651?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ousamabenyounes",
+    "html_url": "https://github.com/ousamabenyounes",
+    "followers_url": "https://api.github.com/users/ousamabenyounes/followers",
+    "following_url": "https://api.github.com/users/ousamabenyounes/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ousamabenyounes/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ousamabenyounes/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ousamabenyounes/subscriptions",
+    "organizations_url": "https://api.github.com/users/ousamabenyounes/orgs",
+    "repos_url": "https://api.github.com/users/ousamabenyounes/repos",
+    "events_url": "https://api.github.com/users/ousamabenyounes/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ousamabenyounes/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "bf6c2aee69ac2b921752e5855ce796374ff1c0af",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/bf6c2aee69ac2b921752e5855ce796374ff1c0af",
+     "html_url": "https://github.com/microsoft/vscode/commit/bf6c2aee69ac2b921752e5855ce796374ff1c0af"
+    }
+   ]
+  }
+ ]
+}

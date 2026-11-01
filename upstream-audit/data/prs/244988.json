@@ -1,0 +1,542 @@
+{
+ "fetchedAt": "2026-11-01T00:52:18.025Z",
+ "pr": {
+  "number": 244988,
+  "title": "SCM Graph - Allow default history filter to be changed through user's config",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2025-03-28T16:14:23Z",
+  "updated_at": "2026-08-10T01:16:15Z",
+  "user": "hecticme",
+  "author_association": "CONTRIBUTOR",
+  "additions": 16,
+  "deletions": 3,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 0,
+  "commits_count": 3,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "feat/scm-graph-default-filter",
+   "sha": "3d62ee73a366d2396377c852e370bebb65c0d295",
+   "repo": "hecticme/vscode",
+   "label": "hecticme:feat/scm-graph-default-filter"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "<!-- Thank you for submitting a Pull Request. Please:\r\n* Read our Pull Request guidelines:\r\n  https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests\r\n* Associate an issue with the Pull Request.\r\n* Ensure that the code is up-to-date with the `main` branch.\r\n* Include a description of the proposed changes and how to test them.\r\n-->\r\n\r\nClose #244866\r\n\r\n## Description\r\n\r\nThe fallback value of filterState will now rely on `scm.graph.defaultHistoryFilter` instead of just being `'auto'`.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "6b7efb3bcfa0756b2ca35907149f76ee1acbebd2",
+   "filename": "src/vs/workbench/contrib/scm/browser/scm.contribution.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 0,
+   "changes": 10,
+   "blob_url": "https://github.com/microsoft/vscode/blob/3d62ee73a366d2396377c852e370bebb65c0d295/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/3d62ee73a366d2396377c852e370bebb65c0d295/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2Fscm.contribution.ts?ref=3d62ee73a366d2396377c852e370bebb65c0d295",
+   "patch": "@@ -368,6 +368,16 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis\n \t\t\tdescription: localize('scm.compactFolders', \"Controls whether the Source Control view should render folders in a compact form. In such a form, single child folders will be compressed in a combined tree element.\"),\n \t\t\tdefault: true\n \t\t},\n+\t\t'scm.graph.defaultHistoryFilter': {\n+\t\t\ttype: 'string',\n+\t\t\tenum: ['all', 'auto'],\n+\t\t\tenumDescriptions: [\n+\t\t\t\tlocalize('scm.graph.defaultHistoryFilter.all', \"Get references from all branches.\"),\n+\t\t\t\tlocalize('scm.graph.defaultHistoryFilter.auto', \"Get references only from the current working branch(es).\")\n+\t\t\t],\n+\t\t\tdescription: localize('scm.graph.defaultHistoryFilter', \"Controls default history references used in the Source Control Graph view.\"),\n+\t\t\tdefault: 'auto',\n+\t\t},\n \t\t'scm.graph.pageOnScroll': {\n \t\t\ttype: 'boolean',\n \t\t\tdescription: localize('scm.graph.pageOnScroll', \"Controls whether the Source Control Graph view will load the next page of items when you scroll to the end of the list.\"),"
+  },
+  {
+   "sha": "f6620dab42e02f6eb43ae7737cdf3588b1900018",
+   "filename": "src/vs/workbench/contrib/scm/browser/scmHistoryViewPane.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 3,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/3d62ee73a366d2396377c852e370bebb65c0d295/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmHistoryViewPane.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/3d62ee73a366d2396377c852e370bebb65c0d295/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmHistoryViewPane.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fscm%2Fbrowser%2FscmHistoryViewPane.ts?ref=3d62ee73a366d2396377c852e370bebb65c0d295",
+   "patch": "@@ -834,7 +834,8 @@ class SCMHistoryViewModel extends Disposable {\n \t\t\treturn;\n \t\t}\n \n-\t\tconst filterState = this._repositoryFilterState.get(getProviderKey(repository.provider)) ?? 'auto';\n+\t\tconst defaultFilter = this._configurationService.getValue<'all' | 'auto'>('scm.graph.defaultHistoryFilter');\n+\t\tconst filterState = this._repositoryFilterState.get(getProviderKey(repository.provider)) ?? defaultFilter;\n \t\tif (filterState === 'all' || filterState === 'auto') {\n \t\t\treturn filterState;\n \t\t}\n@@ -934,7 +935,8 @@ class SCMHistoryViewModel extends Disposable {\n \t\t\treturn;\n \t\t}\n \n-\t\tif (filter !== 'auto') {\n+\t\tconst defaultFilter = this._configurationService.getValue<'all' | 'auto'>('scm.graph.defaultHistoryFilter');\n+\t\tif (filter !== defaultFilter) {\n \t\t\tthis._repositoryFilterState.set(getProviderKey(repository.provider), filter);\n \t\t} else {\n \t\t\tthis._repositoryFilterState.delete(getProviderKey(repository.provider));\n@@ -979,7 +981,8 @@ class SCMHistoryViewModel extends Disposable {\n \n \tprivate async _resolveHistoryItemFilter(repository: ISCMRepository, historyProvider: ISCMHistoryProvider): Promise<ISCMHistoryItemRef[]> {\n \t\tconst historyItemRefs: ISCMHistoryItemRef[] = [];\n-\t\tconst historyItemsFilter = this._repositoryFilterState.get(getProviderKey(repository.provider)) ?? 'auto';\n+\t\tconst defaultFilter = this._configurationService.getValue<'all' | 'auto'>('scm.graph.defaultHistoryFilter');\n+\t\tconst historyItemsFilter = this._repositoryFilterState.get(getProviderKey(repository.provider)) ?? defaultFilter;\n \n \t\tswitch (historyItemsFilter) {\n \t\t\tcase 'all':"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2727362741,
+   "node_id": "PRR_kwDOAn8RLM6ikEC1",
+   "user": {
+    "login": "StefanXhunga",
+    "id": 15867310,
+    "node_id": "MDQ6VXNlcjE1ODY3MzEw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/15867310?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/StefanXhunga",
+    "html_url": "https://github.com/StefanXhunga",
+    "followers_url": "https://api.github.com/users/StefanXhunga/followers",
+    "following_url": "https://api.github.com/users/StefanXhunga/following{/other_user}",
+    "gists_url": "https://api.github.com/users/StefanXhunga/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/StefanXhunga/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/StefanXhunga/subscriptions",
+    "organizations_url": "https://api.github.com/users/StefanXhunga/orgs",
+    "repos_url": "https://api.github.com/users/StefanXhunga/repos",
+    "events_url": "https://api.github.com/users/StefanXhunga/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/StefanXhunga/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Thank you for your support and contribution",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/244988#pullrequestreview-2727362741",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/244988",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/244988#pullrequestreview-2727362741"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/244988"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-03-29T12:56:07Z",
+   "commit_id": "3d62ee73a366d2396377c852e370bebb65c0d295"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2761951193",
+   "html_url": "https://github.com/microsoft/vscode/pull/244988#issuecomment-2761951193",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/244988",
+   "id": 2761951193,
+   "node_id": "IC_kwDOAn8RLM6koAfZ",
+   "user": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-28T17:09:20Z",
+   "updated_at": "2025-03-28T17:09:20Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2761951193/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2763308233",
+   "html_url": "https://github.com/microsoft/vscode/pull/244988#issuecomment-2763308233",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/244988",
+   "id": 2763308233,
+   "node_id": "IC_kwDOAn8RLM6ktLzJ",
+   "user": {
+    "login": "Firas2515",
+    "id": 191308168,
+    "node_id": "U_kgDOC2chiA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/191308168?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Firas2515",
+    "html_url": "https://github.com/Firas2515",
+    "followers_url": "https://api.github.com/users/Firas2515/followers",
+    "following_url": "https://api.github.com/users/Firas2515/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Firas2515/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Firas2515/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Firas2515/subscriptions",
+    "organizations_url": "https://api.github.com/users/Firas2515/orgs",
+    "repos_url": "https://api.github.com/users/Firas2515/repos",
+    "events_url": "https://api.github.com/users/Firas2515/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Firas2515/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-29T11:28:14Z",
+   "updated_at": "2025-03-29T11:28:14Z",
+   "body": "> Close #244866\r\n> \r\n> ## Description\r\n> The fallback value of filterState will now rely on `scm.graph.defaultHistoryFilter` instead of just being `'auto'`.\r\n\r\n#226383 ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2763308233/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2763345562",
+   "html_url": "https://github.com/microsoft/vscode/pull/244988#issuecomment-2763345562",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/244988",
+   "id": 2763345562,
+   "node_id": "IC_kwDOAn8RLM6ktU6a",
+   "user": {
+    "login": "StefanXhunga",
+    "id": 15867310,
+    "node_id": "MDQ6VXNlcjE1ODY3MzEw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/15867310?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/StefanXhunga",
+    "html_url": "https://github.com/StefanXhunga",
+    "followers_url": "https://api.github.com/users/StefanXhunga/followers",
+    "following_url": "https://api.github.com/users/StefanXhunga/following{/other_user}",
+    "gists_url": "https://api.github.com/users/StefanXhunga/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/StefanXhunga/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/StefanXhunga/subscriptions",
+    "organizations_url": "https://api.github.com/users/StefanXhunga/orgs",
+    "repos_url": "https://api.github.com/users/StefanXhunga/repos",
+    "events_url": "https://api.github.com/users/StefanXhunga/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/StefanXhunga/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-03-29T12:36:56Z",
+   "updated_at": "2025-03-29T12:36:56Z",
+   "body": "Thank you for your support and your contribution",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2763345562/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5234881142",
+   "html_url": "https://github.com/microsoft/vscode/pull/244988#issuecomment-5234881142",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/244988",
+   "id": 5234881142,
+   "node_id": "IC_kwDOAn8RLM8AAAABOAXydg",
+   "user": {
+    "login": "ricolxwz",
+    "id": 92409532,
+    "node_id": "U_kgDOBYIOvA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/92409532?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/ricolxwz",
+    "html_url": "https://github.com/ricolxwz",
+    "followers_url": "https://api.github.com/users/ricolxwz/followers",
+    "following_url": "https://api.github.com/users/ricolxwz/following{/other_user}",
+    "gists_url": "https://api.github.com/users/ricolxwz/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/ricolxwz/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/ricolxwz/subscriptions",
+    "organizations_url": "https://api.github.com/users/ricolxwz/orgs",
+    "repos_url": "https://api.github.com/users/ricolxwz/repos",
+    "events_url": "https://api.github.com/users/ricolxwz/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/ricolxwz/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-08-10T01:16:15Z",
+   "updated_at": "2026-08-10T01:16:15Z",
+   "body": "Please review this feature, really helpful. ",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5234881142/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "88083948c6c8bc1c41673fc2ceaef67867e0f371",
+   "node_id": "C_kwDOMNxOZNoAKDg4MDgzOTQ4YzZjOGJjMWM0MTY3M2ZjMmNlYWVmNjc4NjdlMGYzNzE",
+   "commit": {
+    "author": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-28T01:12:49Z"
+    },
+    "committer": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-29T10:50:51Z"
+    },
+    "message": "Add `defaultHistoryFilter` config for Source Control Graph",
+    "tree": {
+     "sha": "cb65bf26288f41657170b0c52d3eb41639b0d3ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/cb65bf26288f41657170b0c52d3eb41639b0d3ea"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/88083948c6c8bc1c41673fc2ceaef67867e0f371",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQRkQJC1RP4/1ZVPX2jTpLyZ8J2cRQUCZ+fQiwAKCRDTpLyZ8J2c\nRUKTAP0bAxT3Y4lLjfuVcycIrYWioYEAPyAuo3s5gBrBUtHEaQEA4RH8/HXlvFzj\nUPURfkPEwfwbb+OwW9BZJgluEb2ngAA=\n=/Fx9\n-----END PGP SIGNATURE-----",
+     "payload": "tree cb65bf26288f41657170b0c52d3eb41639b0d3ea\nparent cc0b0c1fa10156b0e77a336d89e2a9282ae15c68\nauthor H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743124369 +0700\ncommitter H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743245451 +0700\n\nAdd `defaultHistoryFilter` config for Source Control Graph\n",
+     "verified_at": "2025-03-29T11:01:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/88083948c6c8bc1c41673fc2ceaef67867e0f371",
+   "html_url": "https://github.com/microsoft/vscode/commit/88083948c6c8bc1c41673fc2ceaef67867e0f371",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/88083948c6c8bc1c41673fc2ceaef67867e0f371/comments",
+   "author": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "cc0b0c1fa10156b0e77a336d89e2a9282ae15c68",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/cc0b0c1fa10156b0e77a336d89e2a9282ae15c68",
+     "html_url": "https://github.com/microsoft/vscode/commit/cc0b0c1fa10156b0e77a336d89e2a9282ae15c68"
+    }
+   ]
+  },
+  {
+   "sha": "e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+   "node_id": "C_kwDOMNxOZNoAKGU3ZTY3ZDBmMGFlMTAxZGVkODZhYjU5Y2JmNTgwODI1NzdlZjlmNTA",
+   "commit": {
+    "author": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-28T16:05:28Z"
+    },
+    "committer": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-29T10:57:52Z"
+    },
+    "message": "Use user's config for SCM default history item filter",
+    "tree": {
+     "sha": "99c251f488902735ca2b7a90757e4ac809a1835c",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/99c251f488902735ca2b7a90757e4ac809a1835c"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQRkQJC1RP4/1ZVPX2jTpLyZ8J2cRQUCZ+fSMAAKCRDTpLyZ8J2c\nRWVnAP9qWXBUorG/YGi7LvjmESirNLTii7pGpC2QLCelXTBYSgD/akNGjpxcgOku\nnTgddkv3Q/SUDbNz4MdKK6hhtrrjWw0=\n=2Ib4\n-----END PGP SIGNATURE-----",
+     "payload": "tree 99c251f488902735ca2b7a90757e4ac809a1835c\nparent 88083948c6c8bc1c41673fc2ceaef67867e0f371\nauthor H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743177928 +0700\ncommitter H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743245872 +0700\n\nUse user's config for SCM default history item filter\n",
+     "verified_at": "2025-03-29T11:01:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+   "html_url": "https://github.com/microsoft/vscode/commit/e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/e7e67d0f0ae101ded86ab59cbf58082577ef9f50/comments",
+   "author": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "88083948c6c8bc1c41673fc2ceaef67867e0f371",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/88083948c6c8bc1c41673fc2ceaef67867e0f371",
+     "html_url": "https://github.com/microsoft/vscode/commit/88083948c6c8bc1c41673fc2ceaef67867e0f371"
+    }
+   ]
+  },
+  {
+   "sha": "3d62ee73a366d2396377c852e370bebb65c0d295",
+   "node_id": "C_kwDOMNxOZNoAKDNkNjJlZTczYTM2NmQyMzk2Mzc3Yzg1MmUzNzBiZWJiNjVjMGQyOTU",
+   "commit": {
+    "author": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-28T18:15:04Z"
+    },
+    "committer": {
+     "name": "H. Ngọc Minh",
+     "email": "hangoc.minh1306@gmail.com",
+     "date": "2025-03-29T10:57:52Z"
+    },
+    "message": "Fix grammar",
+    "tree": {
+     "sha": "81c30628aeaecb2e65b1089b0c8268a527fddbce",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/81c30628aeaecb2e65b1089b0c8268a527fddbce"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3d62ee73a366d2396377c852e370bebb65c0d295",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\niHUEABYKAB0WIQRkQJC1RP4/1ZVPX2jTpLyZ8J2cRQUCZ+fSMAAKCRDTpLyZ8J2c\nRWZCAQDK8lp9QD1Hd9Z7vwc/93hfjrwBZ+kQa3hC8uQEDTQ/BQEA5G7jqrP5LSeW\ncGXlbjLLHU1n5Xm1mcIUyqKTl2B8dwc=\n=RNvf\n-----END PGP SIGNATURE-----",
+     "payload": "tree 81c30628aeaecb2e65b1089b0c8268a527fddbce\nparent e7e67d0f0ae101ded86ab59cbf58082577ef9f50\nauthor H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743185704 +0700\ncommitter H. Ngọc Minh <hangoc.minh1306@gmail.com> 1743245872 +0700\n\nFix grammar\n",
+     "verified_at": "2025-03-29T11:01:42Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3d62ee73a366d2396377c852e370bebb65c0d295",
+   "html_url": "https://github.com/microsoft/vscode/commit/3d62ee73a366d2396377c852e370bebb65c0d295",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3d62ee73a366d2396377c852e370bebb65c0d295/comments",
+   "author": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "hecticme",
+    "id": 110041780,
+    "node_id": "U_kgDOBo8atA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/110041780?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hecticme",
+    "html_url": "https://github.com/hecticme",
+    "followers_url": "https://api.github.com/users/hecticme/followers",
+    "following_url": "https://api.github.com/users/hecticme/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hecticme/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hecticme/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hecticme/subscriptions",
+    "organizations_url": "https://api.github.com/users/hecticme/orgs",
+    "repos_url": "https://api.github.com/users/hecticme/repos",
+    "events_url": "https://api.github.com/users/hecticme/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hecticme/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e7e67d0f0ae101ded86ab59cbf58082577ef9f50",
+     "html_url": "https://github.com/microsoft/vscode/commit/e7e67d0f0ae101ded86ab59cbf58082577ef9f50"
+    }
+   ]
+  }
+ ]
+}

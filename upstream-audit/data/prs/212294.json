@@ -1,0 +1,905 @@
+{
+ "fetchedAt": "2026-11-01T00:51:40.682Z",
+ "pr": {
+  "number": 212294,
+  "title": "Add token background colors to themes",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2024-05-08T21:26:07Z",
+  "updated_at": "2026-01-20T10:13:51Z",
+  "user": "mattmundell",
+  "author_association": "NONE",
+  "additions": 8,
+  "deletions": 0,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 8,
+  "review_comments": 0,
+  "commits_count": 5,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "theme-token-background-color",
+   "sha": "95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "repo": "mattmundell/vscode",
+   "label": "mattmundell:theme-token-background-color"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "Add support for background colors to theme rules.\r\n\r\nCloses #3429.\r\n\r\nI did this before noticing #3429. Maybe helps someone wanting to patch their own version.\r\n\r\n## Example\r\n\r\n``` js\r\nid = 'patch'\r\ntokenizer = {\r\n  root: [\r\n    [/^---\\s.*/, \"bredfill\"],\r\n    [/^\\+\\+\\+\\s.*/, \"bredfill\"],\r\n    [/^\\@\\@\\s.*/, \"bredfill\"],\r\n    [/^-.*/, \"minus\"],\r\n    [/^\\+.*/, \"plus\"],\r\n  ],\r\n}\r\n\r\nMon.languages.register({ id: id,\r\n                         firstLine: '^diff --git.*',\r\n                         'mime-type': ['text/x-diff', 'text/x-patch', 'application/x-patch'],\r\n                         extensions: ['.patch', '.diff'] })\r\nMon.languages.setMonarchTokensProvider(id, { tokenizer: tokenizer })\r\n\r\nthemeSolarized.rules.push({ \"foreground\": '073642',\r\n                            \"background\": 'eee8d5',\r\n                            \"token\": \"bredfill\" })\r\n```\r\n\r\n![example](https://github.com/microsoft/vscode/assets/32057441/c8c460bb-238f-475c-ab70-4426071ab8c4)\r\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8ab3fdff9f8eee71fb8093d3f4a684994e3068dd",
+   "filename": "src/vs/editor/common/encodedTokenAttributes.ts",
+   "status": "modified",
+   "additions": 4,
+   "deletions": 0,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/95ade9b54ef8e8f5fead3778b65276c8be1f0fed/src%2Fvs%2Feditor%2Fcommon%2FencodedTokenAttributes.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/95ade9b54ef8e8f5fead3778b65276c8be1f0fed/src%2Fvs%2Feditor%2Fcommon%2FencodedTokenAttributes.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcommon%2FencodedTokenAttributes.ts?ref=95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "patch": "@@ -124,9 +124,13 @@ export class TokenMetadata {\n \n \tpublic static getClassNameFromMetadata(metadata: number): string {\n \t\tconst foreground = this.getForeground(metadata);\n+\t\tconst background = this.getBackground(metadata);\n \t\tlet className = 'mtk' + foreground;\n \n \t\tconst fontStyle = this.getFontStyle(metadata);\n+\t\tif (background) {\n+\t\t\tclassName += ' mtkbg' + background;\n+\t\t}\n \t\tif (fontStyle & FontStyle.Italic) {\n \t\t\tclassName += ' mtki';\n \t\t}"
+  },
+  {
+   "sha": "1725188ed18c655ea84bdc6270ae32edd267c67d",
+   "filename": "src/vs/editor/common/languages/supports/tokenization.ts",
+   "status": "modified",
+   "additions": 4,
+   "deletions": 0,
+   "changes": 4,
+   "blob_url": "https://github.com/microsoft/vscode/blob/95ade9b54ef8e8f5fead3778b65276c8be1f0fed/src%2Fvs%2Feditor%2Fcommon%2Flanguages%2Fsupports%2Ftokenization.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/95ade9b54ef8e8f5fead3778b65276c8be1f0fed/src%2Fvs%2Feditor%2Fcommon%2Flanguages%2Fsupports%2Ftokenization.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fcommon%2Flanguages%2Fsupports%2Ftokenization.ts?ref=95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "patch": "@@ -415,6 +415,10 @@ export function generateTokensCSSForColorMap(colorMap: readonly Color[]): string\n \t\tconst color = colorMap[i];\n \t\trules[i] = `.mtk${i} { color: ${color}; }`;\n \t}\n+\tfor (let i = 1, len = colorMap.length; i < len; i++) {\n+\t\tconst color = colorMap[i];\n+\t\trules.push(`.mtkbg${i}::before { content: \"\"; position: absolute; top: 0; left: 0; background-color: ${color}; width: 100%; height: 100%; display: flex; z-index: -1; }`);\n+\t}\n \trules.push('.mtki { font-style: italic; }');\n \trules.push('.mtkb { font-weight: bold; }');\n \trules.push('.mtku { text-decoration: underline; text-underline-position: under; }');"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2264377487,
+   "node_id": "PRR_kwDOAn8RLM6G96iP",
+   "user": {
+    "login": "mattdyerets",
+    "id": 56935571,
+    "node_id": "MDQ6VXNlcjU2OTM1NTcx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/56935571?u=9bb55828ff2afb3574503762b87327b44a931cec&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattdyerets",
+    "html_url": "https://github.com/mattdyerets",
+    "followers_url": "https://api.github.com/users/mattdyerets/followers",
+    "following_url": "https://api.github.com/users/mattdyerets/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattdyerets/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattdyerets/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattdyerets/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattdyerets/orgs",
+    "repos_url": "https://api.github.com/users/mattdyerets/repos",
+    "events_url": "https://api.github.com/users/mattdyerets/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattdyerets/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "This code looks good.  I would like to have this feature also.",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#pullrequestreview-2264377487",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/212294",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/212294#pullrequestreview-2264377487"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/212294"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2024-08-27T20:23:24Z",
+   "commit_id": "95ade9b54ef8e8f5fead3778b65276c8be1f0fed"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2101520176",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2101520176",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2101520176,
+   "node_id": "IC_kwDOAn8RLM59Qqcw",
+   "user": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-05-08T21:35:24Z",
+   "updated_at": "2024-05-08T21:35:24Z",
+   "body": "> @microsoft-github-policy-service agree\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2101520176/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2151526403",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2151526403",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2151526403,
+   "node_id": "IC_kwDOAn8RLM6APbAD",
+   "user": {
+    "login": "alexdima",
+    "id": 5047891,
+    "node_id": "MDQ6VXNlcjUwNDc4OTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5047891?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/alexdima",
+    "html_url": "https://github.com/alexdima",
+    "followers_url": "https://api.github.com/users/alexdima/followers",
+    "following_url": "https://api.github.com/users/alexdima/following{/other_user}",
+    "gists_url": "https://api.github.com/users/alexdima/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/alexdima/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/alexdima/subscriptions",
+    "organizations_url": "https://api.github.com/users/alexdima/orgs",
+    "repos_url": "https://api.github.com/users/alexdima/repos",
+    "events_url": "https://api.github.com/users/alexdima/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/alexdima/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2024-06-06T06:45:19Z",
+   "updated_at": "2024-06-06T06:45:19Z",
+   "body": "Thank you! While this is straight-forward to implement, I have always had 2 major concerns why I didn't implement this:\r\n* what is the effect of blending other background colors with the theme defined background for tokens? How does selection, find matches, word highglights, etc. look like when the theme defines such a background color\r\n* which of the top 20 most used themes define background colors for tokens? if we are to begin respecting now the tokens background tokens, most users will be surprised and they will interpret this as a breaking change; with the previous vscode version their code looked one way, they did nothing, and now the code has certain (unexpected) background colors.",
+   "author_association": "MEMBER",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2151526403/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2156208053",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2156208053",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2156208053,
+   "node_id": "IC_kwDOAn8RLM6AhR-1",
+   "user": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-06-08T22:20:26Z",
+   "updated_at": "2024-06-08T22:20:26Z",
+   "body": "> * what is the effect of blending other background colors with the theme defined background for tokens? How does selection, find matches, word highglights, etc. look like when the theme defines such a background color\r\n\r\nWith [1291b04](https://github.com/microsoft/vscode/pull/212294/commits/1291b04da73a790bbb3f569ae79be237d779f9ea) the token backgrounds go below the decoration layer, so selection etc are always visible.\r\n\r\nHere's the plain case. Cursor is at the start of line 17. The light blue is the line highlight. Tokens with backgrounds are on lines 12-14.\r\n![shot1](https://github.com/microsoft/vscode/assets/32057441/a0b8b8d5-37f8-4445-8033-27b3d7f546a0)\r\n\r\nHere's with word highlight over the background.\r\n![shot2](https://github.com/microsoft/vscode/assets/32057441/295c8d0f-b153-40b2-a52f-26bef1bf4976)\r\n\r\nAnd with the selection over the background. Note that the line highlight is removed whenever there's a selection.\r\n![shot3](https://github.com/microsoft/vscode/assets/32057441/ec803e58-2e8d-4f73-a828-ab84e0b52c83)\r\n\r\n> which of the top 20 most used themes define background colors for tokens? if we are to begin respecting now the tokens background tokens, most users will be surprised and they will interpret this as a breaking change; with the previous vscode version their code looked one way, they did nothing, and now the code has certain (unexpected) background colors.\r\n\r\nGood point. Perhaps a flag on the theme could control whether backgrounds are used in rules.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2156208053/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2275053298",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2275053298",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2275053298,
+   "node_id": "IC_kwDOAn8RLM6Hmo7y",
+   "user": {
+    "login": "IngmarPaetzold",
+    "id": 75720105,
+    "node_id": "MDQ6VXNlcjc1NzIwMTA1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/75720105?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/IngmarPaetzold",
+    "html_url": "https://github.com/IngmarPaetzold",
+    "followers_url": "https://api.github.com/users/IngmarPaetzold/followers",
+    "following_url": "https://api.github.com/users/IngmarPaetzold/following{/other_user}",
+    "gists_url": "https://api.github.com/users/IngmarPaetzold/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/IngmarPaetzold/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/IngmarPaetzold/subscriptions",
+    "organizations_url": "https://api.github.com/users/IngmarPaetzold/orgs",
+    "repos_url": "https://api.github.com/users/IngmarPaetzold/repos",
+    "events_url": "https://api.github.com/users/IngmarPaetzold/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/IngmarPaetzold/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2024-08-08T06:32:15Z",
+   "updated_at": "2024-08-08T06:32:15Z",
+   "body": "> ... How does selection, find matches, word highglights, etc. look like when the theme defines such a background color\r\n\r\nvary the intensity in some other way, e.g. invert the colors, or intensify them, or do a color shift; maybe give a new option mode _how_ people want selection be displayed (\"invert\", \"shift\", \"intensify\", \"blur\" whatever).\r\n\r\n> ... most users will be surprised and they will interpret this as a breaking change;\r\n\r\nWhen the themes had no token background colors defined before, then nothing changes.\r\n\r\nWhat about an option \"NoBackgroundColor\" - or, vice versa, \"WithBackgroundColor\" for those who want to intentionally _enable_ that feature.\r\n\r\n",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2275053298/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2581723117",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2581723117",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2581723117,
+   "node_id": "IC_kwDOAn8RLM6Z4fft",
+   "user": {
+    "login": "wchristian",
+    "id": 175467,
+    "node_id": "MDQ6VXNlcjE3NTQ2Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/175467?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/wchristian",
+    "html_url": "https://github.com/wchristian",
+    "followers_url": "https://api.github.com/users/wchristian/followers",
+    "following_url": "https://api.github.com/users/wchristian/following{/other_user}",
+    "gists_url": "https://api.github.com/users/wchristian/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/wchristian/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/wchristian/subscriptions",
+    "organizations_url": "https://api.github.com/users/wchristian/orgs",
+    "repos_url": "https://api.github.com/users/wchristian/repos",
+    "events_url": "https://api.github.com/users/wchristian/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/wchristian/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-01-10T04:33:51Z",
+   "updated_at": "2025-01-10T04:33:51Z",
+   "body": "why is this still blocked?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2581723117/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2643230440",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-2643230440",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 2643230440,
+   "node_id": "IC_kwDOAn8RLM6djH7o",
+   "user": {
+    "login": "sambacha",
+    "id": 32783916,
+    "node_id": "MDQ6VXNlcjMyNzgzOTE2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32783916?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/sambacha",
+    "html_url": "https://github.com/sambacha",
+    "followers_url": "https://api.github.com/users/sambacha/followers",
+    "following_url": "https://api.github.com/users/sambacha/following{/other_user}",
+    "gists_url": "https://api.github.com/users/sambacha/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/sambacha/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/sambacha/subscriptions",
+    "organizations_url": "https://api.github.com/users/sambacha/orgs",
+    "repos_url": "https://api.github.com/users/sambacha/repos",
+    "events_url": "https://api.github.com/users/sambacha/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/sambacha/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-07T15:20:28Z",
+   "updated_at": "2025-02-07T15:20:28Z",
+   "body": "> Add support for background colors to theme rules.\r\n> \r\n> Closes #3429.\r\n> \r\n> I did this before noticing #3429. Maybe helps someone wanting to patch their own version.\r\n> \r\n> ## Example\r\n> ```js\r\n> id = 'patch'\r\n> tokenizer = {\r\n>   root: [\r\n>     [/^---\\s.*/, \"bredfill\"],\r\n>     [/^\\+\\+\\+\\s.*/, \"bredfill\"],\r\n>     [/^\\@\\@\\s.*/, \"bredfill\"],\r\n>     [/^-.*/, \"minus\"],\r\n>     [/^\\+.*/, \"plus\"],\r\n>   ],\r\n> }\r\n> \r\n> Mon.languages.register({ id: id,\r\n>                          firstLine: '^diff --git.*',\r\n>                          'mime-type': ['text/x-diff', 'text/x-patch', 'application/x-patch'],\r\n>                          extensions: ['.patch', '.diff'] })\r\n> Mon.languages.setMonarchTokensProvider(id, { tokenizer: tokenizer })\r\n> \r\n> themeSolarized.rules.push({ \"foreground\": '073642',\r\n>                             \"background\": 'eee8d5',\r\n>                             \"token\": \"bredfill\" })\r\n> ```\r\n> \r\n> ![example](https://private-user-images.githubusercontent.com/32057441/329075571-c8c460bb-238f-475c-ab70-4426071ab8c4.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Mzg5NDE4MzIsIm5iZiI6MTczODk0MTUzMiwicGF0aCI6Ii8zMjA1NzQ0MS8zMjkwNzU1NzEtYzhjNDYwYmItMjM4Zi00NzVjLWFiNzAtNDQyNjA3MWFiOGM0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAyMDclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMjA3VDE1MTg1MlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTY5YmZlMzVlNzZlM2Y5NWQ0M2NkZTIyYTdmNzZlYjIxMjQ1NTcyZDg3N2QzZWQ2MDE4MzU2ZGMzYzljNDZmMjgmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.LNd7E2Y6QkoKZZNjW5Aw01-RImFLpGzk8ICqDNF0QD0)\r\n\r\nHave you considered vscodium upstream? thank you for this, bless you",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2643230440/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3245158569",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-3245158569",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 3245158569,
+   "node_id": "IC_kwDOAn8RLM7BbTCp",
+   "user": {
+    "login": "nanoant",
+    "id": 103067,
+    "node_id": "MDQ6VXNlcjEwMzA2Nw==",
+    "avatar_url": "https://avatars.githubusercontent.com/u/103067?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/nanoant",
+    "html_url": "https://github.com/nanoant",
+    "followers_url": "https://api.github.com/users/nanoant/followers",
+    "following_url": "https://api.github.com/users/nanoant/following{/other_user}",
+    "gists_url": "https://api.github.com/users/nanoant/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/nanoant/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/nanoant/subscriptions",
+    "organizations_url": "https://api.github.com/users/nanoant/orgs",
+    "repos_url": "https://api.github.com/users/nanoant/repos",
+    "events_url": "https://api.github.com/users/nanoant/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/nanoant/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-09-02T12:40:41Z",
+   "updated_at": "2025-09-02T12:40:41Z",
+   "body": "What are we waiting for? Can someone with proper entitlements review this, so we can close this one 9 year old issue https://github.com/microsoft/vscode/issues/3429 ?",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3245158569/reactions",
+    "total_count": 2,
+    "+1": 2,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3757153582",
+   "html_url": "https://github.com/microsoft/vscode/pull/212294#issuecomment-3757153582",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/212294",
+   "id": 3757153582,
+   "node_id": "IC_kwDOAn8RLM7f8Z0u",
+   "user": {
+    "login": "arisv",
+    "id": 25064849,
+    "node_id": "MDQ6VXNlcjI1MDY0ODQ5",
+    "avatar_url": "https://avatars.githubusercontent.com/u/25064849?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/arisv",
+    "html_url": "https://github.com/arisv",
+    "followers_url": "https://api.github.com/users/arisv/followers",
+    "following_url": "https://api.github.com/users/arisv/following{/other_user}",
+    "gists_url": "https://api.github.com/users/arisv/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/arisv/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/arisv/subscriptions",
+    "organizations_url": "https://api.github.com/users/arisv/orgs",
+    "repos_url": "https://api.github.com/users/arisv/repos",
+    "events_url": "https://api.github.com/users/arisv/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/arisv/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-01-15T22:18:32Z",
+   "updated_at": "2026-01-15T22:18:32Z",
+   "body": "It's a very useful customization feature, please give it some attention",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/3757153582/reactions",
+    "total_count": 1,
+    "+1": 1,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+   "node_id": "C_kwDOL49ol9oAKGVmZmQyNjkzOTYwMGY4NGZhOWYyZTdmNGNjNzM3MWU0MDAxYWJkMGE",
+   "commit": {
+    "author": {
+     "name": "Matt Mundell",
+     "email": "matt@mundell.me",
+     "date": "2024-05-08T21:20:23Z"
+    },
+    "committer": {
+     "name": "Matt Mundell",
+     "email": "matt@mundell.me",
+     "date": "2024-05-08T21:20:23Z"
+    },
+    "message": "Add token background colors to themes",
+    "tree": {
+     "sha": "ef6b80a9065168bb9da46965d6e2a4c2f25daaf2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ef6b80a9065168bb9da46965d6e2a4c2f25daaf2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+   "html_url": "https://github.com/microsoft/vscode/commit/effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/effd26939600f84fa9f2e7f4cc7371e4001abd0a/comments",
+   "author": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "9c336bfa87fbc9f760439912a323ac77fbaf9484",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/9c336bfa87fbc9f760439912a323ac77fbaf9484",
+     "html_url": "https://github.com/microsoft/vscode/commit/9c336bfa87fbc9f760439912a323ac77fbaf9484"
+    }
+   ]
+  },
+  {
+   "sha": "d3fce9344292810175f56b5591e7cf6dfd19df72",
+   "node_id": "C_kwDOL49ol9oAKGQzZmNlOTM0NDI5MjgxMDE3NWY1NmI1NTkxZTdjZjZkZmQxOWRmNzI",
+   "commit": {
+    "author": {
+     "name": "Alexandru Dima",
+     "email": "alexdima@microsoft.com",
+     "date": "2024-06-06T06:42:37Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2024-06-06T06:42:37Z"
+    },
+    "message": "Merge branch 'main' into theme-token-background-color",
+    "tree": {
+     "sha": "af24f901fd0796303b9ef2439155a4cf632786b4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/af24f901fd0796303b9ef2439155a4cf632786b4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/d3fce9344292810175f56b5591e7cf6dfd19df72",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJmYVpdCRC1aQ7uu5UhlAAAHIoQAFZ35SDTMWI0apAIJNR/Q1wy\nCUpfJXvsFdHFrMy6XSMCWDn97PagVY/GQUhx5TD4EoHhvtnj/4JHCGHxtqvvyZZu\n1FwdKLTx7wvuASyuznR4TRrnsSSMFk0gAm6c4kioyu40lSNOi48OYg5cEVa3eYyY\ndRoNg6f866C8wGLBH/bdsTOC1QY6uQmHFMLRB7QPfsGltjFvjzAL5DSYZG43vIxY\nCankU6u8ny/3dtP5y9I15AkSAxUTs6rr+27wfmC+WbOpUhiDXAfJWmnPrd+vT5ub\nU7qvxRgFPuoLPsKZdITthppJLCjL+KPrasASBy393LOq4EMglnyoXzJx9+yB/i1X\n0aUj5xcMZb+ZbQchT96CU81D2jre+nHrFniTELzM23dBP+sjnNoFDB8AnKRUX6qy\nKApflWHqakfdACFVzI+gdsvnSLX8rqBE7aknJQnZTapgnQPomm/j2mciVg+i4gv1\nC6PSuysYBX/fIjcbUl+xT6r/E5ypViy+UrKKbsKSE7jXYu38odnVCYhBaCl6UsqL\nwZwYrRPDOlb+tRkHVbA3rvuJJEGfgzMTY+zqBsmJh4nrShkkNOB3M/HLo6atm3q/\nA6om+KY/8//mxI4D+/zcRdpilrmqneqeDQKCNrxudndvrM8ZTVt5+Yymc3Pn8JhR\nSJvsKc5LvktmT9LORTSt\n=8ycn\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree af24f901fd0796303b9ef2439155a4cf632786b4\nparent effd26939600f84fa9f2e7f4cc7371e4001abd0a\nparent 5f646b8e67a869ef33061085ffe0e377d5ba040c\nauthor Alexandru Dima <alexdima@microsoft.com> 1717656157 +0200\ncommitter GitHub <noreply@github.com> 1717656157 +0200\n\nMerge branch 'main' into theme-token-background-color",
+     "verified_at": "2024-11-05T18:27:02Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/d3fce9344292810175f56b5591e7cf6dfd19df72",
+   "html_url": "https://github.com/microsoft/vscode/commit/d3fce9344292810175f56b5591e7cf6dfd19df72",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/d3fce9344292810175f56b5591e7cf6dfd19df72/comments",
+   "author": {
+    "login": "alexdima",
+    "id": 5047891,
+    "node_id": "MDQ6VXNlcjUwNDc4OTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5047891?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/alexdima",
+    "html_url": "https://github.com/alexdima",
+    "followers_url": "https://api.github.com/users/alexdima/followers",
+    "following_url": "https://api.github.com/users/alexdima/following{/other_user}",
+    "gists_url": "https://api.github.com/users/alexdima/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/alexdima/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/alexdima/subscriptions",
+    "organizations_url": "https://api.github.com/users/alexdima/orgs",
+    "repos_url": "https://api.github.com/users/alexdima/repos",
+    "events_url": "https://api.github.com/users/alexdima/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/alexdima/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/effd26939600f84fa9f2e7f4cc7371e4001abd0a",
+     "html_url": "https://github.com/microsoft/vscode/commit/effd26939600f84fa9f2e7f4cc7371e4001abd0a"
+    },
+    {
+     "sha": "5f646b8e67a869ef33061085ffe0e377d5ba040c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5f646b8e67a869ef33061085ffe0e377d5ba040c",
+     "html_url": "https://github.com/microsoft/vscode/commit/5f646b8e67a869ef33061085ffe0e377d5ba040c"
+    }
+   ]
+  },
+  {
+   "sha": "1291b04da73a790bbb3f569ae79be237d779f9ea",
+   "node_id": "C_kwDOL49ol9oAKDEyOTFiMDRkYTczYTc5MGJiYjNmNTY5YWU3OWJlMjM3ZDc3OWY5ZWE",
+   "commit": {
+    "author": {
+     "name": "Matt Mundell",
+     "email": "matt@mundell.me",
+     "date": "2024-06-08T21:46:27Z"
+    },
+    "committer": {
+     "name": "Matt Mundell",
+     "email": "matt@mundell.me",
+     "date": "2024-06-08T21:46:27Z"
+    },
+    "message": "Lower token backgrounds on the z axis",
+    "tree": {
+     "sha": "614d1d391fc4288aaec186502dc53668e5738e4e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/614d1d391fc4288aaec186502dc53668e5738e4e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/1291b04da73a790bbb3f569ae79be237d779f9ea",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/1291b04da73a790bbb3f569ae79be237d779f9ea",
+   "html_url": "https://github.com/microsoft/vscode/commit/1291b04da73a790bbb3f569ae79be237d779f9ea",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/1291b04da73a790bbb3f569ae79be237d779f9ea/comments",
+   "author": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "mattmundell",
+    "id": 32057441,
+    "node_id": "MDQ6VXNlcjMyMDU3NDQx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/32057441?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/mattmundell",
+    "html_url": "https://github.com/mattmundell",
+    "followers_url": "https://api.github.com/users/mattmundell/followers",
+    "following_url": "https://api.github.com/users/mattmundell/following{/other_user}",
+    "gists_url": "https://api.github.com/users/mattmundell/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/mattmundell/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/mattmundell/subscriptions",
+    "organizations_url": "https://api.github.com/users/mattmundell/orgs",
+    "repos_url": "https://api.github.com/users/mattmundell/repos",
+    "events_url": "https://api.github.com/users/mattmundell/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/mattmundell/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d3fce9344292810175f56b5591e7cf6dfd19df72",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d3fce9344292810175f56b5591e7cf6dfd19df72",
+     "html_url": "https://github.com/microsoft/vscode/commit/d3fce9344292810175f56b5591e7cf6dfd19df72"
+    }
+   ]
+  },
+  {
+   "sha": "5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+   "node_id": "C_kwDOL49ol9oAKDVjYWEyNWFjZGI0YzA3OWMxZjFkNGM4NmQ0Njc3OWNlZDhkYThmMmY",
+   "commit": {
+    "author": {
+     "name": "Alexandru Dima",
+     "email": "alexdima@microsoft.com",
+     "date": "2025-07-15T07:18:23Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-07-15T07:18:23Z"
+    },
+    "message": "Merge branch 'main' into theme-token-background-color",
+    "tree": {
+     "sha": "fd41369346bd0a552561ddc686e8e2cb84c6e235",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fd41369346bd0a552561ddc686e8e2cb84c6e235"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJodgC/CRC1aQ7uu5UhlAAArtoQAFUExXQj6yJoNTIP3VgDtRWZ\nEPjgi1DaVWahovhutmigKcoPqxqWzZsLxJHxmdYfh0wpsJ6cAlEgT0bwB+dsjNk3\nQqDenwdyporh2VCBB3IF4mlRivfhhPp+jbmpaR6UQta38MCpGZqk8t+pt97zlid0\nEwl4+b9vOZuirHEUI9XYwjHjfg9MIORAqdp6w2IHlgpSFvndZYitZX75/CMU9hPU\nvWTc4aMW+tciepzeLnl8NjnYMU39aGp74oI5Gi1E3X6W2uwrxFKap8CxFh7GdhQ2\nESWqtci2tSiqJ61CgiwbLTRaGPk8Wbs4aXLOGkCfUsHxrH2tkh+R5f2es0idBOyD\nY0lQIzVWkRm5/rg1efWkV1vidN3/oSNq89zTBlFCW1GG2tw0nt6x6PUoj2Cr561p\nhGI8kyMMHLp1i3JZDIGed5u3bn68uARUnUDFS0AURZUSKBha97z06Of56eIsAnQq\nlYcZmuFtbkffT2WWEhtai0dxtEJ4/+dDH/HtWUSiqSxcRlNfKMQyh+Ht5FX6OH0a\njSFgjaE5dJ1N7JYMOfK8Xm1gDlVnAB6gc5mx/Rgh+qJcq9RjirtzEohDlqJcmD9r\naQ9EjaCqjG6tne15SO1CWphTSJLEODxARNHw/Ag+KXdOe0jcdd5QceCsdsqzLv2J\nEcHzgvb2WbSGD+8P4Jef\n=mdXG\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree fd41369346bd0a552561ddc686e8e2cb84c6e235\nparent 1291b04da73a790bbb3f569ae79be237d779f9ea\nparent 3b5c336fbe939c57c0e266116f80fbb4f242115f\nauthor Alexandru Dima <alexdima@microsoft.com> 1752563903 +0200\ncommitter GitHub <noreply@github.com> 1752563903 +0200\n\nMerge branch 'main' into theme-token-background-color",
+     "verified_at": "2025-07-15T07:18:24Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+   "html_url": "https://github.com/microsoft/vscode/commit/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f/comments",
+   "author": {
+    "login": "alexdima",
+    "id": 5047891,
+    "node_id": "MDQ6VXNlcjUwNDc4OTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5047891?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/alexdima",
+    "html_url": "https://github.com/alexdima",
+    "followers_url": "https://api.github.com/users/alexdima/followers",
+    "following_url": "https://api.github.com/users/alexdima/following{/other_user}",
+    "gists_url": "https://api.github.com/users/alexdima/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/alexdima/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/alexdima/subscriptions",
+    "organizations_url": "https://api.github.com/users/alexdima/orgs",
+    "repos_url": "https://api.github.com/users/alexdima/repos",
+    "events_url": "https://api.github.com/users/alexdima/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/alexdima/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "1291b04da73a790bbb3f569ae79be237d779f9ea",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/1291b04da73a790bbb3f569ae79be237d779f9ea",
+     "html_url": "https://github.com/microsoft/vscode/commit/1291b04da73a790bbb3f569ae79be237d779f9ea"
+    },
+    {
+     "sha": "3b5c336fbe939c57c0e266116f80fbb4f242115f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3b5c336fbe939c57c0e266116f80fbb4f242115f",
+     "html_url": "https://github.com/microsoft/vscode/commit/3b5c336fbe939c57c0e266116f80fbb4f242115f"
+    }
+   ]
+  },
+  {
+   "sha": "95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "node_id": "C_kwDOL49ol9oAKDk1YWRlOWI1NGVmOGU4ZjVmZWFkMzc3OGI2NTI3NmM4YmUxZjBmZWQ",
+   "commit": {
+    "author": {
+     "name": "Alexandru Dima",
+     "email": "alexdima@microsoft.com",
+     "date": "2025-10-26T14:42:52Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-10-26T14:42:52Z"
+    },
+    "message": "Merge branch 'main' into theme-token-background-color",
+    "tree": {
+     "sha": "764617cf58ddb3f420ac593c43857ba3e4d9a174",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/764617cf58ddb3f420ac593c43857ba3e4d9a174"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJo/jNsCRC1aQ7uu5UhlAAAXHQQACntrAErW5ZxWCd4o1xDnYFo\n/l8jmdMPVB6wEBGTQd61QqZjR3kItLiAhGBultMkxNdEm1d/LLFSYkzcyiqhOU7b\nmwECnMoLxnZmaBjLvrB1uX6jtXTL8P8Z3G+OHm4vybHCjH1UXrXiXNnbCC0NcfKS\nrDORIrXiWOB+w4eJIIlfeYy81RRfWeEk08Ca4QTBQkE6LCjbTko67jHiXj/mhAUm\nXsXo6YLhcqYPC7VPd6WEhFsZMnJ5Tja1Jw4q0uEXKGWjnjJSdoy334CGvtHna+7Z\nnuENrD+QyEZ+ZjgjkE2zRPF9CHI2LEGrm65u7qK8vETYrU74AZ31JIePtL13voRS\nvdNNNiEdBR8NwOJihZo9/hFIAKbZVA4YWZp2jfsAvkf3+8AKnQ5ps2TgI8BRDxMZ\nxdEEy9ULbEMHqkLLXj961H+REi4caUc5KEqn9wEIKHyB+P9a/zg7VmEFMISq9qmp\nfOA7Gr5K+A6tqyr6fu5aH+WGgmGgXAuzqw4bTV1jzU69pVB3SWqJz2vKEItCh4o2\nXEAigsGT9pmS1BIUGh6s9/v//zEFiGTn/EndyKQite/hqFiISaXDFUOkP4njZdNq\nSm/BvdLbivk0Ph85G7avmPLQkjIKtL4vwCnH6nCQNOnO80WQiHFFo5MIPval7z92\nlkkuz22rUm30KLgOCf7z\n=8uGO\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 764617cf58ddb3f420ac593c43857ba3e4d9a174\nparent 5caa25acdb4c079c1f1d4c86d46779ced8da8f2f\nparent 6055fcf8d8b9256741e181238d0f0f8caa3f97cc\nauthor Alexandru Dima <alexdima@microsoft.com> 1761489772 +0100\ncommitter GitHub <noreply@github.com> 1761489772 +0100\n\nMerge branch 'main' into theme-token-background-color",
+     "verified_at": "2025-10-26T14:42:53Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "html_url": "https://github.com/microsoft/vscode/commit/95ade9b54ef8e8f5fead3778b65276c8be1f0fed",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/95ade9b54ef8e8f5fead3778b65276c8be1f0fed/comments",
+   "author": {
+    "login": "alexdima",
+    "id": 5047891,
+    "node_id": "MDQ6VXNlcjUwNDc4OTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5047891?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/alexdima",
+    "html_url": "https://github.com/alexdima",
+    "followers_url": "https://api.github.com/users/alexdima/followers",
+    "following_url": "https://api.github.com/users/alexdima/following{/other_user}",
+    "gists_url": "https://api.github.com/users/alexdima/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/alexdima/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/alexdima/subscriptions",
+    "organizations_url": "https://api.github.com/users/alexdima/orgs",
+    "repos_url": "https://api.github.com/users/alexdima/repos",
+    "events_url": "https://api.github.com/users/alexdima/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/alexdima/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f",
+     "html_url": "https://github.com/microsoft/vscode/commit/5caa25acdb4c079c1f1d4c86d46779ced8da8f2f"
+    },
+    {
+     "sha": "6055fcf8d8b9256741e181238d0f0f8caa3f97cc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/6055fcf8d8b9256741e181238d0f0f8caa3f97cc",
+     "html_url": "https://github.com/microsoft/vscode/commit/6055fcf8d8b9256741e181238d0f0f8caa3f97cc"
+    }
+   ]
+  }
+ ]
+}

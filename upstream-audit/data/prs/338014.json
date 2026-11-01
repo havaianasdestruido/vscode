@@ -1,0 +1,378 @@
+{
+ "fetchedAt": "2026-11-01T00:55:26.669Z",
+ "pr": {
+  "number": 338014,
+  "title": "Fix MonarchTokenizer.getLoadStatus infinite loop on circular language embedding",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-25T17:43:09Z",
+  "updated_at": "2026-10-20T08:35:27Z",
+  "user": "hardikkaurani",
+  "author_association": "CONTRIBUTOR",
+  "additions": 35,
+  "deletions": 2,
+  "changed_files": 2,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 4,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/monarch-load-status-infinite-loop",
+   "sha": "3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "repo": "hardikkaurani/vscode",
+   "label": "hardikkaurani:fix/monarch-load-status-infinite-loop"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "6b98006d1e6d672a29a1bae76ba7b0ec74332af3"
+  },
+  "body": "# Fix MonarchTokenizer.getLoadStatus infinite loop on circular language embedding\n\nFixes microsoft/monaco-editor#5026\n\n## Problem Summary\nWhen calling `monaco.editor.colorize()`, if `Lang1` embeds `Lang2` and `Lang2` embeds `Lang1`, the resulting call to `MonarchTokenizer.getLoadStatus()` enters an infinite recursive loop. This exceeds the call stack limit and crashes the tokenization process.\n\n## Root Cause\n`MonarchTokenizer.getLoadStatus()` previously resolved its `_embeddedLanguages` by synchronously invoking `getLoadStatus()` on any instantiated nested `MonarchTokenizer`. Because it did not track which languages had already been evaluated during the resolution pass, cyclic dependencies caused it to traverse the graph infinitely.\n\n## Fix Summary\nIntroduced standard DFS cycle-detection via an optional `visited: Set<string>` parameter in `getLoadStatus()`. \n- If the current `_languageId` is already in the `visited` set, the traversal correctly breaks the cycle and returns `{ loaded: true }`.\n- This delegates the resolution of pending promises to the original caller further up the stack, successfully aggregating all transitive nested dependencies without redundant traversal.\n\n## Validation Performed\n- **Regression Test:** Added `test('Ensure MonarchTokenizer.getLoadStatus() does not infinite loop on circular language embedding')` to `monarch.test.ts`. This test specifically wires two tokenizers to `nextEmbedded` into each other and guarantees that `tokenizer1.getLoadStatus()` evaluates successfully to `loaded: true` instead of throwing a `RangeError`.\n- **Backward Compatibility:** Because `visited` is initialized with a default parameter, external callers tracking `instanceof MonarchTokenizer` remain fully compatible.\n- **Diff constraints:** Maintained minimal diff and zero unrelated refactoring.\n",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "327a8c31e613a2263f9689cb8ec704de55db958e",
+   "filename": "src/vs/editor/standalone/common/monarch/monarchLexer.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 2,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fmonarch%2FmonarchLexer.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fmonarch%2FmonarchLexer.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fstandalone%2Fcommon%2Fmonarch%2FmonarchLexer.ts?ref=3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "patch": "@@ -439,14 +439,19 @@ export class MonarchTokenizer extends Disposable implements languages.ITokenizat\n \t\t}));\n \t}\n \n-\tpublic getLoadStatus(): ILoadStatus {\n+\tpublic getLoadStatus(visited: Set<string> = new Set<string>()): ILoadStatus {\n+\t\tif (visited.has(this._languageId)) {\n+\t\t\treturn { loaded: true };\n+\t\t}\n+\t\tvisited.add(this._languageId);\n+\n \t\tconst promises: Thenable<any>[] = [];\n \t\tfor (const nestedLanguageId in this._embeddedLanguages) {\n \t\t\tconst tokenizationSupport = languages.TokenizationRegistry.get(nestedLanguageId);\n \t\t\tif (tokenizationSupport) {\n \t\t\t\t// The nested language is already loaded\n \t\t\t\tif (tokenizationSupport instanceof MonarchTokenizer) {\n-\t\t\t\t\tconst nestedModeStatus = tokenizationSupport.getLoadStatus();\n+\t\t\t\t\tconst nestedModeStatus = tokenizationSupport.getLoadStatus(visited);\n \t\t\t\t\tif (nestedModeStatus.loaded === false) {\n \t\t\t\t\t\tpromises.push(nestedModeStatus.promise);\n \t\t\t\t\t}"
+  },
+  {
+   "sha": "417736bfcf80c75962c02de82fa25468e435f1ce",
+   "filename": "src/vs/editor/standalone/test/browser/monarch.test.ts",
+   "status": "modified",
+   "additions": 28,
+   "deletions": 0,
+   "changes": 28,
+   "blob_url": "https://github.com/microsoft/vscode/blob/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7/src%2Fvs%2Feditor%2Fstandalone%2Ftest%2Fbrowser%2Fmonarch.test.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7/src%2Fvs%2Feditor%2Fstandalone%2Ftest%2Fbrowser%2Fmonarch.test.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fstandalone%2Ftest%2Fbrowser%2Fmonarch.test.ts?ref=3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "patch": "@@ -516,4 +516,32 @@ suite('Monarch', () => {\n \t\tdisposables.dispose();\n \t});\n \n+\ttest('Ensure MonarchTokenizer.getLoadStatus() does not infinite loop on circular language embedding', () => {\n+\t\tconst disposables = new DisposableStore();\n+\t\tconst languageService = disposables.add(new LanguageService());\n+\t\tconst configurationService = new StandaloneConfigurationService(new NullLogService());\n+\n+\t\tdisposables.add(languageService.registerLanguage({ id: 'lang1' }));\n+\t\tdisposables.add(languageService.registerLanguage({ id: 'lang2' }));\n+\n+\t\tconst tokenizer1 = disposables.add(createMonarchTokenizer(languageService, 'lang1', {\n+\t\t\ttokenizer: {\n+\t\t\t\troot: [[/./, { token: 'token', nextEmbedded: 'lang2' }]]\n+\t\t\t}\n+\t\t}, configurationService));\n+\t\tdisposables.add(TokenizationRegistry.register('lang1', tokenizer1));\n+\n+\t\tconst tokenizer2 = disposables.add(createMonarchTokenizer(languageService, 'lang2', {\n+\t\t\ttokenizer: {\n+\t\t\t\troot: [[/./, { token: 'token', nextEmbedded: 'lang1' }]]\n+\t\t\t}\n+\t\t}, configurationService));\n+\t\tdisposables.add(TokenizationRegistry.register('lang2', tokenizer2));\n+\n+\t\tconst status = tokenizer1.getLoadStatus();\n+\t\tassert.strictEqual(status.loaded, true);\n+\n+\t\tdisposables.dispose();\n+\t});\n+\n });"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5320767482,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPSR3-g",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/338014#pullrequestreview-5320767482",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/338014",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/338014#pullrequestreview-5320767482"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/338014"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-09-25T17:43:16Z",
+   "commit_id": "3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5838353141",
+   "html_url": "https://github.com/microsoft/vscode/pull/338014#issuecomment-5838353141",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/338014",
+   "id": 5838353141,
+   "node_id": "IC_kwDOAn8RLM8AAAABW_4y9Q",
+   "user": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-25T19:29:45Z",
+   "updated_at": "2026-09-25T19:29:45Z",
+   "body": "Validated this against current main and confirmed the reported behavior. The MonarchTokenizer.getLoadStatus() method enters an unbounded recursion when processing a circular \nextEmbedded language reference.\n\nThis PR introduces a standard DFS cycle detection set to prevent the stack overflow. Upon detecting a cycle, returning { loaded: true } correctly breaks the graph edge, allowing the remaining asynchronous paths to aggregate without trapping the traversal.\n\nOne point I'd particularly appreciate confirmation on is whether breaking the promise resolution cycle here aligns with how TokenizationRegistry handles cyclic dependencies.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5838353141/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5886670127",
+   "html_url": "https://github.com/microsoft/vscode/pull/338014#issuecomment-5886670127",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/338014",
+   "id": 5886670127,
+   "node_id": "IC_kwDOAn8RLM8AAAABXt91Lw",
+   "user": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-09-29T08:36:58Z",
+   "updated_at": "2026-09-29T08:36:58Z",
+   "body": "@alexdima @hediet Just checking in on this! The fix for the infinite recursion bug on circular language embedding in MonarchTokenizer (#5026) is complete and merge-ready. It adds a standard DFS cycle detection using a \\^Kisited\\ set in \\getLoadStatus()\\. A regression test explicitly wiring two embedded languages in a circular dependency has been added to \\monarch.test.ts\\ to verify it resolves correctly instead of throwing a RangeError. Could you please take a look when you get a chance? Thanks!",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5886670127/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6286589206",
+   "html_url": "https://github.com/microsoft/vscode/pull/338014#issuecomment-6286589206",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/338014",
+   "id": 6286589206,
+   "node_id": "IC_kwDOAn8RLM8AAAABdrW9Fg",
+   "user": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-20T08:15:58Z",
+   "updated_at": "2026-10-20T08:15:58Z",
+   "body": "Hi @alexdima @hediet @jrieken,\n\nJust following up on this PR! It resolves the infinite recursion bug on circular embedded languages in `MonarchTokenizer.getLoadStatus()` (#5026) by introducing standard cycle detection.\n\nThe PR is fully tested with companion regression coverage in `monarch.test.ts`, clean, and merge-ready with no conflicts. Could you please take a look when you have a moment? Thank you!\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6286589206/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6286916378",
+   "html_url": "https://github.com/microsoft/vscode/pull/338014#issuecomment-6286916378",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/338014",
+   "id": 6286916378,
+   "node_id": "IC_kwDOAn8RLM8AAAABdrq7Gg",
+   "user": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-20T08:35:27Z",
+   "updated_at": "2026-10-20T08:35:27Z",
+   "body": "Looping in @sandy081 @ulugbekna @jruales @bpasero @roblourens as well for visibility on this Monarch cycle detection fix (#5026). All regression tests pass and there are no conflicts. Thank you!\n",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6286916378/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "node_id": "C_kwDOUrrMedoAKDNhM2IzMjM5MDhlMWViOGExMzlhYzcyZDljOGRkZThhY2VmNWU0ZTc",
+   "commit": {
+    "author": {
+     "name": "Hardik Kaurani",
+     "email": "hardikkaurani1@gmail.com",
+     "date": "2026-09-25T17:19:54Z"
+    },
+    "committer": {
+     "name": "Hardik Kaurani",
+     "email": "hardikkaurani1@gmail.com",
+     "date": "2026-09-25T17:19:54Z"
+    },
+    "message": "Fix MonarchTokenizer.getLoadStatus infinite loop on circular language embedding",
+    "tree": {
+     "sha": "fad344c4354996176f6e4a049275ff6b43f63f2a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/fad344c4354996176f6e4a049275ff6b43f63f2a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "html_url": "https://github.com/microsoft/vscode/commit/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3a3b323908e1eb8a139ac72d9c8dde8acef5e4e7/comments",
+   "author": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "hardikkaurani",
+    "id": 224249943,
+    "node_id": "U_kgDODV3IVw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/224249943?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/hardikkaurani",
+    "html_url": "https://github.com/hardikkaurani",
+    "followers_url": "https://api.github.com/users/hardikkaurani/followers",
+    "following_url": "https://api.github.com/users/hardikkaurani/following{/other_user}",
+    "gists_url": "https://api.github.com/users/hardikkaurani/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/hardikkaurani/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/hardikkaurani/subscriptions",
+    "organizations_url": "https://api.github.com/users/hardikkaurani/orgs",
+    "repos_url": "https://api.github.com/users/hardikkaurani/repos",
+    "events_url": "https://api.github.com/users/hardikkaurani/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/hardikkaurani/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "4c85043ed55698b4e3c8ad3a5030212ce1dd9d77",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/4c85043ed55698b4e3c8ad3a5030212ce1dd9d77",
+     "html_url": "https://github.com/microsoft/vscode/commit/4c85043ed55698b4e3c8ad3a5030212ce1dd9d77"
+    }
+   ]
+  }
+ ]
+}

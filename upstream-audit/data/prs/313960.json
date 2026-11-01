@@ -1,0 +1,228 @@
+{
+ "fetchedAt": "2026-11-01T00:53:33.191Z",
+ "pr": {
+  "number": 313960,
+  "title": "Fix Firefox selection crash in Monaco: handle shadow DOM + null hit result in _doHitTestWithCaretPositionFromPoint",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-05-03T15:57:56Z",
+  "updated_at": "2026-05-04T06:32:30Z",
+  "user": "aesraethr",
+  "author_association": "NONE",
+  "additions": 20,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 1,
+  "review_comments": 0,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/firefox-caretpositionfrompoint-shadow-dom",
+   "sha": "3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+   "repo": "aesraethr/vscode",
+   "label": "aesraethr:fix/firefox-caretpositionfrompoint-shadow-dom"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "d6c8e297aaca24517348fc1af11517a49e544320"
+  },
+  "body": "### Refs\r\n\r\n- microsoft/monaco-editor#4679 — open since 2024-09-12, label `bug` + `firefox`\r\n- Mozilla bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1914596\r\n- CSSOM spec: https://drafts.csswg.org/cssom-view/#dom-document-caretpositionfrompoint\r\n\r\n### What\r\n\r\nTwo related defensive changes in `_doHitTestWithCaretPositionFromPoint` (`src/vs/editor/browser/controller/mouseTarget.ts`):\r\n\r\n1. **Pass the host's shadow root to `caretPositionFromPoint`** so Firefox can resolve hits inside a shadow tree (parallels the `_doHitTestWithCaretRangeFromPoint` sibling at line ~990, which already calls `dom.getShadowRoot`).\r\n2. **Null-check the hit result** before dereferencing `hitResult.offsetNode` — the API legitimately returns `null` for points that don't fall on an addressable text node (e.g. dragging a multi-line selection past the end of the editor).\r\n\r\n### Why\r\n\r\nFirefox 131 changed [`document.caretPositionFromPoint`](https://developer.mozilla.org/en-US/docs/Web/API/Document/caretPositionFromPoint) so that, when the page uses shadow DOM, the third options argument must include `{shadowRoots: [...]}` to return the actual hit position. Without it, Firefox returns the shadow host (or `null`). This crashes the editor's selection logic with:\r\n\r\n```\r\nUncaught Error: can't access property \"offsetNode\", i is null\r\n  _doHitTestWithCaretPositionFromPoint@editor.api…\r\n  doHitTest@editor.api…\r\n```\r\n\r\nThe error is fired through Monaco's `unexpectedErrorHandler`, surfaces in the console, and pollutes any error-monitoring tool (Sentry, Datadog RUM) listening on `window.onerror`. The selection still works — it's a hit-test miss after the fact — but every multi-line drag triggers it.\r\n\r\nThe bug is not just a shadow-DOM concern: contributors have reported the same `offsetNode is null` crash on the [Monaco playground](https://microsoft.github.io/monaco-editor/playground.html) in Firefox 145+ by simply selecting all text. That suggests Firefox's `caretPositionFromPoint` can return `null` even without shadow DOM in some drag scenarios, hence the explicit `if (!hitResult) return new UnknownHitTestResult();` guard.\r\n\r\n### Reproduction\r\n\r\n> [silverwind in microsoft/monaco-editor#4679 (Nov 2025)](https://github.com/microsoft/monaco-editor/issues/4679#issuecomment-3564090288):\r\n> > text selection causes a JS error \\`can't access property \\\"offsetNode\\\", hitResult is null\\` to be thrown in Firefox (currently on v145), and this issue seems to be the root cause. I can reproduce on https://microsoft.github.io/monaco-editor/playground.html?source=v0.55.1#example-creating-the-editor-hello-world by just selecting all text in Monaco\r\n\r\n> [erosman in microsoft/monaco-editor#4679 (Dec 2025)](https://github.com/microsoft/monaco-editor/issues/4679#issuecomment-3649022792):\r\n> > Uncaught Error: can't access property \\\"offsetNode\\\", i is null — happens when selecting text with mouse in the editor and the mouse moves out of the \\`<div class=\\\"monaco-scrollable-element editor-scrollable vs\\\">\\`\r\n\r\n### Fix attribution\r\n\r\nThe shadow-root passthrough was originally proposed in the issue thread by [@nate-bow-db (Oct 2024)](https://github.com/microsoft/monaco-editor/issues/4679#issuecomment-2406284453). The community has been shipping it as a [postinstall monkey-patch](https://github.com/microsoft/monaco-editor/issues/4679#issuecomment-2468965180) for over a year. This PR lands the same change in the source plus adds the explicit null-guard for the non-shadow-DOM crash path that surfaced more recently.\r\n\r\n### Risk / scope\r\n\r\n- Scoped to one private static method in `mouseTarget.ts`.\r\n- The shadow-root branch only fires when `dom.getShadowRoot(ctx.viewDomNode)` returns non-null — so existing non-shadow-DOM consumers (the standard Monaco bundle) hit the same code path as before.\r\n- The null-guard returns `new UnknownHitTestResult()`, which is the same fallback the function already returns on its other failure path (line ~1080 today). No new return shape.\r\n- `dom.getShadowRoot` is already imported and used in the sibling `_doHitTestWithCaretRangeFromPoint` method, so no new import is needed.",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "64c08c58febbcb6d2dece1f6014eddfbc9ed1dff",
+   "filename": "src/vs/editor/browser/controller/mouseTarget.ts",
+   "status": "modified",
+   "additions": 20,
+   "deletions": 1,
+   "changes": 21,
+   "blob_url": "https://github.com/microsoft/vscode/blob/3733d89155b66da3736b16e8ad2ecfdecae5ced6/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseTarget.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/3733d89155b66da3736b16e8ad2ecfdecae5ced6/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseTarget.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Feditor%2Fbrowser%2Fcontroller%2FmouseTarget.ts?ref=3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+   "patch": "@@ -1041,8 +1041,27 @@ export class MouseTargetFactory {\n \t * Most probably Gecko\n \t */\n \tprivate static _doHitTestWithCaretPositionFromPoint(ctx: HitTestContext, coords: ClientCoordinates): HitTestResult {\n+\t\t// Firefox 131+ changed `caretPositionFromPoint` so that, when the page uses\n+\t\t// shadow DOM, the third options argument must include `shadowRoots: [...]`\n+\t\t// for the call to return the actual hit position inside the shadow tree.\n+\t\t// Without it, Firefox returns the shadow host (or null), which crashes the\n+\t\t// caller's `hitResult.offsetNode` access on Monaco selections.\n+\t\t// See https://github.com/microsoft/monaco-editor/issues/4679 and\n+\t\t// https://drafts.csswg.org/cssom-view/#dom-document-caretpositionfrompoint\n+\t\tconst shadowRoot = dom.getShadowRoot(ctx.viewDomNode);\n \t\t// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any\n-\t\tconst hitResult: { offsetNode: Node; offset: number } = (<any>ctx.viewDomNode.ownerDocument).caretPositionFromPoint(coords.clientX, coords.clientY);\n+\t\tconst hitResult: { offsetNode: Node; offset: number } | null = shadowRoot\n+\t\t\t// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any\n+\t\t\t? (<any>ctx.viewDomNode.ownerDocument).caretPositionFromPoint(coords.clientX, coords.clientY, { shadowRoots: [shadowRoot] })\n+\t\t\t// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any\n+\t\t\t: (<any>ctx.viewDomNode.ownerDocument).caretPositionFromPoint(coords.clientX, coords.clientY);\n+\n+\t\t// `caretPositionFromPoint` can return null when the point falls outside any\n+\t\t// addressable text node (e.g. the user drags a multi-line selection past\n+\t\t// the end of the editor). Bail out instead of dereferencing offsetNode.\n+\t\tif (!hitResult) {\n+\t\t\treturn new UnknownHitTestResult();\n+\t\t}\n \n \t\tif (hitResult.offsetNode.nodeType === hitResult.offsetNode.TEXT_NODE) {\n \t\t\t// offsetNode is expected to be the token text"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4216506176,
+   "node_id": "PRR_kwDOAn8RLM77UsdA",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nThis PR hardens Monaco editor mouse hit-testing for Firefox in `mouseTarget.ts`, specifically the Gecko-specific `caretPositionFromPoint` path used during selection. It aligns the Firefox code path with the existing shadow-DOM-aware caret-range logic and prevents a null dereference when Firefox cannot resolve a caret position.\n\n**Changes:**\n- Pass the containing shadow root to `document.caretPositionFromPoint(...)` when the editor is hosted inside shadow DOM.\n- Return `UnknownHitTestResult` when `caretPositionFromPoint(...)` returns `null` instead of dereferencing `offsetNode`.\n- Add inline comments documenting the Firefox/shadow-DOM behavior motivating the defensive handling.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313960#pullrequestreview-4216506176",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313960",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313960#pullrequestreview-4216506176"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313960"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-05-03T15:59:46Z",
+   "commit_id": "3733d89155b66da3736b16e8ad2ecfdecae5ced6"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4366573398",
+   "html_url": "https://github.com/microsoft/vscode/pull/313960#issuecomment-4366573398",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/313960",
+   "id": 4366573398,
+   "node_id": "IC_kwDOAn8RLM8AAAABBESfVg",
+   "user": {
+    "login": "aesraethr",
+    "id": 1116265,
+    "node_id": "MDQ6VXNlcjExMTYyNjU=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1116265?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aesraethr",
+    "html_url": "https://github.com/aesraethr",
+    "followers_url": "https://api.github.com/users/aesraethr/followers",
+    "following_url": "https://api.github.com/users/aesraethr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aesraethr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aesraethr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aesraethr/subscriptions",
+    "organizations_url": "https://api.github.com/users/aesraethr/orgs",
+    "repos_url": "https://api.github.com/users/aesraethr/repos",
+    "events_url": "https://api.github.com/users/aesraethr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aesraethr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-05-03T15:59:27Z",
+   "updated_at": "2026-05-03T15:59:27Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/4366573398/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+   "node_id": "C_kwDOSTNwVdoAKDM3MzNkODkxNTViNjZkYTM3MzZiMTZlOGFkMmVjZmRlY2FlNWNlZDY",
+   "commit": {
+    "author": {
+     "name": "Arthur Anglade",
+     "email": "aesraethr@gmail.com",
+     "date": "2026-05-03T15:55:54Z"
+    },
+    "committer": {
+     "name": "Arthur Anglade",
+     "email": "aesraethr@gmail.com",
+     "date": "2026-05-03T15:55:54Z"
+    },
+    "message": "fix: handle null hit result and shadow DOM in _doHitTestWithCaretPositionFromPoint",
+    "tree": {
+     "sha": "3e7703d9d73934e7f461a543f1def169e259911a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3e7703d9d73934e7f461a543f1def169e259911a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+   "html_url": "https://github.com/microsoft/vscode/commit/3733d89155b66da3736b16e8ad2ecfdecae5ced6",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3733d89155b66da3736b16e8ad2ecfdecae5ced6/comments",
+   "author": {
+    "login": "aesraethr",
+    "id": 1116265,
+    "node_id": "MDQ6VXNlcjExMTYyNjU=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1116265?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aesraethr",
+    "html_url": "https://github.com/aesraethr",
+    "followers_url": "https://api.github.com/users/aesraethr/followers",
+    "following_url": "https://api.github.com/users/aesraethr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aesraethr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aesraethr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aesraethr/subscriptions",
+    "organizations_url": "https://api.github.com/users/aesraethr/orgs",
+    "repos_url": "https://api.github.com/users/aesraethr/repos",
+    "events_url": "https://api.github.com/users/aesraethr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aesraethr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "aesraethr",
+    "id": 1116265,
+    "node_id": "MDQ6VXNlcjExMTYyNjU=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1116265?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/aesraethr",
+    "html_url": "https://github.com/aesraethr",
+    "followers_url": "https://api.github.com/users/aesraethr/followers",
+    "following_url": "https://api.github.com/users/aesraethr/following{/other_user}",
+    "gists_url": "https://api.github.com/users/aesraethr/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/aesraethr/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/aesraethr/subscriptions",
+    "organizations_url": "https://api.github.com/users/aesraethr/orgs",
+    "repos_url": "https://api.github.com/users/aesraethr/repos",
+    "events_url": "https://api.github.com/users/aesraethr/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/aesraethr/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "d6c8e297aaca24517348fc1af11517a49e544320",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/d6c8e297aaca24517348fc1af11517a49e544320",
+     "html_url": "https://github.com/microsoft/vscode/commit/d6c8e297aaca24517348fc1af11517a49e544320"
+    }
+   ]
+  }
+ ]
+}

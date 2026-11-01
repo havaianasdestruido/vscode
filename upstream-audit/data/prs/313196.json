@@ -1,0 +1,181 @@
+{
+ "fetchedAt": "2026-11-01T00:53:21.041Z",
+ "pr": {
+  "number": 313196,
+  "title": "Fix cd to recent directory failing on PowerShell paths with spaces",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-04-29T10:43:46Z",
+  "updated_at": "2026-04-29T11:32:06Z",
+  "user": "yogeshwaran-c",
+  "author_association": "CONTRIBUTOR",
+  "additions": 10,
+  "deletions": 1,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 1,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/pwsh-cd-path-with-space-232258",
+   "sha": "25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+   "repo": "yogeshwaran-c/vscode",
+   "label": "yogeshwaran-c:fix/pwsh-cd-path-with-space-232258"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "0e01add33400d4a592f608f236735b37dd938026"
+  },
+  "body": "## Summary\n\nIn the terminal \"Go to Recent Directory\" (Ctrl+G) quickpick, selecting a PowerShell path with spaces produced an invalid command like \\`cd & 'C:\\path with space\\'\\` which PowerShell could not execute.\n\n## Root cause\n\n\\`terminalRunRecentQuickPick.ts\\` line 355 builds the command as:\n\n\\`\\`\\`ts\ntext = \\`cd \\${await instance.preparePathForShell(result.rawLabel)}\\`;\n\\`\\`\\`\n\n\\`preparePathForShell\\` (in \\`terminalEnvironment.ts\\`) returns PowerShell's **call-operator** form \\`& '...'\\` for paths with spaces or quotes — that form is meant for **invoking executables**, not as an argument. So the result becomes \\`cd & 'C:\\path with space\\'\\` which PowerShell interprets as garbage.\n\n\\`preparePathForShell\\` is also used by \\`sendPath\\` (in \\`terminalInstance.ts\\`) where the call-operator form is correct (the path is being invoked). The bug is that one caller uses the result as an argument.\n\n## Fix\n\nSpecial-case PowerShell in the cwd quickpick branch and build \\`cd '...'\\` directly with PowerShell's single-quote escape rules (doubling embedded single quotes — the same escaping \\`preparePathForShell\\` uses on its quoted output). Single-file change, leaves \\`preparePathForShell\\` semantics intact for its other use sites.\n\n## Test plan\n\n- [ ] In PowerShell terminal, cd into multiple folders including one with spaces (e.g. \\`Program Files\\`)\n- [ ] Press Ctrl+G, select the path with spaces → \\`cd 'C:\\Program Files'\\` runs successfully\n- [ ] Same with paths containing single quotes (escaped to \\`''\\`)\n- [ ] Bash/zsh/fish unaffected (still go through \\`preparePathForShell\\`)\n\ncc @Tyriar — you reopened this issue after the duplicate close. cc @albertosantini — your investigation pointed at the exact lines.\n\nFixes #232258",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "8b5b7bb08a5f0690e731b9b45e2729f9b97fecc4",
+   "filename": "src/vs/workbench/contrib/terminalContrib/history/browser/terminalRunRecentQuickPick.ts",
+   "status": "modified",
+   "additions": 10,
+   "deletions": 1,
+   "changes": 11,
+   "blob_url": "https://github.com/microsoft/vscode/blob/25f1d3bb33640aaec95f484cc012e9ee281b4f61/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2Fhistory%2Fbrowser%2FterminalRunRecentQuickPick.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/25f1d3bb33640aaec95f484cc012e9ee281b4f61/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2Fhistory%2Fbrowser%2FterminalRunRecentQuickPick.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2FterminalContrib%2Fhistory%2Fbrowser%2FterminalRunRecentQuickPick.ts?ref=25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+   "patch": "@@ -10,6 +10,7 @@ import { ITextModelContentProvider, ITextModelService } from '../../../../../edi\n import { localize } from '../../../../../nls.js';\n import { IInstantiationService, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';\n import { IQuickInputButton, IQuickInputButtonWithToggle, IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickInputButtonLocation } from '../../../../../platform/quickinput/common/quickInput.js';\n+import { GeneralShellType } from '../../../../../platform/terminal/common/terminal.js';\n import { ITerminalCommand, TerminalCapability } from '../../../../../platform/terminal/common/capabilities/capabilities.js';\n import { collapseTildePath } from '../../../../../platform/terminal/common/terminalEnvironment.js';\n import { ThemeIcon } from '../../../../../base/common/themables.js';\n@@ -352,7 +353,15 @@ export async function showRunRecentQuickPick(\n \t\tconst result = quickPick.activeItems[0];\n \t\tlet text: string;\n \t\tif (type === 'cwd') {\n-\t\t\ttext = `cd ${await instance.preparePathForShell(result.rawLabel)}`;\n+\t\t\t// preparePathForShell returns the PowerShell call-operator form\n+\t\t\t// `& '...'` for paths with spaces or quotes, which is meant for\n+\t\t\t// invoking executables — not for use as an argument to `cd`.\n+\t\t\t// Quote the path directly here for PowerShell. See #232258.\n+\t\t\tif (instance.shellType === GeneralShellType.PowerShell) {\n+\t\t\t\ttext = `cd '${result.rawLabel.replace(/'/g, '\\'\\'')}'`;\n+\t\t\t} else {\n+\t\t\t\ttext = `cd ${await instance.preparePathForShell(result.rawLabel)}`;\n+\t\t\t}\n \t\t} else { // command\n \t\t\ttext = result.rawLabel;\n \t\t}"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4196214210,
+   "node_id": "PRR_kwDOAn8RLM76HSXC",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes the integrated terminal “Go to Recent Directory” (Ctrl+G) flow when running in PowerShell by avoiding `preparePathForShell`’s PowerShell call-operator form (`& '...'`), which is valid for invoking executables but invalid as an argument to `cd`.\n\n**Changes:**\n- Detect PowerShell (`GeneralShellType.PowerShell`) when accepting a “recent cwd” item.\n- Generate a PowerShell-safe `cd '...path...'` command by single-quoting and escaping embedded single quotes.\n- Keep existing behavior for non-PowerShell shells by continuing to use `instance.preparePathForShell(...)`.\n\n\n\n",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/313196#pullrequestreview-4196214210",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/313196",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/313196#pullrequestreview-4196214210"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/313196"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-04-29T10:49:51Z",
+   "commit_id": "25f1d3bb33640aaec95f484cc012e9ee281b4f61"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+   "node_id": "C_kwDORXVh_doAKDI1ZjFkM2JiMzM2NDBhYWVjOTVmNDg0Y2MwMTJlOWVlMjgxYjRmNjE",
+   "commit": {
+    "author": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-04-29T10:42:46Z"
+    },
+    "committer": {
+     "name": "yogeshwaran-c",
+     "email": "ycyogesh183@gmail.com",
+     "date": "2026-04-29T10:42:46Z"
+    },
+    "message": "Fix cd to recent directory failing on PowerShell paths with spaces\n\nterminalRunRecentQuickPick was building `cd ${preparePathForShell(path)}`,\nbut preparePathForShell returns the PowerShell call-operator form\n`& '...'` for paths containing spaces (and certain other characters).\nThat form is intended for invoking executables, not as an argument, so\nthe resulting command `cd & 'C:\\path with space\\'` is invalid PowerShell.\n\nFor the cwd quickpick branch on PowerShell, build `cd '...'` directly\nwith PowerShell's single-quote escape rules (double up embedded single\nquotes), matching what preparePathForShell already does for the call-\noperator form.\n\nFixes #232258",
+    "tree": {
+     "sha": "ecbbec2d511c559742756ff98fe1f648e27aeed4",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/ecbbec2d511c559742756ff98fe1f648e27aeed4"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+   "html_url": "https://github.com/microsoft/vscode/commit/25f1d3bb33640aaec95f484cc012e9ee281b4f61",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/25f1d3bb33640aaec95f484cc012e9ee281b4f61/comments",
+   "author": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "yogeshwaran-c",
+    "id": 84272111,
+    "node_id": "MDQ6VXNlcjg0MjcyMTEx",
+    "avatar_url": "https://avatars.githubusercontent.com/u/84272111?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/yogeshwaran-c",
+    "html_url": "https://github.com/yogeshwaran-c",
+    "followers_url": "https://api.github.com/users/yogeshwaran-c/followers",
+    "following_url": "https://api.github.com/users/yogeshwaran-c/following{/other_user}",
+    "gists_url": "https://api.github.com/users/yogeshwaran-c/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/yogeshwaran-c/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/yogeshwaran-c/subscriptions",
+    "organizations_url": "https://api.github.com/users/yogeshwaran-c/orgs",
+    "repos_url": "https://api.github.com/users/yogeshwaran-c/repos",
+    "events_url": "https://api.github.com/users/yogeshwaran-c/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/yogeshwaran-c/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "a7bcda727ca25afbf814eb217fb0a3c2bb40f400",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/a7bcda727ca25afbf814eb217fb0a3c2bb40f400",
+     "html_url": "https://github.com/microsoft/vscode/commit/a7bcda727ca25afbf814eb217fb0a3c2bb40f400"
+    }
+   ]
+  }
+ ]
+}

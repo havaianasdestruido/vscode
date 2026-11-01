@@ -1,0 +1,1132 @@
+{
+ "fetchedAt": "2026-11-01T00:54:28.007Z",
+ "pr": {
+  "number": 331805,
+  "title": "fix: memory leak in notebook text diff editor",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-08-20T14:47:16Z",
+  "updated_at": "2026-10-13T23:36:18Z",
+  "user": "SimonSiefke",
+  "author_association": "CONTRIBUTOR",
+  "additions": 6,
+  "deletions": 8,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 5,
+  "review_comments": 4,
+  "commits_count": 7,
+  "labels": [
+   "freeze-slow-crash-leak",
+   "notebook-diff"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "fix/memory-leak-notebookTextDiffEditor",
+   "sha": "c836fc7d296453c01c49221a3d7150de788b46f3",
+   "repo": "SimonSiefke/vscode",
+   "label": "SimonSiefke:fix/memory-leak-notebookTextDiffEditor"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "ebefbb79e796cb086d9ad32e05b0e2f1105f1888"
+  },
+  "body": "### Details\r\n\r\nNotebook diff view models were registered in the editor pane's lifetime disposable store, so closing a notebook diff editor left every previous view model and its notebook models reachable.\r\n\r\n### Change\r\n\r\nRegister each notebook diff view model in the input-specific store and run the existing model-detach cleanup when the editor input is cleared.\r\n\r\n### Before\r\n\r\nWhen opening and closing a notebook diff editor 37 times, notebook diff view models and their notebook models grow once or twice per run:\r\n\r\n<img width=\"1400\" height=\"420\" alt=\"before\" src=\"https://github.com/user-attachments/assets/f4c177c0-64fb-4610-ae40-451430b004ad\" />\r\n\r\n### After\r\n\r\nNo more notebook diff view model or notebook model leak is detected.\r\n\r\n### Test Video\r\n\r\n[test-video.webm](https://github.com/user-attachments/assets/12aac422-2354-4abe-9f39-1ed9efb36a71)\r\n",
+  "rebaseable": false
+ },
+ "files": [
+  {
+   "sha": "efb7fd64f2f1fec2b8c22bf653d87619e228c847",
+   "filename": "src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts",
+   "status": "modified",
+   "additions": 6,
+   "deletions": 8,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/c836fc7d296453c01c49221a3d7150de788b46f3/src%2Fvs%2Fworkbench%2Fcontrib%2Fnotebook%2Fbrowser%2Fdiff%2FnotebookDiffEditor.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/c836fc7d296453c01c49221a3d7150de788b46f3/src%2Fvs%2Fworkbench%2Fcontrib%2Fnotebook%2Fbrowser%2Fdiff%2FnotebookDiffEditor.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/src%2Fvs%2Fworkbench%2Fcontrib%2Fnotebook%2Fbrowser%2Fdiff%2FnotebookDiffEditor.ts?ref=c836fc7d296453c01c49221a3d7150de788b46f3",
+   "patch": "@@ -532,6 +532,8 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD\n \t}\n \n \tprivate _detachModel() {\n+\t\tthis._layoutCancellationTokenSource?.dispose();\n+\t\tthis._layoutCancellationTokenSource = undefined;\n \t\tthis._localStore.clear();\n \t\tthis._originalWebview?.dispose();\n \t\tthis._originalWebview?.element.remove();\n@@ -540,8 +542,8 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD\n \t\tthis._modifiedWebview?.element.remove();\n \t\tthis._modifiedWebview = null;\n \n-\t\tthis.notebookDiffViewModel?.dispose();\n \t\tthis.notebookDiffViewModel = undefined;\n+\t\tthis._eventDispatcher = undefined;\n \n \t\tthis._modifiedResourceDisposableStore.clear();\n \t\tthis._list.clear();\n@@ -550,7 +552,7 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD\n \t}\n \tprivate _attachModel(model: INotebookDiffEditorModel) {\n \t\tthis._model = model;\n-\t\tthis._eventDispatcher = new NotebookDiffEditorEventDispatcher();\n+\t\tthis._eventDispatcher = this._localStore.add(new NotebookDiffEditorEventDispatcher());\n \t\tconst updateInsets = () => {\n \t\t\tDOM.scheduleAtNextAnimationFrame(this.window, () => {\n \t\t\t\tif (this._isDisposed) {\n@@ -590,7 +592,7 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD\n \t\t\tupdateInsets();\n \t\t}));\n \n-\t\tconst vm = this.notebookDiffViewModel = this._register(new NotebookDiffViewModel(this._model, this.notebookEditorWorkerService, this.configurationService, this._eventDispatcher!, this.notebookService, this.diffEditorCalcuator, this.fontInfo, undefined));\n+\t\tconst vm = this.notebookDiffViewModel = this._localStore.add(new NotebookDiffViewModel(this._model, this.notebookEditorWorkerService, this.configurationService, this._eventDispatcher!, this.notebookService, this.diffEditorCalcuator, this.fontInfo, undefined));\n \t\tthis._localStore.add(this.notebookDiffViewModel.onDidChangeItems(e => {\n \t\t\tthis._originalWebview?.removeInsets([...this._originalWebview?.insetMapping.keys()]);\n \t\t\tthis._modifiedWebview?.removeInsets([...this._modifiedWebview?.insetMapping.keys()]);\n@@ -928,12 +930,8 @@ export class NotebookTextDiffEditor extends EditorPane implements INotebookTextD\n \n \t\tsuper.clearInput();\n \n-\t\tthis._modifiedResourceDisposableStore.clear();\n-\t\tthis._list?.splice(0, this._list?.length || 0);\n-\t\tthis._currentChangedIndex.set(-1, undefined);\n+\t\tthis._detachModel();\n \t\tthis._model = null;\n-\t\tthis.notebookDiffViewModel?.dispose();\n-\t\tthis.notebookDiffViewModel = undefined;\n \t}\n \n \tdeltaCellOutputContainerClassNames(diffSide: DiffSide, cellId: string, added: string[], removed: string[]) {"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 4984065594,
+   "node_id": "PRR_kwDOAn8RLM8AAAABKRLOOg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "## Pull request overview\n\nFixes notebook diff editor model leaks by aligning disposables with each editor input’s lifetime.\n\n**Changes:**\n- Disposes layout work during model detachment.\n- Registers diff view models in the input-specific disposable store.\n- Reuses model-detachment cleanup when clearing input.\n\n\n\n\n\n\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4984065594",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4984065594"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-08-20T14:52:06Z",
+   "commit_id": "914b0c59ce5ddbf4bb614428ed374f704e344c84"
+  },
+  {
+   "id": 4984504554,
+   "node_id": "PRR_kwDOAn8RLM8AAAABKRmA6g",
+   "user": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4984504554",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4984504554"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-08-20T15:26:42Z",
+   "commit_id": "b1f5219afb895af7a84c5412c8b127dbe7852205"
+  },
+  {
+   "id": 4999455311,
+   "node_id": "PRR_kwDOAn8RLM8AAAABKf2iTw",
+   "user": {
+    "login": "dianatofficial",
+    "id": 117314840,
+    "node_id": "U_kgDOBv4VGA",
+    "avatar_url": "https://avatars.githubusercontent.com/u/117314840?u=dde8c8f487e3e961500472d7de0bc4e246c7f256&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dianatofficial",
+    "html_url": "https://github.com/dianatofficial",
+    "followers_url": "https://api.github.com/users/dianatofficial/followers",
+    "following_url": "https://api.github.com/users/dianatofficial/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dianatofficial/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dianatofficial/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dianatofficial/subscriptions",
+    "organizations_url": "https://api.github.com/users/dianatofficial/orgs",
+    "repos_url": "https://api.github.com/users/dianatofficial/repos",
+    "events_url": "https://api.github.com/users/dianatofficial/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dianatofficial/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "Verified the diff. Changes align with project standards.",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4999455311",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-4999455311"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-08-22T07:06:47Z",
+   "commit_id": "b1f5219afb895af7a84c5412c8b127dbe7852205"
+  },
+  {
+   "id": 5346916375,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPrN4Fw",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?u=dfefdb2dfb250f55935f01ef0feba2a0709a47f9&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "Please see inline comments",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5346916375",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "COLLABORATOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5346916375"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-09-29T02:17:24Z",
+   "commit_id": "b1f5219afb895af7a84c5412c8b127dbe7852205"
+  },
+  {
+   "id": 5497928412,
+   "node_id": "PRR_kwDOAn8RLM8AAAABR7O63A",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?u=dfefdb2dfb250f55935f01ef0feba2a0709a47f9&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "body": "Please consider new review comment",
+   "state": "CHANGES_REQUESTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5497928412",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "COLLABORATOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5497928412"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2026-10-13T01:54:56Z",
+   "commit_id": "44a225758b78438ccca2a32e94e1871cc845cdd9"
+  },
+  {
+   "id": 5510617503,
+   "node_id": "PRR_kwDOAn8RLM8AAAABSHVZnw",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n### 🟡 Changes recommended\n\nDetaching does not cancel in-flight layout work, and the ownership fix lacks regression coverage.\n\n<details open>\n<summary><strong>2 open findings</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Cancel pending diff work when detaching the input](https://github.com/microsoft/vscode/pull/331805#discussion_r4264575073) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Test disposal of view-model and dispatcher on input replacement](https://github.com/microsoft/vscode/pull/331805#discussion_r4264575152) · New\n</details>\n\n<details>\n<summary><strong>1 resolved since last review</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Dispose the model-scoped dispatcher before dropping this reference.…](https://github.com/microsoft/vscode/pull/331805#discussion_r3822652981)\n</details>\n\n🧠 **Review effort:** Balanced",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5510617503",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/331805",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/331805#pullrequestreview-5510617503"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/331805"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-10-13T22:10:14Z",
+   "commit_id": "282b19cebd541b63aac4def01cd0ff607fce833f"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5882360111",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#issuecomment-5882360111",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331805",
+   "id": 5882360111,
+   "node_id": "IC_kwDOAn8RLM8AAAABXp2xLw",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-09-29T02:15:25Z",
+   "updated_at": "2026-09-29T02:15:25Z",
+   "body": "### P3: reset the current-change index when clearing an input\n\nThe new [`clearInput()` → `_detachModel()` call](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L925) changes an observable-state side effect: [the input-local store is now cleared](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L532) before [the list is cleared](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L544). That removes [the focus subscription that resets `currentChangedIndex` to `-1`](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L574) before it receives the empty-focus event.\n\nPreviously, clearing the input spliced the list while that subscription was still alive. With this change, a cached pane can retain the previous input's current-change index. This observable is consumed by [the chat notebook-diff integration](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/chat/browser/chatEditing/notebook/chatEditingNotebookEditorIntegration.ts#L687), including [navigation-boundary decisions](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/chat/browser/chatEditing/notebook/chatEditingNotebookEditorIntegration.ts#L715), so it is not just an unused field.\n\n**Suggested repro / regression test (source-derived; not executed):**\n1. Use the notebook text-diff editor (`notebook.experimental.enableNewDiffEditor: false`, `notebook.diff.enablePreview: true`).\n2. Open a notebook diff with at least three changed cells and focus the third change; verify its current-change index is `2`.\n3. Close that diff while retaining the editor group/pane cache. In a debugger or a scoped pane test, inspect the same pane immediately after input clearing completes, before another list update.\n4. Expected: the index is `-1`. The new disposal ordering leaves it at `2`. Replacing the input in the same group also carries that stale state until an applicable items/focus update resets it.\n\nCould the detach path explicitly reset the observable, with a focused clear/reuse test? That would preserve the new input-specific ownership without depending on a listener that has already been disposed.\n\n**Validation limit:** the ordering and only-writer relationship were checked statically; I have not reproduced a visible chat-navigation failure. The pane's own next/previous navigation uses list focus and is not claimed broken.",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5882360111/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5882360140",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#issuecomment-5882360140",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331805",
+   "id": 5882360140,
+   "node_id": "IC_kwDOAn8RLM8AAAABXp2xTA",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-09-29T02:15:25Z",
+   "updated_at": "2026-09-29T02:15:25Z",
+   "body": "### Race-coverage request: clearing the layout token before the final set-input continuation\n\nThis is a **lower-confidence validation concern, not a reproduced user-visible regression**.\n\nThe new [assignment clearing the layout cancellation source](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L531) needs to be considered alongside the [await of modified-webview creation](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L514) and the subsequent [unguarded `.token` dereference](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L519).\n\n**Suggested deterministic interleaving for a scoped test (not executed):**\n1. Begin setting a resolved notebook-diff input.\n2. Hold the continuation at the modified-webview await using a test-controlled promise, after the helper has created the webview.\n3. Clear/close that input, then release the continuation without attaching a replacement input.\n4. Assert that the obsolete open operation completes without dereferencing a cleared source. With the new assignment, the resumed expression can throw a TypeError before reaching [the no-model guard inside `updateLayout()`](https://github.com/microsoft/vscode/blob/b1f5219afb895af7a84c5412c8b127dbe7852205/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L648). Before this change, that source remained present and this particular continuation could reach the guard and return.\n\nAn input/model-staleness check after the await, before accessing the source, would make the intended close-during-open behavior explicit.\n\n**Scope/limitations:** the real helper currently has no internal await, so normal UI reachability of this microtask interleaving is unverified; the proposed test deliberately controls it. There is already a similar earlier-await failure involving a cleared model, so this is not a claim that the PR introduced the broader cancellation problem. Please treat this as a narrowly scoped test/guard request, not a confirmed general cancellation regression.",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5882360140/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5961504487",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#issuecomment-5961504487",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331805",
+   "id": 5961504487,
+   "node_id": "IC_kwDOAn8RLM8AAAABY1VW5w",
+   "user": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-02T21:07:59Z",
+   "updated_at": "2026-10-02T21:07:59Z",
+   "body": "Created a separate PR to handle cancellation of diffEditorInputs better: https://github.com/microsoft/vscode/pull/339389",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/5961504487/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6136348686",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#issuecomment-6136348686",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331805",
+   "id": 6136348686,
+   "node_id": "IC_kwDOAn8RLM8AAAABbcFADg",
+   "user": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "created_at": "2026-10-13T01:52:58Z",
+   "updated_at": "2026-10-13T01:52:58Z",
+   "body": "### P3: the change index still survives input clearing at the current head\r\n\r\nFollowing up on [the earlier index-reset finding](https://github.com/microsoft/vscode/pull/331805#issuecomment-5882360111): this remains present at current head `44a225758b78438ccca2a32e94e1871cc845cdd9`, after the lifecycle changes were reverted.\r\n\r\nThe new [`clearInput()` -> `_detachModel()` call](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L925) changes the reset ordering:\r\n\r\n1. [`_localStore.clear()`](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L532) disposes [the focus listener that resets `_currentChangedIndex` to `-1`](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L574).\r\n2. [`_list.clear()`](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor.ts#L544) then clears the focus, but that listener is no longer present.\r\n\r\nPreviously, `clearInput()` spliced the list while the listener was still active. The new ordering leaves a cached pane's public `currentChangedIndex` at the previous input's value. The [chat notebook-diff integration reads this observable](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/chat/browser/chatEditing/notebook/chatEditingNotebookEditorIntegration.ts#L687), including for [navigation-boundary decisions](https://github.com/microsoft/vscode/blob/44a225758b78438ccca2a32e94e1871cc845cdd9/src/vs/workbench/contrib/chat/browser/chatEditing/notebook/chatEditingNotebookEditorIntegration.ts#L715).\r\n\r\n**Suggested repro / regression test (source-derived; not executed):**\r\n\r\n1. Use the notebook text-diff editor with `notebook.experimental.enableNewDiffEditor: false` and `notebook.diff.enablePreview: true`.\r\n2. Compare two notebooks with at least three changed cells. Focus the third change and verify the pane's `currentChangedIndex.get()` is `2`.\r\n3. Close the diff without disposing its editor group/pane cache. In a debugger or focused pane test, inspect that same pane immediately after `clearInput()` returns, before a subsequent input/list update.\r\n4. **Expected:** `currentChangedIndex.get()` is `-1`. **Source-predicted result at this head:** it remains `2`. Also cover replacing the input in the same pane so the old selection does not survive into the replacement's loading interval.\r\n\r\nPlease explicitly reset `_currentChangedIndex` to `-1` during detachment and retain focused clear/reuse coverage. The reset briefly added in `30550d45` was removed by the head revert; moving it to separate #339389 does not include it in this PR's standalone delta.\r\n\r\n**Validation limit:** both independent source reviews identified the ordering regression, but no Code OSS reproduction or visible chat-navigation failure was demonstrated. The pane's own next/previous commands use list focus and are not claimed broken. This is a low-severity observable-state regression, not a claim of a broad navigation outage.\r\n",
+   "author_association": "COLLABORATOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6136348686/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6142561684",
+   "html_url": "https://github.com/microsoft/vscode/pull/331805#issuecomment-6142561684",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/331805",
+   "id": 6142561684,
+   "node_id": "IC_kwDOAn8RLM8AAAABbiANlA",
+   "user": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2026-10-13T09:30:22Z",
+   "updated_at": "2026-10-13T09:30:22Z",
+   "body": "Should be resolved with PR https://github.com/microsoft/vscode/pull/339389, which is now merged.",
+   "author_association": "CONTRIBUTOR",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/6142561684/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "914b0c59ce5ddbf4bb614428ed374f704e344c84",
+   "node_id": "C_kwDODaDU69oAKDkxNGIwYzU5Y2U1ZGRiZjRiYjYxNDQyOGVkMzc0ZjcwNGUzNDRjODQ",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-08-20T13:57:51Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-08-20T13:57:51Z"
+    },
+    "message": "fix: memory leak in notebook text diff editor",
+    "tree": {
+     "sha": "7243a88401b2d5afa94ec7a624ef228af791381a",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7243a88401b2d5afa94ec7a624ef228af791381a"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/914b0c59ce5ddbf4bb614428ed374f704e344c84",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/914b0c59ce5ddbf4bb614428ed374f704e344c84",
+   "html_url": "https://github.com/microsoft/vscode/commit/914b0c59ce5ddbf4bb614428ed374f704e344c84",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/914b0c59ce5ddbf4bb614428ed374f704e344c84/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "e6a38b7e53d487c90c842a442ff7345820d26065",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/e6a38b7e53d487c90c842a442ff7345820d26065",
+     "html_url": "https://github.com/microsoft/vscode/commit/e6a38b7e53d487c90c842a442ff7345820d26065"
+    }
+   ]
+  },
+  {
+   "sha": "b1f5219afb895af7a84c5412c8b127dbe7852205",
+   "node_id": "C_kwDODaDU69oAKGIxZjUyMTlhZmI4OTVhZjdhODRjNTQxMmM4YjEyN2RiZTc4NTIyMDU",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-08-20T15:26:06Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-08-20T15:26:06Z"
+    },
+    "message": "fix: dispose notebook diff event dispatcher",
+    "tree": {
+     "sha": "e1d487a80daf714ddc65fd97bcce14dbc0273ed2",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/e1d487a80daf714ddc65fd97bcce14dbc0273ed2"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/b1f5219afb895af7a84c5412c8b127dbe7852205",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/b1f5219afb895af7a84c5412c8b127dbe7852205",
+   "html_url": "https://github.com/microsoft/vscode/commit/b1f5219afb895af7a84c5412c8b127dbe7852205",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/b1f5219afb895af7a84c5412c8b127dbe7852205/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "914b0c59ce5ddbf4bb614428ed374f704e344c84",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/914b0c59ce5ddbf4bb614428ed374f704e344c84",
+     "html_url": "https://github.com/microsoft/vscode/commit/914b0c59ce5ddbf4bb614428ed374f704e344c84"
+    }
+   ]
+  },
+  {
+   "sha": "30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+   "node_id": "C_kwDODaDU69oAKDMwNTUwZDQ1N2Y4YzJlMmRlNjgzM2ZkZmVjOTMzOWQ4YmJmYjQxNDQ",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-02T20:13:33Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-02T20:13:33Z"
+    },
+    "message": "fix: guard notebook diff input lifecycle",
+    "tree": {
+     "sha": "3e8748a76d44e8aa00aba2514b39906a0f7b878e",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/3e8748a76d44e8aa00aba2514b39906a0f7b878e"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+   "html_url": "https://github.com/microsoft/vscode/commit/30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/30550d457f8c2e2de6833fdfec9339d8bbfb4144/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "b1f5219afb895af7a84c5412c8b127dbe7852205",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/b1f5219afb895af7a84c5412c8b127dbe7852205",
+     "html_url": "https://github.com/microsoft/vscode/commit/b1f5219afb895af7a84c5412c8b127dbe7852205"
+    }
+   ]
+  },
+  {
+   "sha": "0293dff79f2aa659a2276590d5c2be810908d925",
+   "node_id": "C_kwDODaDU69oAKDAyOTNkZmY3OWYyYWE2NTlhMjI3NjU5MGQ1YzJiZTgxMDkwOGQ5MjU",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-02T20:21:48Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-02T20:21:48Z"
+    },
+    "message": "Merge branch 'main' into fix/memory-leak-notebookTextDiffEditor",
+    "tree": {
+     "sha": "7b2e24e32658e4c3870885f58a789b93a47c4230",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7b2e24e32658e4c3870885f58a789b93a47c4230"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/0293dff79f2aa659a2276590d5c2be810908d925",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqwBJcCRC1aQ7uu5UhlAAAm5AQABTDqX2iIlQsbbCL0F+KmnIm\nbioB5SK4XKnVNkv57Cq0NZ0u6IxiGMsWzzKtgBYsGaWBCJ0wClBsKMKDeDWEbS7S\n7SMMxotr4G8pp+NQJHc3JxJvb8O1rFQl6zNyk4Zu0GqsXAqxakgSoruQx90GwVm1\nYbrZJZ32jkmySzPLgSuAAUrzBM/qR+B5+CDDE6q9naWB6uxiyCicxiL1uG3n/c3x\nV86Ap1mG1ytcwpZh594DEebzk11FuUmYBAeN9dAe2Vtns/N63Fcn0TW9W4nFtIPJ\nl8TrtfzGSc4gjmYfl2oiSCbYQkkPOKiIdU4Ocwx2sm+oTBNAzO3XX7shBKMjlhTo\nNZk1TOkYbMdd3JlE09U92mXbznRlwpVPOl5bdEHlX0xfadJRzTha1bw++8k0zp6G\nXz0W/0NuWBIM9OwK51sNasEeZluQQ1fDKpLi6zCl9teNj/Rbxo2rNRmSXAGI+x7d\np6ejgsiyZUGLpiy4GHrQxCFjiXYp/IbnTQvWGUAjU2EQkHQjkCpUr7HeCd9FxZbd\nIyimxmYZ+Lb66UBFGnW3y0iphc55Yu2CK1gFdyizvw7BZfVj6/L2LdyF8dnmmgj1\ndQPL9aa1iOzCLdfAppPRPTzc2jZgy1qCQseSjCDHs0d8oCTiI6j+yEp6EuaDsY+m\ntSiAjwZx9ytb8DejQnWC\n=o4D0\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 7b2e24e32658e4c3870885f58a789b93a47c4230\nparent 30550d457f8c2e2de6833fdfec9339d8bbfb4144\nparent 2eef0e83bba08a44348b26685c4b5481d639377d\nauthor Simon Siefke <simon.siefke@gmail.com> 1790972508 +0000\ncommitter GitHub <noreply@github.com> 1790972508 +0000\n\nMerge branch 'main' into fix/memory-leak-notebookTextDiffEditor",
+     "verified_at": "2026-10-02T20:21:49Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/0293dff79f2aa659a2276590d5c2be810908d925",
+   "html_url": "https://github.com/microsoft/vscode/commit/0293dff79f2aa659a2276590d5c2be810908d925",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/0293dff79f2aa659a2276590d5c2be810908d925/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/30550d457f8c2e2de6833fdfec9339d8bbfb4144",
+     "html_url": "https://github.com/microsoft/vscode/commit/30550d457f8c2e2de6833fdfec9339d8bbfb4144"
+    },
+    {
+     "sha": "2eef0e83bba08a44348b26685c4b5481d639377d",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/2eef0e83bba08a44348b26685c4b5481d639377d",
+     "html_url": "https://github.com/microsoft/vscode/commit/2eef0e83bba08a44348b26685c4b5481d639377d"
+    }
+   ]
+  },
+  {
+   "sha": "44a225758b78438ccca2a32e94e1871cc845cdd9",
+   "node_id": "C_kwDODaDU69oAKDQ0YTIyNTc1OGI3ODQzOGNjY2EyYTMyZTk0ZTE4NzFjYzg0NWNkZDk",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-02T20:29:22Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-02T20:31:35Z"
+    },
+    "message": "Revert \"fix: guard notebook diff input lifecycle\"\n\nThis reverts commit 30550d457f8c2e2de6833fdfec9339d8bbfb4144.",
+    "tree": {
+     "sha": "7f32fa91542dfb17eeccaede874ed2868635f81b",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/7f32fa91542dfb17eeccaede874ed2868635f81b"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/44a225758b78438ccca2a32e94e1871cc845cdd9",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/44a225758b78438ccca2a32e94e1871cc845cdd9",
+   "html_url": "https://github.com/microsoft/vscode/commit/44a225758b78438ccca2a32e94e1871cc845cdd9",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/44a225758b78438ccca2a32e94e1871cc845cdd9/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "0293dff79f2aa659a2276590d5c2be810908d925",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0293dff79f2aa659a2276590d5c2be810908d925",
+     "html_url": "https://github.com/microsoft/vscode/commit/0293dff79f2aa659a2276590d5c2be810908d925"
+    }
+   ]
+  },
+  {
+   "sha": "282b19cebd541b63aac4def01cd0ff607fce833f",
+   "node_id": "C_kwDODaDU69oAKDI4MmIxOWNlYmQ1NDFiNjNhYWM0ZGVmMDFjZDBmZjYwN2ZjZTgzM2Y",
+   "commit": {
+    "author": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-13T09:24:56Z"
+    },
+    "committer": {
+     "name": "Simon Siefke",
+     "email": "simon.siefke@gmail.com",
+     "date": "2026-10-13T09:24:56Z"
+    },
+    "message": "Merge upstream main into notebook text diff editor fix",
+    "tree": {
+     "sha": "2bf522572e34b08504f845d4d571d1ddccb618e6",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/2bf522572e34b08504f845d4d571d1ddccb618e6"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/282b19cebd541b63aac4def01cd0ff607fce833f",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/282b19cebd541b63aac4def01cd0ff607fce833f",
+   "html_url": "https://github.com/microsoft/vscode/commit/282b19cebd541b63aac4def01cd0ff607fce833f",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/282b19cebd541b63aac4def01cd0ff607fce833f/comments",
+   "author": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "SimonSiefke",
+    "id": 23744935,
+    "node_id": "MDQ6VXNlcjIzNzQ0OTM1",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23744935?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/SimonSiefke",
+    "html_url": "https://github.com/SimonSiefke",
+    "followers_url": "https://api.github.com/users/SimonSiefke/followers",
+    "following_url": "https://api.github.com/users/SimonSiefke/following{/other_user}",
+    "gists_url": "https://api.github.com/users/SimonSiefke/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/SimonSiefke/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/SimonSiefke/subscriptions",
+    "organizations_url": "https://api.github.com/users/SimonSiefke/orgs",
+    "repos_url": "https://api.github.com/users/SimonSiefke/repos",
+    "events_url": "https://api.github.com/users/SimonSiefke/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/SimonSiefke/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "44a225758b78438ccca2a32e94e1871cc845cdd9",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/44a225758b78438ccca2a32e94e1871cc845cdd9",
+     "html_url": "https://github.com/microsoft/vscode/commit/44a225758b78438ccca2a32e94e1871cc845cdd9"
+    },
+    {
+     "sha": "0c9c0a4295a9222e12a605537738719455ae3056",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/0c9c0a4295a9222e12a605537738719455ae3056",
+     "html_url": "https://github.com/microsoft/vscode/commit/0c9c0a4295a9222e12a605537738719455ae3056"
+    }
+   ]
+  },
+  {
+   "sha": "c836fc7d296453c01c49221a3d7150de788b46f3",
+   "node_id": "C_kwDODaDU69oAKGM4MzZmYzdkMjk2NDUzYzAxYzQ5MjIxYTNkNzE1MGRlNzg4YjQ2ZjM",
+   "commit": {
+    "author": {
+     "name": "Dmitriy Vasyura",
+     "email": "dmitriv@microsoft.com",
+     "date": "2026-10-13T23:36:15Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-10-13T23:36:15Z"
+    },
+    "message": "Merge branch 'main' into fix/memory-leak-notebookTextDiffEditor",
+    "tree": {
+     "sha": "968b88dda1607600dba399d3d28639dd008583af",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/968b88dda1607600dba399d3d28639dd008583af"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/c836fc7d296453c01c49221a3d7150de788b46f3",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqzsBvCRC1aQ7uu5UhlAAATwEQABXrIPmo/ekCzZH0dqa6q97q\n+jiT1ReGZO824ddJhTH4U7LwAJCZUPEIJ8dWTN2Ivqw6Bp+opqNKd9+LqmqrM7UI\n+I1d0ArqPGMS8aaLvvZTc+mLk5PjI6UG3T+2oWmTP7XCpancfRNf2GlHjq1cvos8\nOkbe4XlW36x+d/3J2cS3InU3iIz/+E9BHaWuCdi2gsy6Wg1I5gtugJB+N8gUysGi\nRZbITZ44ilide6hkaIVC0Y3avicioG4Vh2X1fsvLIuq74yaVXIr06sXycPTeLVlR\nsGbKhDwu8kkDtBHJRLVS+j/hxXZHe16EtQYkyX0jia7Yw5y1vDI6IUVM0KqCnNHo\nl13HrB/m4j8IX235ShKpzcDJSxl4MX8JnHJycC9qXSeolAftiGSMxXjt8n79rYSH\nKQbVESytQartrrFScjBXJkBZEX9FssJAQUn526h539rBbEgDmSR0oG22pUCZ7TtU\nUDs8/kz8xiN4YPPhrrbiMewPvja0gOeqraB2RyQIY5Dl5yj7+TSUEoCM7TNp2Mq3\ny1pUS3xqUCbfuJdQUPThYUhjoToEFVHB5ysEfK6zeMx5xIAgCgDicfoU7d4o61Et\n61WsSholubT8cpmsl3bUyZMhyKXaLpIdojddTgPlpkQ/nbBWmJZo1n+m8jyMQ9Z3\nqZFQFCDFPnN07nr11wZW\n=c/cn\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 968b88dda1607600dba399d3d28639dd008583af\nparent 282b19cebd541b63aac4def01cd0ff607fce833f\nparent ebefbb79e796cb086d9ad32e05b0e2f1105f1888\nauthor Dmitriy Vasyura <dmitriv@microsoft.com> 1791934575 -0700\ncommitter GitHub <noreply@github.com> 1791934575 -0700\n\nMerge branch 'main' into fix/memory-leak-notebookTextDiffEditor",
+     "verified_at": "2026-10-13T23:36:16Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/c836fc7d296453c01c49221a3d7150de788b46f3",
+   "html_url": "https://github.com/microsoft/vscode/commit/c836fc7d296453c01c49221a3d7150de788b46f3",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/c836fc7d296453c01c49221a3d7150de788b46f3/comments",
+   "author": {
+    "login": "dmitrivMS",
+    "id": 9581278,
+    "node_id": "MDQ6VXNlcjk1ODEyNzg=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9581278?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/dmitrivMS",
+    "html_url": "https://github.com/dmitrivMS",
+    "followers_url": "https://api.github.com/users/dmitrivMS/followers",
+    "following_url": "https://api.github.com/users/dmitrivMS/following{/other_user}",
+    "gists_url": "https://api.github.com/users/dmitrivMS/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/dmitrivMS/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dmitrivMS/subscriptions",
+    "organizations_url": "https://api.github.com/users/dmitrivMS/orgs",
+    "repos_url": "https://api.github.com/users/dmitrivMS/repos",
+    "events_url": "https://api.github.com/users/dmitrivMS/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/dmitrivMS/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "282b19cebd541b63aac4def01cd0ff607fce833f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/282b19cebd541b63aac4def01cd0ff607fce833f",
+     "html_url": "https://github.com/microsoft/vscode/commit/282b19cebd541b63aac4def01cd0ff607fce833f"
+    },
+    {
+     "sha": "ebefbb79e796cb086d9ad32e05b0e2f1105f1888",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/ebefbb79e796cb086d9ad32e05b0e2f1105f1888",
+     "html_url": "https://github.com/microsoft/vscode/commit/ebefbb79e796cb086d9ad32e05b0e2f1105f1888"
+    }
+   ]
+  }
+ ]
+}

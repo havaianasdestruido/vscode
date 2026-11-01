@@ -1,0 +1,493 @@
+{
+ "fetchedAt": "2026-11-01T00:51:31.127Z",
+ "pr": {
+  "number": 197594,
+  "title": "Add option to control tree item collapse state",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2023-11-06T22:42:05Z",
+  "updated_at": "2026-08-24T01:00:33Z",
+  "user": "Hau-Hau",
+  "author_association": "NONE",
+  "additions": 27,
+  "deletions": 3,
+  "changed_files": 5,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 0,
+  "commits_count": 3,
+  "labels": [
+   "references-viewlet"
+  ],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "197592_Expand_all_locations_when_using_Find_All_References",
+   "sha": "5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "repo": "Hau-Hau/vscode",
+   "label": "Hau-Hau:197592_Expand_all_locations_when_using_Find_All_References"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "043ceac535313b6b6523b7e5d373ef372b940cbe"
+  },
+  "body": "https://github.com/microsoft/vscode/issues/197592",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "7d67e5797ad411307a882e100e5aefcbc7ca86c5",
+   "filename": "extensions/references-view/package.json",
+   "status": "modified",
+   "additions": 9,
+   "deletions": 0,
+   "changes": 9,
+   "blob_url": "https://github.com/microsoft/vscode/blob/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fpackage.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fpackage.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Freferences-view%2Fpackage.json?ref=5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "patch": "@@ -43,6 +43,15 @@\n             \"%config.references.preferredLocation.peek%\",\n             \"%config.references.preferredLocation.view%\"\n           ]\n+        },\n+        \"references.collapseResults\": {\n+          \"description\": \"%config.references.collapseResults%\",\n+          \"type\": \"string\",\n+          \"default\": \"alwaysCollapse\",\n+          \"enum\": [\n+            \"alwaysCollapse\",\n+            \"alwaysExpand\"\n+          ]\n         }\n       }\n     },"
+  },
+  {
+   "sha": "48f498b472a52b88480f25b4f77fc7c886aca41f",
+   "filename": "extensions/references-view/package.nls.json",
+   "status": "modified",
+   "additions": 1,
+   "deletions": 0,
+   "changes": 1,
+   "blob_url": "https://github.com/microsoft/vscode/blob/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fpackage.nls.json",
+   "raw_url": "https://github.com/microsoft/vscode/raw/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fpackage.nls.json",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Freferences-view%2Fpackage.nls.json?ref=5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "patch": "@@ -4,6 +4,7 @@\n \t\"config.references.preferredLocation\": \"Controls whether 'Peek References' or 'Find References' is invoked when selecting CodeLens references.\",\n \t\"config.references.preferredLocation.peek\": \"Show references in peek editor.\",\n \t\"config.references.preferredLocation.view\": \"Show references in separate view.\",\n+\t\"config.references.collapseResults\": \"Controls whether the reference search results will be collapsed or expanded.\",\n \t\"container.title\": \"References\",\n \t\"view.title\": \"Reference Search Results\",\n \t\"cmd.category.references\": \"References\","
+  },
+  {
+   "sha": "f9b64ba8fa9b637f4eb129b5c7d2d06e8dca6691",
+   "filename": "extensions/references-view/src/calls/model.ts",
+   "status": "modified",
+   "additions": 7,
+   "deletions": 1,
+   "changes": 8,
+   "blob_url": "https://github.com/microsoft/vscode/blob/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Fcalls%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Fcalls%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Freferences-view%2Fsrc%2Fcalls%2Fmodel.ts?ref=5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "patch": "@@ -163,9 +163,11 @@ class CallItemDataProvider implements vscode.TreeDataProvider<CallItem> {\n \treadonly onDidChangeTreeData = this._emitter.event;\n \n \tprivate readonly _modelListener: vscode.Disposable;\n+\tprivate readonly collapseResults: 'alwaysCollapse' | 'alwaysExpand';\n \n \tconstructor(private _model: CallsModel) {\n \t\tthis._modelListener = _model.onDidChange(e => this._emitter.fire(e instanceof CallItem ? e : undefined));\n+\t\tthis.collapseResults = vscode.workspace.getConfiguration().get('references.collapseResults') ?? 'alwaysCollapse';\n \t}\n \n \tdispose(): void {\n@@ -209,7 +211,11 @@ class CallItemDataProvider implements vscode.TreeDataProvider<CallItem> {\n \t\t\ttitle: vscode.l10n.t('Open Call'),\n \t\t\targuments: openArgs\n \t\t};\n-\t\titem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;\n+\n+\t\titem.collapsibleState = this.collapseResults === 'alwaysCollapse'\n+\t\t\t? vscode.TreeItemCollapsibleState.Collapsed\n+\t\t\t: vscode.TreeItemCollapsibleState.Expanded;\n+\n \t\treturn item;\n \t}\n "
+  },
+  {
+   "sha": "e24e3eb97426be746161ff9f40d7c30540036754",
+   "filename": "extensions/references-view/src/references/model.ts",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Freferences%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Freferences%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Freferences-view%2Fsrc%2Freferences%2Fmodel.ts?ref=5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "patch": "@@ -262,9 +262,11 @@ class ReferencesTreeDataProvider implements vscode.TreeDataProvider<FileItem | R\n \tprivate readonly _onDidChange = new vscode.EventEmitter<FileItem | ReferenceItem | undefined>();\n \n \treadonly onDidChangeTreeData = this._onDidChange.event;\n+\treadonly collapseResults: 'alwaysCollapse' | 'alwaysExpand';\n \n \tconstructor(private readonly _model: ReferencesModel) {\n \t\tthis._listener = _model.onDidChangeTreeData(() => this._onDidChange.fire(undefined));\n+\t\tthis.collapseResults = vscode.workspace.getConfiguration().get('references.collapseResults') ?? 'alwaysCollapse';\n \t}\n \n \tdispose(): void {\n@@ -279,7 +281,9 @@ class ReferencesTreeDataProvider implements vscode.TreeDataProvider<FileItem | R\n \t\t\tresult.contextValue = 'file-item';\n \t\t\tresult.description = true;\n \t\t\tresult.iconPath = vscode.ThemeIcon.File;\n-\t\t\tresult.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;\n+\t\t\tresult.collapsibleState = this.collapseResults === 'alwaysCollapse'\n+\t\t\t\t? vscode.TreeItemCollapsibleState.Collapsed\n+\t\t\t\t: vscode.TreeItemCollapsibleState.Expanded;\n \t\t\treturn result;\n \n \t\t} else {"
+  },
+  {
+   "sha": "5c02555ae624074a56ede8ceb9fb96a71909e173",
+   "filename": "extensions/references-view/src/types/model.ts",
+   "status": "modified",
+   "additions": 5,
+   "deletions": 1,
+   "changes": 6,
+   "blob_url": "https://github.com/microsoft/vscode/blob/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Ftypes%2Fmodel.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/5b194cd55996b517aa461cee1b9412d30a30de7c/extensions%2Freferences-view%2Fsrc%2Ftypes%2Fmodel.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Freferences-view%2Fsrc%2Ftypes%2Fmodel.ts?ref=5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "patch": "@@ -156,9 +156,11 @@ class TypeItemDataProvider implements vscode.TreeDataProvider<TypeItem> {\n \treadonly onDidChangeTreeData = this._emitter.event;\n \n \tprivate readonly _modelListener: vscode.Disposable;\n+\tprivate readonly collapseResults: 'alwaysCollapse' | 'alwaysExpand';\n \n \tconstructor(private _model: TypesModel) {\n \t\tthis._modelListener = _model.onDidChange(e => this._emitter.fire(e instanceof TypeItem ? e : undefined));\n+\t\tthis.collapseResults = vscode.workspace.getConfiguration().get('references.collapseResults') ?? 'alwaysCollapse';\n \t}\n \n \tdispose(): void {\n@@ -180,7 +182,9 @@ class TypeItemDataProvider implements vscode.TreeDataProvider<TypeItem> {\n \t\t\t\t{ selection: element.item.selectionRange.with({ end: element.item.selectionRange.start }) } satisfies vscode.TextDocumentShowOptions\n \t\t\t]\n \t\t};\n-\t\titem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;\n+\t\titem.collapsibleState = this.collapseResults === 'alwaysCollapse'\n+\t\t\t? vscode.TreeItemCollapsibleState.Collapsed\n+\t\t\t: vscode.TreeItemCollapsibleState.Expanded;\n \t\treturn item;\n \t}\n "
+  }
+ ],
+ "reviews": [
+  {
+   "id": 2558084186,
+   "node_id": "PRR_kwDOAn8RLM6YeURa",
+   "user": {
+    "login": "tomerbarkan",
+    "id": 9161786,
+    "node_id": "MDQ6VXNlcjkxNjE3ODY=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9161786?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tomerbarkan",
+    "html_url": "https://github.com/tomerbarkan",
+    "followers_url": "https://api.github.com/users/tomerbarkan/followers",
+    "following_url": "https://api.github.com/users/tomerbarkan/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tomerbarkan/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tomerbarkan/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tomerbarkan/subscriptions",
+    "organizations_url": "https://api.github.com/users/tomerbarkan/orgs",
+    "repos_url": "https://api.github.com/users/tomerbarkan/repos",
+    "events_url": "https://api.github.com/users/tomerbarkan/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tomerbarkan/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "calls/model.ts line 214 - the line should be deleted.\r\nEverything else seems sound.",
+   "state": "APPROVED",
+   "html_url": "https://github.com/microsoft/vscode/pull/197594#pullrequestreview-2558084186",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/197594",
+   "author_association": "NONE",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/197594#pullrequestreview-2558084186"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/197594"
+    }
+   },
+   "is_copilot_code_review": false,
+   "copilot_code_review_effort": null,
+   "submitted_at": "2025-01-17T06:42:00Z",
+   "commit_id": "68e84a5b64b532497d9e45465fbd6f59d82ecf09"
+  }
+ ],
+ "comments": [
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1796979868",
+   "html_url": "https://github.com/microsoft/vscode/pull/197594#issuecomment-1796979868",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/197594",
+   "id": 1796979868,
+   "node_id": "IC_kwDOAn8RLM5rG7yc",
+   "user": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2023-11-06T22:47:59Z",
+   "updated_at": "2023-11-06T22:47:59Z",
+   "body": "@microsoft-github-policy-service agree",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/1796979868/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  },
+  {
+   "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2663919007",
+   "html_url": "https://github.com/microsoft/vscode/pull/197594#issuecomment-2663919007",
+   "issue_url": "https://api.github.com/repos/microsoft/vscode/issues/197594",
+   "id": 2663919007,
+   "node_id": "IC_kwDOAn8RLM6eyC2f",
+   "user": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "created_at": "2025-02-17T19:16:03Z",
+   "updated_at": "2025-02-17T19:16:03Z",
+   "body": "@tomerbarkan done, line removed.",
+   "author_association": "NONE",
+   "reactions": {
+    "url": "https://api.github.com/repos/microsoft/vscode/issues/comments/2663919007/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+   },
+   "performed_via_github_app": null,
+   "minimized": null
+  }
+ ],
+ "commits": [
+  {
+   "sha": "68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+   "node_id": "C_kwDOKqK1-9oAKDY4ZTg0YTViNjRiNTMyNDk3ZDllNDU0NjVmYmQ2ZjU5ZDgyZWNmMDk",
+   "commit": {
+    "author": {
+     "name": "piotr.a.michalewicz@gmail.com",
+     "email": "piotr.a.michalewicz@gmail.com",
+     "date": "2023-11-06T22:39:00Z"
+    },
+    "committer": {
+     "name": "piotr.a.michalewicz@gmail.com",
+     "email": "piotr.a.michalewicz@gmail.com",
+     "date": "2023-11-06T22:39:00Z"
+    },
+    "message": "Add option to control tree item collapse state",
+    "tree": {
+     "sha": "701bb974ef05d86d738c6d7b473b142aa74e46b9",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/701bb974ef05d86d738c6d7b473b142aa74e46b9"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+    "comment_count": 0,
+    "verification": {
+     "verified": false,
+     "reason": "unsigned",
+     "signature": null,
+     "payload": null,
+     "verified_at": null
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+   "html_url": "https://github.com/microsoft/vscode/commit/68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/68e84a5b64b532497d9e45465fbd6f59d82ecf09/comments",
+   "author": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "20b330daf78508d9a13c28bbf09f7766073e7c61",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/20b330daf78508d9a13c28bbf09f7766073e7c61",
+     "html_url": "https://github.com/microsoft/vscode/commit/20b330daf78508d9a13c28bbf09f7766073e7c61"
+    }
+   ]
+  },
+  {
+   "sha": "3befe0687b0e90be74444ee518b3fc123552626a",
+   "node_id": "C_kwDOKqK1-9oAKDNiZWZlMDY4N2IwZTkwYmU3NDQ0NGVlNTE4YjNmYzEyMzU1MjYyNmE",
+   "commit": {
+    "author": {
+     "name": "Piotr Michalewicz",
+     "email": "20733636+Hau-Hau@users.noreply.github.com",
+     "date": "2025-02-17T19:15:07Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-02-17T19:15:07Z"
+    },
+    "message": "Update model.ts",
+    "tree": {
+     "sha": "747038be5dbdb54de0a324f311c796916407138f",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/747038be5dbdb54de0a324f311c796916407138f"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/3befe0687b0e90be74444ee518b3fc123552626a",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJns4q8CRC1aQ7uu5UhlAAAEr8QAAQm10o756J7TKOuHOoWzT9t\nEHbyuSnfCiuwMdxUx6aRw4lKfqkaYuDa0zwNQqXdcVuPZFMisnVhdxjXtN8OnlSY\nZClih5Zyx32WoiACH5TippE4Or47IxsWvLM9noxzhSBUALOkB/f+lXuBpRIfPnwO\neHesG6peCOhR9MjtGuVdFwyGlC/EY4oz+pNNbDn+ZHrMV+CnJJ3pwtpzTJaOhham\n5U8qs7jdEndQvXFHxzWoEQQYVRsStsTqoEvU8s+vCWLlH8bnTzcl+GVOVDIVIlJO\npez53MlcASN8hzCD1xTvuCeujNsih8Xg7sEZI2Ouq/h244I4AxgGUv7boyFLixLt\nWUMweys8n9nEmALz5jmXYwYHXzCppkhjD9+Y7tCLbMCIl4bBA8C47WuYtGK2AYt0\n5teLE07ilJ6GynByx7817vCJ96FdHckQeX+jRZtQOMMF1XpnSeV5nD5efIIaOSqF\nUM/xeXk3neMB4yM7HhZOEUqTqqBRG/YCZRxVaW3MPNSEeHBME1JvN1oUGDKPFsui\nj40GxH6C9QiHaOWe+UfAZZzwCMJk+aIfcJiI4nDFULfYC0B6nhVEHxr0KsS1w95j\njTf0KtHifkTS6IL+BvqZAPCSpXDN4fGB8JYKKpSlwq19eNe0SumbAAGbiR3IpPmU\nMKRZBDWilBioqID5ky4z\n=pSiG\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 747038be5dbdb54de0a324f311c796916407138f\nparent 68e84a5b64b532497d9e45465fbd6f59d82ecf09\nauthor Piotr Michalewicz <20733636+Hau-Hau@users.noreply.github.com> 1739819707 +0100\ncommitter GitHub <noreply@github.com> 1739819707 +0100\n\nUpdate model.ts",
+     "verified_at": "2025-02-17T19:15:12Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/3befe0687b0e90be74444ee518b3fc123552626a",
+   "html_url": "https://github.com/microsoft/vscode/commit/3befe0687b0e90be74444ee518b3fc123552626a",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/3befe0687b0e90be74444ee518b3fc123552626a/comments",
+   "author": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/68e84a5b64b532497d9e45465fbd6f59d82ecf09",
+     "html_url": "https://github.com/microsoft/vscode/commit/68e84a5b64b532497d9e45465fbd6f59d82ecf09"
+    }
+   ]
+  },
+  {
+   "sha": "5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "node_id": "C_kwDOKqK1-9oAKDViMTk0Y2Q1NTk5NmI1MTdhYTQ2MWNlZTFiOTQxMmQzMGEzMGRlN2M",
+   "commit": {
+    "author": {
+     "name": "Piotr Michalewicz",
+     "email": "20733636+Hau-Hau@users.noreply.github.com",
+     "date": "2025-02-17T19:25:35Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2025-02-17T19:25:35Z"
+    },
+    "message": "Merge branch 'main' into 197592_Expand_all_locations_when_using_Find_All_References",
+    "tree": {
+     "sha": "d7f07c137eeaf26735de6e46b40f748011e3edd3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d7f07c137eeaf26735de6e46b40f748011e3edd3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/5b194cd55996b517aa461cee1b9412d30a30de7c",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJns40vCRC1aQ7uu5UhlAAAit4QACWy4bgTiKe6Zqq0OXwsFAs7\niBd3FDe+jMMpBBC2Qnwd7CgIWlkmKaJJHZQvL7lcPn15+RY9+4U7V4RWXQKfVQ7P\ngqh0nZdKyoI6atLbFa24eoOjeppRwZTAZfkyNj3kmciXIFi36OUm7P54zTinb+1j\nwrJLjTvhjVPoa7IPOkRXwE3I/UcUPJXzbJgjC+lLZOXpnzvU2eNQCVygBWd8GCmM\nEOnyQXh7Qkb+qJ3wGIDCJdvq3NMzr0ohS3Ic7KQMXO17WREwYFDeS2kVk0dH6Zjf\nqg93LzK/6+UQ82VgIw9fHkpoBcV93NOcrGQCSfsr2WWFUHaAhtzqxOKwGa9qTgCw\n/AHSCTqNyjYR+FUY164u++mdpjgqfNNorFyAB4GPor+G9ppZbj5qX6zVJ0LZPTWR\n94qn/aWfyP33VEBP2wywhvrrRkq5qwZEj9MXcCazAaeQ7JGP7rcmIkzyHGO/hl06\nAAghLivRGhndOz5gp0Vp26X3M3jEMaPc45Alf6JY0/i22JZHKdkKPTSXtvuAA3qG\nAwngSQVmnqq8YUujGqnnRXsX8Fg6UgAfDjuitlkp3OZEuDLZTejxdkTnTIqm6LHt\nr1nq7vL6tv7HAR+Qr41EtF77e0UdMx22sDrolXR93fRKCxJNah+cmpYiQJQztBIu\nVl5YwvtjJb/bFwrgjaX/\n=0zKZ\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree d7f07c137eeaf26735de6e46b40f748011e3edd3\nparent 3befe0687b0e90be74444ee518b3fc123552626a\nparent 547f38708a990b3b60bf3ad4362d901ed5baff1c\nauthor Piotr Michalewicz <20733636+Hau-Hau@users.noreply.github.com> 1739820335 +0100\ncommitter GitHub <noreply@github.com> 1739820335 +0100\n\nMerge branch 'main' into 197592_Expand_all_locations_when_using_Find_All_References",
+     "verified_at": "2025-02-17T19:25:39Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "html_url": "https://github.com/microsoft/vscode/commit/5b194cd55996b517aa461cee1b9412d30a30de7c",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/5b194cd55996b517aa461cee1b9412d30a30de7c/comments",
+   "author": {
+    "login": "Hau-Hau",
+    "id": 20733636,
+    "node_id": "MDQ6VXNlcjIwNzMzNjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20733636?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/Hau-Hau",
+    "html_url": "https://github.com/Hau-Hau",
+    "followers_url": "https://api.github.com/users/Hau-Hau/followers",
+    "following_url": "https://api.github.com/users/Hau-Hau/following{/other_user}",
+    "gists_url": "https://api.github.com/users/Hau-Hau/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/Hau-Hau/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/Hau-Hau/subscriptions",
+    "organizations_url": "https://api.github.com/users/Hau-Hau/orgs",
+    "repos_url": "https://api.github.com/users/Hau-Hau/repos",
+    "events_url": "https://api.github.com/users/Hau-Hau/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/Hau-Hau/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "3befe0687b0e90be74444ee518b3fc123552626a",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/3befe0687b0e90be74444ee518b3fc123552626a",
+     "html_url": "https://github.com/microsoft/vscode/commit/3befe0687b0e90be74444ee518b3fc123552626a"
+    },
+    {
+     "sha": "547f38708a990b3b60bf3ad4362d901ed5baff1c",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/547f38708a990b3b60bf3ad4362d901ed5baff1c",
+     "html_url": "https://github.com/microsoft/vscode/commit/547f38708a990b3b60bf3ad4362d901ed5baff1c"
+    }
+   ]
+  }
+ ]
+}

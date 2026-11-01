@@ -1,0 +1,263 @@
+{
+ "fetchedAt": "2026-11-01T00:55:29.480Z",
+ "pr": {
+  "number": 338089,
+  "title": "refactor: add guard clause for missing API key in AzureOpenAIEndpoint",
+  "state": "open",
+  "draft": false,
+  "merged": false,
+  "created_at": "2026-09-26T01:03:20Z",
+  "updated_at": "2026-09-26T02:24:49Z",
+  "user": "denizguney",
+  "author_association": "CONTRIBUTOR",
+  "additions": 14,
+  "deletions": 0,
+  "changed_files": 1,
+  "mergeable": true,
+  "mergeable_state": "blocked",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 1,
+  "commits_count": 2,
+  "labels": [],
+  "milestone": null,
+  "requested_reviewers": [],
+  "head": {
+   "ref": "patch-39",
+   "sha": "65f7fef8d3438467e379339fbda6356a30a28048",
+   "repo": "denizguney/vscode",
+   "label": "denizguney:patch-39"
+  },
+  "base": {
+   "ref": "main",
+   "sha": "529ee19061e6723e0a640fe432e57c69d50a4f4f"
+  },
+  "body": "Add defensive validation to check for missing API key or Entra ID token in AzureOpenAIEndpoint.getExtraHeaders() before proceeding.\r\n\r\nRelated to #338088",
+  "rebaseable": true
+ },
+ "files": [
+  {
+   "sha": "06eed1b8e752b508087234ee277c5f0b6fdbedfb",
+   "filename": "extensions/copilot/src/extension/byok/node/azureOpenAIEndpoint.ts",
+   "status": "modified",
+   "additions": 14,
+   "deletions": 0,
+   "changes": 14,
+   "blob_url": "https://github.com/microsoft/vscode/blob/65f7fef8d3438467e379339fbda6356a30a28048/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FazureOpenAIEndpoint.ts",
+   "raw_url": "https://github.com/microsoft/vscode/raw/65f7fef8d3438467e379339fbda6356a30a28048/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FazureOpenAIEndpoint.ts",
+   "contents_url": "https://api.github.com/repos/microsoft/vscode/contents/extensions%2Fcopilot%2Fsrc%2Fextension%2Fbyok%2Fnode%2FazureOpenAIEndpoint.ts?ref=65f7fef8d3438467e379339fbda6356a30a28048",
+   "patch": "@@ -3,6 +3,7 @@\n  *  Licensed under the MIT License. See License.txt in the project root for license information.\n  *--------------------------------------------------------------------------------------------*/\n import { OpenAIEndpoint } from './openAIEndpoint';\n+import * as assert from 'assert';\n \n /**\n  * Azure-specific OpenAI endpoint that supports Entra ID authentication.\n@@ -14,10 +15,23 @@ export class AzureOpenAIEndpoint extends OpenAIEndpoint {\n \t * Override to use Entra ID authentication headers instead of API key.\n \t */\n \tpublic override getExtraHeaders(): Record<string, string> {\n+\t\tif (!this._apiKey) {\n+\t\t\tthrow new Error('AzureOpenAIEndpoint: API key or Entra ID token is missing.');\n+\t\t}\n+\n \t\tconst headers = super.getExtraHeaders();\n \t\theaders['Authorization'] = `Bearer ${this._apiKey}`;\n \t\t// Defensive: Ensure 'api-key' header is never sent for Azure endpoints, even if parent class changes.\n \t\tdelete headers['api-key'];\n \t\treturn headers;\n \t}\n }\n+\n+suite('AzureOpenAIEndpoint', () => {\n+    test('throws an error when API key or Entra ID token is missing', () => {\n+        const endpoint = new AzureOpenAIEndpoint({} as any);\n+        assert.throws(() => {\n+            endpoint.getExtraHeaders();\n+        }, /AzureOpenAIEndpoint: API key or Entra ID token is missing/);\n+    });\n+});"
+  }
+ ],
+ "reviews": [
+  {
+   "id": 5323925394,
+   "node_id": "PRR_kwDOAn8RLM8AAAABPVSnkg",
+   "user": {
+    "login": "copilot-pull-request-reviewer[bot]",
+    "id": 175728472,
+    "node_id": "BOT_kgDOCnlnWA",
+    "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D",
+    "html_url": "https://github.com/apps/copilot-pull-request-reviewer",
+    "followers_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/followers",
+    "following_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/following{/other_user}",
+    "gists_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/subscriptions",
+    "organizations_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/orgs",
+    "repos_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/repos",
+    "events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/copilot-pull-request-reviewer%5Bbot%5D/received_events",
+    "type": "Bot",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "body": "<!-- ccr-overview-v2 -->\n\n## Copilot review overview\n\n### 🟡 Changes recommended\n\nThe new credential-validation failure path needs unit-test coverage.\n\n**Review effort:** Balanced  \n**Findings:** 1 <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture>\n\n<details open>\n<summary><strong>Open (1)</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/low-v2-light.png\" alt=\"Low severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Add test for empty credential error in getExtraHeaders](#discussion_r4109664443) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nAdds early credential validation to Azure OpenAI header generation.\n\n**Changes:**\n- Throws a clear error when no API key or Entra ID token is available.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `extensions/​copilot/​src/​extension/​byok/​node/​azureOpenAIEndpoint.ts` | Adds the credential guard clause. |\n</details>\n\n---\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review?tool=webui#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>",
+   "state": "COMMENTED",
+   "html_url": "https://github.com/microsoft/vscode/pull/338089#pullrequestreview-5323925394",
+   "pull_request_url": "https://api.github.com/repos/microsoft/vscode/pulls/338089",
+   "author_association": "CONTRIBUTOR",
+   "_links": {
+    "html": {
+     "href": "https://github.com/microsoft/vscode/pull/338089#pullrequestreview-5323925394"
+    },
+    "pull_request": {
+     "href": "https://api.github.com/repos/microsoft/vscode/pulls/338089"
+    }
+   },
+   "is_copilot_code_review": true,
+   "copilot_code_review_effort": "balanced",
+   "submitted_at": "2026-09-26T01:06:36Z",
+   "commit_id": "8d691557fda49da46b13ddd97e97695b7f8de5dc"
+  }
+ ],
+ "comments": [],
+ "commits": [
+  {
+   "sha": "8d691557fda49da46b13ddd97e97695b7f8de5dc",
+   "node_id": "C_kwDOTk4kkdoAKDhkNjkxNTU3ZmRhNDlkYTQ2YjEzZGRkOTdlOTc2OTViN2Y4ZGU1ZGM",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-26T01:01:52Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-26T01:01:52Z"
+    },
+    "message": "refactor: add guard clause for missing API key in AzureOpenAIEndpoint\n\nAdd defensive validation to check for missing API key or Entra ID token in AzureOpenAIEndpoint.getExtraHeaders() before proceeding.",
+    "tree": {
+     "sha": "748f3af9568ec3a70a4f0425ef8e3b8f80e417a0",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/748f3af9568ec3a70a4f0425ef8e3b8f80e417a0"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/8d691557fda49da46b13ddd97e97695b7f8de5dc",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtxmACRC1aQ7uu5UhlAAAq5UQAGGhfd+i98YlWIafQtlt0xwS\nBSyVQiW4Yal8A4aXfLUt9eIbJgyaTMLVLxGGFtfuWQ7H+gfXkNc3CB8pcFB6X28I\nccfl9ovUL1ylOX8I3d7sWBbW1/EyD/PNgQv+JeqguL1yooD5XveWl5MWsu9tYdsu\nA9Bf63OxELA7B1IHLpxxxfrbLCWYWjeuIPmozEX9O/RrCCc577y1TVzqzsKEWBGv\nUgWV94JkMucztQQL41MqR724l/MVvm+I5uUfe/1rxu/MUXKrLSUHg7Cwx3GJH900\nOoruf1E4nlqomPQ/0ouA0ARcoEDdIo2v+3WiO1hCZAqwNgLRC7l9F/pRfRjwjzTm\nXD0Mbbv2gMPMslcN5OihPm1XQUypw+inh+CiuWBGsYUHH0SumU8ywHpELFqmRDsR\nx5NuP4PJw7eDPTxtjFHNtaoDAgg3O6K95VlHrw05RROOElbW7UqKTmrmp3RMpABH\nTWqXc2xiQ+ykLo7CXac8V+WxAawxA3NKXkgUACWLERddCZPpjrvT4yq2BsHJbkhX\nDM54eniz07fyoivDTgf0wYKAiE/c4MMGyL04kfRv6v78pbxZlyA+QC2zgcMiTMjF\njXmKgQ6WuGfnkGQrWhpgluJybpzbMWpDWPxMGsUDRmct22ne91h3XzPYiM/Mjd6Y\nqm+wARWdojo79LLs1cC4\n=hI6H\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree 748f3af9568ec3a70a4f0425ef8e3b8f80e417a0\nparent 529ee19061e6723e0a640fe432e57c69d50a4f4f\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1790384512 +0300\ncommitter GitHub <noreply@github.com> 1790384512 +0300\n\nrefactor: add guard clause for missing API key in AzureOpenAIEndpoint\n\nAdd defensive validation to check for missing API key or Entra ID token in AzureOpenAIEndpoint.getExtraHeaders() before proceeding.",
+     "verified_at": "2026-09-26T01:01:53Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/8d691557fda49da46b13ddd97e97695b7f8de5dc",
+   "html_url": "https://github.com/microsoft/vscode/commit/8d691557fda49da46b13ddd97e97695b7f8de5dc",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/8d691557fda49da46b13ddd97e97695b7f8de5dc/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "529ee19061e6723e0a640fe432e57c69d50a4f4f",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/529ee19061e6723e0a640fe432e57c69d50a4f4f",
+     "html_url": "https://github.com/microsoft/vscode/commit/529ee19061e6723e0a640fe432e57c69d50a4f4f"
+    }
+   ]
+  },
+  {
+   "sha": "65f7fef8d3438467e379339fbda6356a30a28048",
+   "node_id": "C_kwDOTk4kkdoAKDY1ZjdmZWY4ZDM0Mzg0NjdlMzc5MzM5ZmJkYTYzNTZhMzBhMjgwNDg",
+   "commit": {
+    "author": {
+     "name": "Deniz Güney Yıldırım",
+     "email": "dnzgny99@gmail.com",
+     "date": "2026-09-26T01:11:13Z"
+    },
+    "committer": {
+     "name": "GitHub",
+     "email": "noreply@github.com",
+     "date": "2026-09-26T01:11:13Z"
+    },
+    "message": "test: add unit test for missing credential error in AzureOpenAIEndpoint\n\nAdd a unit test suite to verify that AzureOpenAIEndpoint.getExtraHeaders() throws an explicit error when the API key or Entra ID token is missing, satisfying the Copilot review criteria.",
+    "tree": {
+     "sha": "d96cc90ad454adf741a90aecfc8bad2c7233d9e3",
+     "url": "https://api.github.com/repos/microsoft/vscode/git/trees/d96cc90ad454adf741a90aecfc8bad2c7233d9e3"
+    },
+    "url": "https://api.github.com/repos/microsoft/vscode/git/commits/65f7fef8d3438467e379339fbda6356a30a28048",
+    "comment_count": 0,
+    "verification": {
+     "verified": true,
+     "reason": "valid",
+     "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtxuxCRC1aQ7uu5UhlAAAsxQQAD6Y1h60SrBMGabPn19PzbKQ\nfPC11mE5fGY0M6W+JlJ69tUnM8Xe4bCNBWrmfORpvLXpYidM0zQYY1xenfyi5Z3G\nlWEdvX6ppjJt63n0jBiUJ5mLSrHKY8/BTuZed7l6CoCqLZmygelIc5qvWZ+pPpKE\nyOhN+t4/5h+ZRvCfGshwxv9TZSivGR1L4CPgOdAFB+8sdbOkTK7oXtJRbmZIQrZY\nxWUJuBq3BUxMCDmwozIO4hRp+fqBpSBKEX05MNn/2sUfBWt5jTkW2F0C3JkHloHh\nMhhi4aFIgg5m5vljcAfAa4GwWAl8F7MX2BYsWH4s9S2rBUU1fy0VikQ7OKg2eHcg\nRerjCnXVOF73Xwr73uiiU2ir10+4wLFZSK5y9E4eYfqPIoEoYfklthWaK3bqs/k9\nxyozrNSWtNEXodhgxCGUCU4Aq8kpRmxgGPdUdzCOemkJZv6K2b3R37fhkiJw0ipH\nlRW+mFDXqqSFuSNNuNWVh9lp756yFZjXf7EabIgAzI5z/LlCdiEeTEBT/zCKefVt\nmjSE0lL+86bkLuon1HpLV565jJ8bqq3H2Du2SIP953CGreUUd6eyQDk9dOmyvTZI\n0DGNsxI6R9PDWGFU/zmh1xNBRJNkLxJoOgAgLQdXOluwmOdFg9e1pPE5kNKsgyzW\nWibP17ffnr8tRzsiUsCP\n=z/Kv\n-----END PGP SIGNATURE-----\n",
+     "payload": "tree d96cc90ad454adf741a90aecfc8bad2c7233d9e3\nparent 8d691557fda49da46b13ddd97e97695b7f8de5dc\nauthor Deniz Güney Yıldırım <dnzgny99@gmail.com> 1790385073 +0300\ncommitter GitHub <noreply@github.com> 1790385073 +0300\n\ntest: add unit test for missing credential error in AzureOpenAIEndpoint\n\nAdd a unit test suite to verify that AzureOpenAIEndpoint.getExtraHeaders() throws an explicit error when the API key or Entra ID token is missing, satisfying the Copilot review criteria.",
+     "verified_at": "2026-09-26T01:11:14Z"
+    }
+   },
+   "url": "https://api.github.com/repos/microsoft/vscode/commits/65f7fef8d3438467e379339fbda6356a30a28048",
+   "html_url": "https://github.com/microsoft/vscode/commit/65f7fef8d3438467e379339fbda6356a30a28048",
+   "comments_url": "https://api.github.com/repos/microsoft/vscode/commits/65f7fef8d3438467e379339fbda6356a30a28048/comments",
+   "author": {
+    "login": "denizguney",
+    "id": 31777283,
+    "node_id": "MDQ6VXNlcjMxNzc3Mjgz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/31777283?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/denizguney",
+    "html_url": "https://github.com/denizguney",
+    "followers_url": "https://api.github.com/users/denizguney/followers",
+    "following_url": "https://api.github.com/users/denizguney/following{/other_user}",
+    "gists_url": "https://api.github.com/users/denizguney/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/denizguney/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/denizguney/subscriptions",
+    "organizations_url": "https://api.github.com/users/denizguney/orgs",
+    "repos_url": "https://api.github.com/users/denizguney/repos",
+    "events_url": "https://api.github.com/users/denizguney/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/denizguney/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+   },
+   "parents": [
+    {
+     "sha": "8d691557fda49da46b13ddd97e97695b7f8de5dc",
+     "url": "https://api.github.com/repos/microsoft/vscode/commits/8d691557fda49da46b13ddd97e97695b7f8de5dc",
+     "html_url": "https://github.com/microsoft/vscode/commit/8d691557fda49da46b13ddd97e97695b7f8de5dc"
+    }
+   ]
+  }
+ ]
+}
